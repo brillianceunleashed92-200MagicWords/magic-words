@@ -26,11 +26,18 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 }
 
-const corsHeaders: Record<string, string> = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
-  "access-control-allow-methods": "POST, OPTIONS",
-};
+function getCorsHeaders(req: Request): Record<string, string> {
+  // Allow any origin by reflecting the request Origin when present.
+  // This is more compatible than "*" when browsers send Authorization headers.
+  const origin = req.headers.get("origin") ?? "*";
+  return {
+    "access-control-allow-origin": origin,
+    "vary": "Origin",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-max-age": "86400",
+  };
+}
 
 function clampInt(n: number, min: number, max: number) {
   const x = Number.isFinite(n) ? Math.round(n) : min;
@@ -136,7 +143,13 @@ async function callAnthropic(params: {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const corsHeaders = getCorsHeaders(req);
+
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
   if (req.method !== "POST") return json({ error: "Use POST" }, 405, corsHeaders);
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";

@@ -152,11 +152,77 @@ export default function App() {
   async function callAiHelper(word, mastery) {
     setAiBusy(true);
     setAiError("");
+    const payload = { word, mastery };
     try {
-      const { data, error } = await supabase.functions.invoke("ai-helper", {
-        body: { word, mastery },
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        console.error("Missing VITE_ANTHROPIC_API_KEY in env.");
+        setAiError("Missing AI API key (VITE_ANTHROPIC_API_KEY).");
+        return;
+      }
+
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 400,
+          temperature: 0.6,
+          system:
+            "You create short, kid-friendly practice for early readers. Output MUST be valid JSON only (no markdown).",
+          messages: [
+            {
+              role: "user",
+              content: JSON.stringify({
+                task: "Generate practice payload for a child.",
+                constraints: {
+                  emojiOptions: 4,
+                  language: "simple English",
+                  encouragementMaxChars: 120,
+                  avoid: ["scary content", "medical/legal advice", "personal data requests"],
+                },
+                input: payload,
+                output_schema: {
+                  quiz: { question: "string", options: ["emoji", "emoji", "emoji", "emoji"], correctIndex: 0 },
+                  nextWord: "string",
+                  encouragement: "string",
+                },
+                guidance: [
+                  "Quiz should test the meaning of the input word using 4 emoji options.",
+                  "Make the correct option clearly match the word.",
+                  "Set correctIndex to the index of the correct emoji in options.",
+                  "Pick nextWord based on mastery: if mastery < 40 -> repeat same word; 40-79 -> suggest a closely-related simple word; >=80 -> suggest a slightly harder but still kid-appropriate word.",
+                  "Encouragement should be a single sentence addressed to the child.",
+                ],
+              }),
+            },
+          ],
+        }),
       });
-      if (error) throw error;
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        console.error("Anthropic API error", { status: resp.status, text, payload });
+        throw new Error(`Anthropic error ${resp.status}`);
+      }
+
+      const raw = await resp.json();
+      const text =
+        raw?.content?.find?.((c) => c?.type === "text")?.text ??
+        raw?.content?.[0]?.text ??
+        "";
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Anthropic returned non-JSON text", { text, raw, payload, error: e });
+        throw new Error("Model did not return valid JSON");
+      }
+
       const quiz = data?.quiz;
       const nextWord = typeof data?.nextWord === "string" ? data.nextWord : "";
       const msg = typeof data?.encouragement === "string" ? data.encouragement : "";
@@ -172,7 +238,7 @@ export default function App() {
       }
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error(e);
+      console.error("Direct Anthropic call failed", { payload, error: e });
       setAiError("AI helper is unavailable right now. Please try again.");
     } finally {
       setAiBusy(false);
