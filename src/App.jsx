@@ -99,7 +99,7 @@ export default function App() {
     setScoresLoaded(false);
     const { data, error } = await supabase
       .from("word_progress")
-      .select("word_id, mastery")
+      .select("word, mastery")
       .eq("user_id", u.id);
 
     if (error) {
@@ -109,21 +109,21 @@ export default function App() {
       return;
     }
 
-    const byId = new Map((data ?? []).map(r => [r.word_id, r.mastery]));
+    const byWord = new Map((data ?? []).map(r => [r.word, r.mastery]));
     setWords(prev =>
-      prev.map(w => (byId.has(w.id) ? { ...w, mastery: Math.max(0, Math.min(100, byId.get(w.id) ?? w.mastery)) } : w))
+      prev.map(w => (byWord.has(w.word) ? { ...w, mastery: Math.max(0, Math.min(100, byWord.get(w.word) ?? w.mastery)) } : w))
     );
     setScoresLoaded(true);
   }
 
-  async function saveWordProgress(u, wordId, mastery) {
+  async function saveWordProgress(u, word, mastery) {
     if (!u) return;
     const clamped = Math.max(0, Math.min(100, Math.round(mastery)));
     const { error } = await supabase
       .from("word_progress")
       .upsert(
-        { user_id: u.id, word_id: wordId, mastery: clamped },
-        { onConflict: "user_id,word_id" }
+        { user_id: u.id, word, mastery: clamped },
+        { onConflict: "user_id,word" }
       );
     if (error) {
       // eslint-disable-next-line no-console
@@ -686,7 +686,7 @@ export default function App() {
                         if (runWord) {
                           const next = Math.min(100, (masteryById.get(runWord.id) ?? runWord.mastery ?? 0) + 5);
                           setWordMastery(runWord.id, next);
-                          void saveWordProgress(user, runWord.id, next);
+                          void saveWordProgress(user, runWord.word, next);
                         }
                       }
                     }} style={{
@@ -879,7 +879,7 @@ export default function App() {
                             prev.map(w => (w.id === activeWord.id ? { ...w, mastery: next } : w))
                           );
                           setActiveWord(prev => (prev ? { ...prev, mastery: next } : prev));
-                          void saveWordProgress(user, activeWord.id, next);
+                          void saveWordProgress(user, activeWord.word, next);
                         }}
                         style={{ width: "100%" }}
                       />
