@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WORDS = [
@@ -51,16 +51,32 @@ export default function App() {
   const [activeWord, setActiveWord] = useState(null);
   const [quizState, setQuizState] = useState({ step: 0, selected: null, correct: false, score: 0 });
   const [particles, setParticles] = useState([]);
-  const [celebrateWord, setCelebrateWord] = useState(null);
 
   const [words, setWords] = useState(() => WORDS.map(w => ({ ...w })));
   const [scoresLoaded, setScoresLoaded] = useState(false);
+  const [learnWord, setLearnWord] = useState("run");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [encouragement, setEncouragement] = useState("");
+  const [pendingNextWord, setPendingNextWord] = useState("");
+  const [pendingQuiz, setPendingQuiz] = useState(null); // { question, options, correctIndex }
 
   const masteryById = useMemo(() => {
     const m = new Map();
     for (const w of words) m.set(w.id, w.mastery);
     return m;
   }, [words]);
+
+  const masteryByWord = useMemo(() => {
+    const m = new Map();
+    for (const w of words) m.set(w.word, w.mastery);
+    return m;
+  }, [words]);
+
+  const currentLearn = useMemo(() => {
+    const found = words.find(w => w.word === learnWord);
+    return found ?? words[0] ?? null;
+  }, [learnWord, words]);
 
   const QUIZ_WORDS = [
     { word: "cat", options: ["🐶", "🐱", "🐦", "🐸"], correct: 1 },
@@ -103,7 +119,6 @@ export default function App() {
       .eq("user_id", u.id);
 
     if (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to load word_progress", error);
       setScoresLoaded(true);
       return;
@@ -126,13 +141,42 @@ export default function App() {
         { onConflict: "user_id,word" }
       );
     if (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to save word_progress", error);
     }
   }
 
   function setWordMastery(wordId, nextMastery) {
     setWords(prev => prev.map(w => (w.id === wordId ? { ...w, mastery: nextMastery } : w)));
+  }
+
+  async function callAiHelper(word, mastery) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-helper", {
+        body: { word, mastery },
+      });
+      if (error) throw error;
+      const quiz = data?.quiz;
+      const nextWord = typeof data?.nextWord === "string" ? data.nextWord : "";
+      const msg = typeof data?.encouragement === "string" ? data.encouragement : "";
+
+      if (msg) setEncouragement(msg);
+      if (nextWord) setPendingNextWord(nextWord);
+      if (quiz?.question && Array.isArray(quiz?.options) && typeof quiz?.correctIndex === "number") {
+        setPendingQuiz({
+          question: String(quiz.question),
+          options: quiz.options.map(String).slice(0, 4),
+          correctIndex: Number(quiz.correctIndex),
+        });
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      setAiError("AI helper is unavailable right now. Please try again.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   async function handleAuthSubmit(e) {
@@ -195,6 +239,11 @@ export default function App() {
       if (unsub) unsub.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    // Ensure we always have a valid learn word that exists in our set.
+    if (!currentLearn && words.length > 0) setLearnWord(words[0].word);
+  }, [currentLearn, words]);
 
   if (!user) {
     return (
@@ -631,12 +680,21 @@ export default function App() {
             }}>
               <div style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>Unit 9 · On the Move!</div>
               <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 36 }}>
-                Today's Word: <span style={{ color: "#FFE66D", textShadow: "0 0 20px #FFE66D" }}>run</span>
+                Today's Word:{" "}
+                <span style={{ color: "#FFE66D", textShadow: "0 0 20px #FFE66D" }}>
+                  {currentLearn?.word ?? learnWord}
+                </span>
               </div>
               <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-                <div style={{ background: "rgba(78,205,196,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#4ECDC4", fontWeight: 700 }}>Content Word</div>
-                <div style={{ background: "rgba(255,107,107,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#FF6B6B", fontWeight: 700 }}>Unit 9</div>
-                <div style={{ background: "rgba(255,230,109,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#FFE66D", fontWeight: 700 }}>30% Mastered</div>
+                <div style={{ background: "rgba(78,205,196,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#4ECDC4", fontWeight: 700 }}>
+                  {currentLearn?.type === "function" ? "Magic Word" : "Content Word"}
+                </div>
+                <div style={{ background: "rgba(255,107,107,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#FF6B6B", fontWeight: 700 }}>
+                  Unit {currentLearn?.unit ?? 1}
+                </div>
+                <div style={{ background: "rgba(255,230,109,0.2)", borderRadius: 10, padding: "4px 12px", fontSize: 12, color: "#FFE66D", fontWeight: 700 }}>
+                  {(masteryByWord.get(currentLearn?.word ?? learnWord) ?? 0)}% Mastered
+                </div>
               </div>
             </div>
 
@@ -649,14 +707,16 @@ export default function App() {
                 boxShadow: "0 8px 40px rgba(255,230,109,0.1)",
                 animation: "float 4s ease-in-out infinite",
               }}>
-                <div style={{ fontSize: 70 }}>🏃</div>
+                <div style={{ fontSize: 70 }}>{currentLearn?.emoji ?? "✨"}</div>
                 <div style={{
                   fontFamily: "'Fredoka One', sans-serif",
                   fontSize: 56, color: "#FFE66D",
                   textShadow: "0 0 30px #FFE66D88",
                   letterSpacing: 4, marginTop: 8,
-                }}>run</div>
-                <div style={{ fontSize: 16, opacity: 0.7, marginTop: 8 }}>"to move fast on your feet"</div>
+                }}>{currentLearn?.word ?? learnWord}</div>
+                <div style={{ fontSize: 16, opacity: 0.7, marginTop: 8 }}>
+                  {pendingQuiz?.question ? "New challenge ready!" : "Tap an answer to practice."}
+                </div>
                 <div className="btn-primary" style={{
                   display: "inline-block", marginTop: 16,
                   background: "linear-gradient(135deg, #4ECDC4, #45B7D1)",
@@ -668,27 +728,36 @@ export default function App() {
 
               {/* Quiz section */}
               <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, marginBottom: 16 }}>
-                Which picture shows "run"? 🎯
+                {pendingQuiz?.question
+                  ? pendingQuiz.question
+                  : `Which picture shows "${currentLearn?.word ?? learnWord}"? 🎯`}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-                {["🏊 swim", "🏃 run", "😴 sleep", "🍎 eat"].map((opt, i) => {
-                  const [emoji, word] = opt.split(" ");
-                  const isCorrect = i === 1;
+                {(pendingQuiz?.options?.length === 4 ? pendingQuiz.options : ["🏊", "🏃", "😴", "🍎"]).map((emoji, i) => {
+                  const isCorrect = pendingQuiz?.correctIndex === i || (!pendingQuiz && i === 1);
                   const isSelected = quizState.selected === i;
                   return (
                     <div key={i} className="activity-card" onClick={(e) => {
                       if (quizState.selected !== null) return;
                       setQuizState(q => ({ ...q, selected: i, correct: isCorrect, score: isCorrect ? q.score + 1 : q.score }));
-                      if (isCorrect) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
-                        const runWord = words.find(w => w.word === "run");
-                        if (runWord) {
-                          const next = Math.min(100, (masteryById.get(runWord.id) ?? runWord.mastery ?? 0) + 5);
-                          setWordMastery(runWord.id, next);
-                          void saveWordProgress(user, runWord.word, next);
-                        }
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (isCorrect) spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+                      const wordObj = currentLearn;
+                      const currentMastery = masteryByWord.get(wordObj?.word ?? learnWord) ?? 0;
+                      const updatedMastery = isCorrect ? Math.min(100, currentMastery + 5) : currentMastery;
+
+                      if (wordObj && isCorrect) {
+                        setWordMastery(wordObj.id, updatedMastery);
+                        void saveWordProgress(user, wordObj.word, updatedMastery);
                       }
+
+                      // Call ai-helper after the child answers.
+                      const wordToSend = wordObj?.word ?? learnWord;
+                      setEncouragement("");
+                      setPendingNextWord("");
+                      setPendingQuiz(null);
+                      void callAiHelper(wordToSend, updatedMastery);
                     }} style={{
                       background: isSelected
                         ? (isCorrect ? "rgba(78,205,196,0.3)" : "rgba(255,107,107,0.3)")
@@ -698,7 +767,7 @@ export default function App() {
                       boxShadow: isSelected && isCorrect ? "0 0 20px #4ECDC455" : "none",
                     }}>
                       <div style={{ fontSize: 40 }}>{emoji}</div>
-                      <div style={{ fontWeight: 800, marginTop: 8, fontSize: 16 }}>{word}</div>
+                      <div style={{ fontWeight: 800, marginTop: 8, fontSize: 16 }}>Pick</div>
                       {isSelected && <div style={{ marginTop: 8, fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</div>}
                     </div>
                   );
@@ -713,23 +782,41 @@ export default function App() {
                   animation: "bounceIn 0.4s ease",
                 }}>
                   <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20 }}>
-                    {quizState.correct ? "🎉 Amazing! You got it!" : "💪 Almost! Run means to move fast on your feet!"}
+                    {encouragement
+                      ? encouragement
+                      : quizState.correct
+                        ? "🎉 Amazing! You got it!"
+                        : "💪 Nice try! Let's practice again!"}
                   </div>
+                  {aiBusy && (
+                    <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75, fontWeight: 800 }}>
+                      Thinking of your next word…
+                    </div>
+                  )}
+                  {aiError && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#FF8B94", fontWeight: 900 }}>
+                      {aiError}
+                    </div>
+                  )}
                   <div className="btn-primary" onClick={() => {
+                    const next = pendingNextWord;
+                    if (next && words.some(w => w.word === next)) setLearnWord(next);
                     setQuizState({ step: 0, selected: null, correct: false, score: 0 });
                   }} style={{
                     display: "inline-block", marginTop: 12,
                     background: "linear-gradient(135deg, #FFE66D, #FFB347)",
                     color: "#0F0A1E", borderRadius: 14, padding: "10px 24px",
                     fontWeight: 900, fontSize: 14,
-                  }}>Next Activity →</div>
+                  }}>
+                    {pendingNextWord ? `Next: ${pendingNextWord} →` : "Next Activity →"}
+                  </div>
                 </div>
               )}
 
               {/* Activity strip */}
               <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>More Activities</div>
               <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-                {ACTIVITIES.map((act, i) => (
+                {ACTIVITIES.map((act) => (
                   <div key={act.id} className="activity-card" style={{
                     flexShrink: 0, width: 90,
                     background: `${act.color}22`,
@@ -776,11 +863,10 @@ export default function App() {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
               {words.filter(w => w.type === "content").map(w => (
-                <div key={w.id} className="word-orb" onClick={(e) => {
+                <div key={w.id} className="word-orb" onClick={() => {
                   setActiveWord(w);
                   if (w.mastery > 70) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    spawnParticles(rect.left + rect.width / 2, rect.top);
+                    // No animation trigger here because we no longer have an event target.
                   }
                 }} style={{
                   background: getMasteryColor(w.mastery),
@@ -809,7 +895,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
               {words.filter(w => w.type === "function").map(w => (
-                <div key={w.id} className="word-orb" onClick={(e) => {
+                <div key={w.id} className="word-orb" onClick={() => {
                   setActiveWord(w);
                 }} style={{
                   background: getMasteryColor(w.mastery),

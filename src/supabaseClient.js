@@ -5,7 +5,6 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   // Fail fast in dev so auth doesn't silently break
-  // eslint-disable-next-line no-console
   console.warn(
     "Missing Supabase env vars. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
   );
