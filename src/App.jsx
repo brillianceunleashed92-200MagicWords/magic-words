@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 const WORDS = [
   { id: 1, word: "cat", type: "content", unit: 2, mastery: 95, emoji: "🐱" },
@@ -39,11 +40,27 @@ const STUDENTS = [
 ];
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState("sign_in"); // sign_in | sign_up
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
   const [screen, setScreen] = useState("home");
   const [activeWord, setActiveWord] = useState(null);
   const [quizState, setQuizState] = useState({ step: 0, selected: null, correct: false, score: 0 });
   const [particles, setParticles] = useState([]);
   const [celebrateWord, setCelebrateWord] = useState(null);
+
+  const [words, setWords] = useState(() => WORDS.map(w => ({ ...w })));
+  const [scoresLoaded, setScoresLoaded] = useState(false);
+
+  const masteryById = useMemo(() => {
+    const m = new Map();
+    for (const w of words) m.set(w.id, w.mastery);
+    return m;
+  }, [words]);
 
   const QUIZ_WORDS = [
     { word: "cat", options: ["🐶", "🐱", "🐦", "🐸"], correct: 1 },
@@ -76,6 +93,256 @@ export default function App() {
     if (m < 80) return "0 0 12px #4ECDC499";
     return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
   };
+
+  async function loadUserProgress(u) {
+    if (!u) return;
+    setScoresLoaded(false);
+    const { data, error } = await supabase
+      .from("word_progress")
+      .select("word_id, mastery")
+      .eq("user_id", u.id);
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to load word_progress", error);
+      setScoresLoaded(true);
+      return;
+    }
+
+    const byId = new Map((data ?? []).map(r => [r.word_id, r.mastery]));
+    setWords(prev =>
+      prev.map(w => (byId.has(w.id) ? { ...w, mastery: Math.max(0, Math.min(100, byId.get(w.id) ?? w.mastery)) } : w))
+    );
+    setScoresLoaded(true);
+  }
+
+  async function saveWordProgress(u, wordId, mastery) {
+    if (!u) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(mastery)));
+    const { error } = await supabase
+      .from("word_progress")
+      .upsert(
+        { user_id: u.id, word_id: wordId, mastery: clamped },
+        { onConflict: "user_id,word_id" }
+      );
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to save word_progress", error);
+    }
+  }
+
+  function setWordMastery(wordId, nextMastery) {
+    setWords(prev => prev.map(w => (w.id === wordId ? { ...w, mastery: nextMastery } : w)));
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    setAuthError("");
+    setAuthBusy(true);
+    try {
+      const email = authEmail.trim();
+      const password = authPassword;
+      if (!email || !password) {
+        setAuthError("Please enter an email and password.");
+        return;
+      }
+
+      const res =
+        authMode === "sign_up"
+          ? await supabase.auth.signUp({ email, password })
+          : await supabase.auth.signInWithPassword({ email, password });
+
+      if (res.error) {
+        setAuthError(res.error.message);
+        return;
+      }
+
+      // If email confirmations are enabled, user might be null here.
+      const u = res.data?.user ?? res.data?.session?.user ?? null;
+      setUser(u);
+      if (u) await loadUserProgress(u);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setScoresLoaded(false);
+  }
+
+  useEffect(() => {
+    let unsub = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const u = data?.session?.user ?? null;
+      setUser(u);
+      if (u) await loadUserProgress(u);
+
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        const nextUser = session?.user ?? null;
+        setUser(nextUser);
+        if (nextUser) void loadUserProgress(nextUser);
+        if (!nextUser) {
+          setScoresLoaded(false);
+          setWords(WORDS.map(w => ({ ...w })));
+        }
+      });
+      unsub = sub?.subscription ?? null;
+    })();
+    return () => {
+      if (unsub) unsub.unsubscribe();
+    };
+  }, []);
+
+  if (!user) {
+    return (
+      <div style={{
+        fontFamily: "'Nunito', system-ui, sans-serif",
+        background: "#0F0A1E",
+        minHeight: "100vh",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}>
+        <div style={{
+          width: "100%",
+          maxWidth: 420,
+          background: "linear-gradient(135deg, rgba(78,205,196,0.12), rgba(255,230,109,0.08))",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 22,
+          padding: 22,
+          boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
+        }}>
+          <div style={{
+            fontFamily: "'Fredoka One', sans-serif",
+            fontSize: 28,
+            color: "#FFE66D",
+            textShadow: "0 0 20px #FFE66D55",
+          }}>Magic Words</div>
+          <div style={{ opacity: 0.75, marginTop: 6, fontSize: 13 }}>
+            Sign in to save and sync word mastery.
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={() => setAuthMode("sign_in")}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.16)",
+                background: authMode === "sign_in" ? "rgba(255,230,109,0.25)" : "rgba(255,255,255,0.06)",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthMode("sign_up")}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.16)",
+                background: authMode === "sign_up" ? "rgba(78,205,196,0.22)" : "rgba(255,255,255,0.06)",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Create account
+            </button>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} style={{ marginTop: 16 }}>
+            <label style={{ display: "block", fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Email</label>
+            <input
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(15,10,30,0.7)",
+                color: "#fff",
+                outline: "none",
+              }}
+            />
+
+            <label style={{ display: "block", fontSize: 11, opacity: 0.7, marginTop: 12, marginBottom: 6 }}>Password</label>
+            <input
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              type="password"
+              autoComplete={authMode === "sign_up" ? "new-password" : "current-password"}
+              placeholder="••••••••"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(15,10,30,0.7)",
+                color: "#fff",
+                outline: "none",
+              }}
+            />
+
+            {authError && (
+              <div style={{
+                marginTop: 12,
+                background: "rgba(255,107,107,0.14)",
+                border: "1px solid rgba(255,107,107,0.35)",
+                borderRadius: 14,
+                padding: "10px 12px",
+                fontSize: 12,
+                color: "#FF8B94",
+                fontWeight: 800,
+              }}>
+                {authError}
+              </div>
+            )}
+
+            <button
+              disabled={authBusy}
+              type="submit"
+              style={{
+                marginTop: 14,
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 16,
+                border: "none",
+                background: "linear-gradient(135deg, #FFE66D, #FFB347)",
+                color: "#0F0A1E",
+                fontWeight: 900,
+                cursor: authBusy ? "not-allowed" : "pointer",
+                opacity: authBusy ? 0.7 : 1,
+              }}
+            >
+              {authBusy ? "Working..." : authMode === "sign_up" ? "Create account" : "Sign in"}
+            </button>
+
+            <div style={{ marginTop: 12, fontSize: 11, opacity: 0.6, lineHeight: 1.5 }}>
+              {authMode === "sign_up"
+                ? "If your Supabase project requires email confirmation, check your inbox after creating an account."
+                : "Forgot password? You can reset it from your Supabase Auth settings or add a reset flow later."}
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -204,6 +471,10 @@ export default function App() {
                     fontSize: 32, color: "#FFE66D",
                     textShadow: "0 0 20px #FFE66D88",
                   }}>Emma ⭐</div>
+                  <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
+                    Signed in as <span style={{ fontWeight: 800 }}>{user.email}</span>{" "}
+                    {!scoresLoaded && <span style={{ opacity: 0.8 }}>· Syncing…</span>}
+                  </div>
                 </div>
                 <div style={{
                   background: "linear-gradient(135deg, #FF6B6B, #FF8B94)",
@@ -213,6 +484,23 @@ export default function App() {
                 }}>
                   <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 12</div>
                   <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                <div
+                  className="btn-primary"
+                  onClick={handleLogout}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    borderRadius: 14,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    fontWeight: 900,
+                    opacity: 0.85,
+                  }}
+                >
+                  Log out
                 </div>
               </div>
             </div>
@@ -312,7 +600,7 @@ export default function App() {
                 }}>See all →</div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {WORDS.slice(0, 9).map(w => (
+                {words.slice(0, 9).map(w => (
                   <div key={w.id} className="word-orb" style={{
                     background: getMasteryColor(w.mastery),
                     color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44",
@@ -394,6 +682,12 @@ export default function App() {
                       if (isCorrect) {
                         const rect = e.currentTarget.getBoundingClientRect();
                         spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                        const runWord = words.find(w => w.word === "run");
+                        if (runWord) {
+                          const next = Math.min(100, (masteryById.get(runWord.id) ?? runWord.mastery ?? 0) + 5);
+                          setWordMastery(runWord.id, next);
+                          void saveWordProgress(user, runWord.id, next);
+                        }
                       }
                     }} style={{
                       background: isSelected
@@ -457,6 +751,9 @@ export default function App() {
           <div style={{ padding: "50px 20px 20px", animation: "slideUp 0.4s ease" }}>
             <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 32, marginBottom: 4 }}>My Word Galaxy 🌌</div>
             <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 20 }}>87 of 200 magic words unlocked</div>
+            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 16 }}>
+              Your mastery scores are saved to Supabase and sync across devices.
+            </div>
 
             {/* Legend */}
             <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
@@ -478,7 +775,7 @@ export default function App() {
               Content Words (action & naming)
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-              {WORDS.filter(w => w.type === "content").map(w => (
+              {words.filter(w => w.type === "content").map(w => (
                 <div key={w.id} className="word-orb" onClick={(e) => {
                   setActiveWord(w);
                   if (w.mastery > 70) {
@@ -511,7 +808,7 @@ export default function App() {
               Magic Words (connectors & helpers)
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-              {WORDS.filter(w => w.type === "function").map(w => (
+              {words.filter(w => w.type === "function").map(w => (
                 <div key={w.id} className="word-orb" onClick={(e) => {
                   setActiveWord(w);
                 }} style={{
@@ -568,6 +865,24 @@ export default function App() {
                         <div style={{ fontWeight: 800, color: activeWord.type === "content" ? "#4ECDC4" : "#FF8B94" }}>{activeWord.type === "content" ? "Content" : "Function"}</div>
                         <div style={{ fontSize: 11, opacity: 0.6 }}>Type</div>
                       </div>
+                    </div>
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 8 }}>Adjust mastery</div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={activeWord.mastery}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setWords(prev =>
+                            prev.map(w => (w.id === activeWord.id ? { ...w, mastery: next } : w))
+                          );
+                          setActiveWord(prev => (prev ? { ...prev, mastery: next } : prev));
+                          void saveWordProgress(user, activeWord.id, next);
+                        }}
+                        style={{ width: "100%" }}
+                      />
                     </div>
                     <div className="btn-primary" onClick={() => { setActiveWord(null); setScreen("learn"); }} style={{
                       marginTop: 16, width: "100%",
@@ -659,7 +974,7 @@ export default function App() {
             }}>
               <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {WORDS.map(w => (
+                {words.map(w => (
                   <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{
                     width: 28, height: 28, borderRadius: 6,
                     background: getMasteryColor(w.mastery),
