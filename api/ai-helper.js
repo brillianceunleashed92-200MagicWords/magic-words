@@ -8,6 +8,13 @@ function clampInt(n, min, max) {
   return Math.max(min, Math.min(max, x));
 }
 
+const ACTION_WORDS = new Set([
+  "jump","run","fly","eat","swim","climb","sleep","walk","sit","stand",
+  "fall","spin","hop","skip","throw","catch","kick","wave","clap","dance",
+  "sing","read","write","draw","play","help","look","see","go","come",
+  "do","make","give","take","find","put","get","say","tell","ask",
+]);
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -37,6 +44,13 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const isAction = ACTION_WORDS.has(word.toLowerCase());
+  const wordType = isAction ? "ACTION word (verb)" : "OBJECT or DESCRIBING word (noun or adjective)";
+
+  const quizInstruction = isAction
+    ? `Ask "Which picture shows something ${word}ing?" and pick 4 emojis where exactly ONE clearly shows the action of ${word}ing. Example for "jump": options could be 🦘🏊🍎🐢 where 🦘 is correct (correctIndex 0).`
+    : `Ask "Which picture shows a ${word}?" and pick 4 emojis where exactly ONE clearly matches the word "${word}". Example for "cat": options could be 🐱🐶🐦🐸 where 🐱 is correct (correctIndex 0).`;
+
   try {
     const { Anthropic } = require("@anthropic-ai/sdk");
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -44,11 +58,23 @@ module.exports = async function handler(req, res) {
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 400,
-      system: "You create short, kid-friendly practice for early readers. Output MUST be valid JSON only — no markdown, no backticks, no explanation.",
+      system: "You create short, kid-friendly literacy practice. Output MUST be valid JSON only — no markdown, no backticks, no explanation.",
       messages: [
         {
           role: "user",
-          content: `The child is practicing the word "${word}". Mastery: ${mastery}%. Return ONLY this JSON: {"quiz":{"question":"simple question about the word","options":["emoji1","emoji2","emoji3","emoji4"],"correctIndex":0},"nextWord":"next word","encouragement":"one short sentence for the child"}`,
+          content: `A child (age 4-8) is practicing the word "${word}". It is an ${wordType}. Mastery: ${mastery}%.
+
+${quizInstruction}
+
+Rules:
+- The correct emoji must CLEARLY and OBVIOUSLY match the word with no ambiguity
+- The 3 wrong emojis must be clearly different (not confusable with the answer)
+- correctIndex must be 0, 1, 2, or 3 pointing to the correct emoji in options array
+- For nextWord: if mastery < 40 use same word; if 40-79 use a closely related simple word; if 80+ use a slightly harder word
+- encouragement must be one short cheerful sentence addressed directly to the child
+
+Return ONLY this JSON with no extra text:
+{"quiz":{"question":"...","options":["emoji1","emoji2","emoji3","emoji4"],"correctIndex":0},"nextWord":"...","encouragement":"..."}`,
         },
       ],
     });
