@@ -147,21 +147,35 @@ export default function App() {
     setAiBusy(true);
     setAiError("");
 
-    const payload = { word, mastery };
     try {
-      const resp = await fetch("/api/ai-helper", {
+      const response = await fetch("/api/ai-helper", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word, mastery }),
       });
 
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        console.error("ai-helper proxy non-2xx response", { status: resp.status, text, payload });
-        throw new Error(`ai-helper proxy error ${resp.status}`);
-      }
+      const data = await response.json();
 
-      const data = await resp.json();
+      if (!response.ok) {
+        // Log the detailed error for the developer
+        console.error("=== AI HELPER ERROR ===");
+        console.error("Status:", response.status);
+        console.error("Error code:", data?.code);
+        console.error("Error detail:", data?.detail);
+        console.error("======================");
+
+        if (import.meta.env.DEV && data?.detail) {
+          alert(
+            "AI Helper Error:\n\n" +
+              data.detail +
+              "\n\n(Error code: " +
+              (data.code ?? "UNKNOWN") +
+              ")"
+          );
+        }
+
+        throw new Error(data?.detail || "AI helper failed");
+      }
 
       const quiz = data?.quiz;
       const nextWord = typeof data?.nextWord === "string" ? data.nextWord : "";
@@ -180,10 +194,31 @@ export default function App() {
           options: quiz.options.map(String).slice(0, 4),
           correctIndex: Number(quiz.correctIndex),
         });
+      } else {
+        setPendingQuiz(null);
       }
-    } catch (e) {
-      console.error("ai-helper proxy call failed", { payload, error: e });
-      setAiError("AI helper is unavailable right now. Please try again.");
+
+      return data;
+    } catch (err) {
+      console.error("callAiHelper failed:", err?.message || err);
+
+      const friendly =
+        import.meta.env.DEV ? String(err?.message || "AI helper failed") : "Great job practicing! Keep it up! ⭐";
+
+      setAiError(import.meta.env.DEV ? friendly : "");
+      setEncouragement(
+        typeof friendly === "string" && friendly.length > 0
+          ? friendly
+          : "Great job practicing! Keep it up! ⭐"
+      );
+      setPendingNextWord(word);
+      setPendingQuiz(null);
+
+      return {
+        encouragement: "Great job practicing! Keep it up! ⭐",
+        nextWord: word,
+        quiz: null,
+      };
     } finally {
       setAiBusy(false);
     }

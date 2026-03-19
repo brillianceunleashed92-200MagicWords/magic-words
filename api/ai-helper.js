@@ -1,142 +1,132 @@
 /* global module, process, require */
 
-const fetch = require('node-fetch');
-
-function clampInt(n, min, max) {
-  const x = Number.isFinite(n) ? Math.round(n) : min;
-  return Math.max(min, Math.min(max, x));
-}
+const { Anthropic } = require("@anthropic-ai/sdk");
 
 function safeWord(input) {
   const w = typeof input === "string" ? input.trim() : "";
   return w.replace(/[^a-zA-Z'\-\s]/g, "").slice(0, 40).trim();
 }
 
-function setCors(res, req) {
-  const origin = req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Vary", "Origin");
-  res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
+module.exports = async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Max-Age", "86400");
-}
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Vary", "Origin");
 
-module.exports = async (req, res) => {
-  setCors(res, req);
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
+  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST" });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY" });
+  // CHECK 1: Is the API key present?
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("MISSING ENV VAR: ANTHROPIC_API_KEY is not set in Vercel");
+    return res.status(500).json({
+      error: "Server configuration error",
+      detail:
+        "ANTHROPIC_API_KEY is missing from Vercel environment variables. Go to Vercel → Settings → Environment Variables and add it.",
+      code: "MISSING_API_KEY",
+    });
   }
 
-  const word = safeWord(req.body?.word);
-  const mastery = clampInt(Number(req.body?.mastery), 0, 100);
+  // CHECK 2: Did we receive valid input?
+  const { word: rawWord, mastery: rawMastery } = req.body || {};
+  const word = safeWord(rawWord);
+  const mastery = Number(rawMastery);
+
   if (!word) {
-    return res.status(400).json({ error: "Missing/invalid 'word' (text)" });
+    return res.status(400).json({
+      error: "Bad request",
+      detail: "No word was sent in the request body.",
+      code: "MISSING_WORD",
+    });
   }
 
-  const payload = { word, mastery };
+  if (!Number.isFinite(mastery)) {
+    return res.status(400).json({
+      error: "Bad request",
+      detail: "No mastery (number) was sent in the request body.",
+      code: "INVALID_MASTERY",
+    });
+  }
 
   try {
-    const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 400,
-        temperature: 0.6,
-        system:
-          "You create short, kid-friendly practice for early readers. Output MUST be valid JSON only (no markdown).",
-        messages: [
-          {
-            role: "user",
-            content: JSON.stringify({
-              task: "Generate practice payload for a child.",
-              constraints: {
-                emojiOptions: 4,
-                language: "simple English",
-                encouragementMaxChars: 120,
-                avoid: ["scary content", "medical/legal advice", "personal data requests"],
-              },
-              input: payload,
-              output_schema: {
-                quiz: { question: "string", options: ["emoji", "emoji", "emoji", "emoji"], correctIndex: 0 },
-                nextWord: "string",
-                encouragement: "string",
-              },
-              guidance: [
-                "Quiz should test the meaning of the input word using 4 emoji options.",
-                "Make the correct option clearly match the word.",
-                "Set correctIndex to the index of the correct emoji in options.",
-                "Pick nextWord based on mastery: if mastery < 40 -> repeat same word; 40-79 -> suggest a closely-related simple word; >=80 -> suggest a slightly harder but still kid-appropriate word.",
-                "Encouragement should be a single sentence addressed to the child.",
-              ],
-            }),
-          },
-        ],
-      }),
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const message = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: `You are a friendly literacy tutor for children ages 4-8.
+The child is practicing the word "${word}". Their current mastery is ${mastery}%.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "quiz": {
+    "question": "a simple question about the word",
+    "options": ["🐱", "🐶", "🐸", "🐦"],
+    "correctIndex": 0
+  },
+  "nextWord": "suggested next word to practice",
+  "encouragement": "one short encouraging sentence for the child"
+}`,
+        },
+      ],
     });
 
-    if (!anthropicResp.ok) {
-      const text = await anthropicResp.text().catch(() => "");
-      console.error("Anthropic API error", { status: anthropicResp.status, text, payload });
-      return res.status(502).json({ error: "Anthropic API error" });
-    }
+    const content0 = message?.content?.[0];
+    const raw =
+      content0?.type === "text"
+        ? String(content0.text ?? "")
+        : typeof content0?.text === "string"
+          ? content0.text
+          : "";
 
-    const raw = await anthropicResp.json();
-    const text =
-      raw?.content?.find?.((c) => c?.type === "text")?.text ??
-      raw?.content?.[0]?.text ??
-      "";
-
-    let data;
+    // CHECK 3: Did Claude return valid JSON?
+    let parsed;
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error("Anthropic returned non-JSON text", { text, raw, payload, error: e });
-      return res.status(502).json({ error: "Invalid model response" });
+      parsed = JSON.parse(raw);
+    } catch {
+      console.error("Claude returned non-JSON:", raw);
+      return res.status(500).json({
+        error: "AI response parsing error",
+        detail: "Claude returned a response that wasn't valid JSON. Raw response: " + raw,
+        code: "INVALID_AI_RESPONSE",
+      });
     }
 
-    // Minimal validation
-    const quiz = data?.quiz ?? {};
-    if (
-      typeof quiz?.question !== "string" ||
-      !Array.isArray(quiz?.options) ||
-      quiz.options.length !== 4 ||
-      !Number.isInteger(quiz?.correctIndex) ||
-      quiz.correctIndex < 0 ||
-      quiz.correctIndex > 3 ||
-      typeof data?.nextWord !== "string" ||
-      typeof data?.encouragement !== "string"
-    ) {
-      console.error("Invalid AI payload shape", { data });
-      return res.status(502).json({ error: "Invalid AI payload shape" });
+    return res.status(200).json(parsed);
+  } catch (err) {
+    // CHECK 4: Anthropic API errors (wrong key, rate limit, etc.)
+    console.error("Anthropic API error:", err);
+
+    const status = err?.status ?? err?.statusCode ?? err?.response?.status;
+
+    if (status === 401) {
+      return res.status(500).json({
+        error: "Invalid API key",
+        detail:
+          "The ANTHROPIC_API_KEY in Vercel is set but is invalid or expired. Check it at console.anthropic.com.",
+        code: "INVALID_API_KEY",
+      });
     }
 
-    return res.status(200).json({
-      quiz: {
-        question: String(quiz.question).trim(),
-        options: quiz.options.map(String).slice(0, 4),
-        correctIndex: Number(quiz.correctIndex),
-      },
-      nextWord: String(data.nextWord).trim(),
-      encouragement: String(data.encouragement).trim(),
+    if (status === 429) {
+      return res.status(500).json({
+        error: "Rate limit hit",
+        detail: "Too many requests to the Anthropic API. Wait a moment and try again.",
+        code: "RATE_LIMIT",
+      });
+    }
+
+    return res.status(500).json({
+      error: "Anthropic API call failed",
+      detail: err?.message || "Unknown error",
+      code: "API_ERROR",
     });
-  } catch (e) {
-    console.error("ai-helper proxy failed", { payload, error: e });
-    return res.status(500).json({ error: "Failed to generate AI helper response" });
   }
 };
 
