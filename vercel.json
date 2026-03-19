@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    {"source": "/api/ai-helper", "destination": "/api/ai-helper.cjs"},
-    {"source": "/api/health-check", "destination": "/api/health-check.cjs"}
-  ]
-}
