@@ -1,12 +1,4 @@
 {
-  "functions": {
-    "api/ai-helper.cjs": {
-      "runtime": "nodejs20.x"
-    },
-    "api/health-check.cjs": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/ai-helper",
