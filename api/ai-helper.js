@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export default async function handler(req, res) {
-
 function safeWord(input) {
   const w = typeof input === "string" ? input.trim() : "";
   return w.replace(/[^a-zA-Z'\-\s]/g, "").slice(0, 40).trim();
@@ -12,7 +10,7 @@ function clampInt(n, min, max) {
   return Math.max(min, Math.min(max, x));
 }
 
-export default = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -51,18 +49,7 @@ export default = async function handler(req, res) {
       messages: [
         {
           role: "user",
-          content: `The child is practicing the word "${word}". Mastery: ${mastery}%.
-
-Return ONLY this JSON:
-{
-  "quiz": {
-    "question": "simple question about the word",
-    "options": ["emoji1", "emoji2", "emoji3", "emoji4"],
-    "correctIndex": 0
-  },
-  "nextWord": "next word to practice",
-  "encouragement": "one short encouraging sentence for the child"
-}`,
+          content: `The child is practicing the word "${word}". Mastery: ${mastery}%. Return ONLY this JSON: {"quiz":{"question":"simple question about the word","options":["emoji1","emoji2","emoji3","emoji4"],"correctIndex":0},"nextWord":"next word","encouragement":"one short sentence for the child"}`,
         },
       ],
     });
@@ -104,4 +91,3 @@ Return ONLY this JSON:
       code: "API_ERROR",
     });
   }
-};
