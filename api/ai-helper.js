@@ -1,4 +1,6 @@
-/* global module, process */
+/* global module, process, require */
+
+const fetch = require('node-fetch');
 
 function clampInt(n, min, max) {
   const x = Number.isFinite(n) ? Math.round(n) : min;
