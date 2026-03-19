@@ -1,4 +1,6 @@
-const { Anthropic } = require("@anthropic-ai/sdk");
+import Anthropic from "@anthropic-ai/sdk";
+
+export default async function handler(req, res) {
 
 function safeWord(input) {
   const w = typeof input === "string" ? input.trim() : "";
