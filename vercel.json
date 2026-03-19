@@ -1,14 +1,20 @@
 {
-  "headers": [
+  "functions": {
+    "api/ai-helper.cjs": {
+      "runtime": "nodejs20.x"
+    },
+    "api/health-check.cjs": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
     {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0, must-revalidate"
-        }
-      ]
+      "source": "/api/ai-helper",
+      "destination": "/api/ai-helper.cjs"
+    },
+    {
+      "source": "/api/health-check",
+      "destination": "/api/health-check.cjs"
     }
   ]
 }
-
