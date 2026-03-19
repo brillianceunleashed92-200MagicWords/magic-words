@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+const { default: Anthropic } = await import("@anthropic-ai/sdk");
 
 function safeWord(input) {
   const w = typeof input === "string" ? input.trim() : "";
@@ -10,7 +10,7 @@ function clampInt(n, min, max) {
   return Math.max(min, Math.min(max, x));
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { Anthropic } = require("@anthropic-ai/sdk");
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const message = await client.messages.create({
@@ -91,3 +92,4 @@ export default async function handler(req, res) {
       code: "API_ERROR",
     });
   }
+};
