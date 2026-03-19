@@ -1,5 +1,3 @@
-const { default: Anthropic } = await import("@anthropic-ai/sdk");
-
 function safeWord(input) {
   const w = typeof input === "string" ? input.trim() : "";
   return w.replace(/[^a-zA-Z'\-\s]/g, "").slice(0, 40).trim();
