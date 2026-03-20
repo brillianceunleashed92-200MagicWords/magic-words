@@ -1,77 +1,126 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "./supabaseClient";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { AuthGuard, GalaxyLoader } from "./components/AuthGuard";
+import { useAuth } from "./hooks/useAuth";
+import { useSessionPlan } from "./hooks/useSessionPlan";
+import { GameEngine, GameTypeSelector } from "./games/GameEngine";
 
 const WORDS = [
-  { id: 1, word: "cat", type: "content", unit: 2, mastery: 95, emoji: "🐱" },
-  { id: 2, word: "dog", type: "content", unit: 9, mastery: 72, emoji: "🐶" },
-  { id: 3, word: "bird", type: "content", unit: 2, mastery: 88, emoji: "🐦" },
-  { id: 4, word: "frog", type: "content", unit: 8, mastery: 45, emoji: "🐸" },
-  { id: 5, word: "eat", type: "content", unit: 3, mastery: 100, emoji: "🍎" },
-  { id: 6, word: "fly", type: "content", unit: 3, mastery: 80, emoji: "✈️" },
-  { id: 7, word: "jump", type: "content", unit: 4, mastery: 60, emoji: "🦘" },
-  { id: 8, word: "run", type: "content", unit: 9, mastery: 30, emoji: "🏃" },
-  { id: 9, word: "big", type: "content", unit: 7, mastery: 100, emoji: "🐘" },
-  { id: 10, word: "sad", type: "content", unit: 13, mastery: 0, emoji: "😢" },
-  { id: 11, word: "the", type: "function", unit: 3, mastery: 100, emoji: "📖" },
-  { id: 12, word: "can", type: "function", unit: 3, mastery: 90, emoji: "✅" },
-  { id: 13, word: "is", type: "function", unit: 5, mastery: 85, emoji: "🔗" },
-  { id: 14, word: "they", type: "function", unit: 6, mastery: 55, emoji: "👥" },
-  { id: 15, word: "not", type: "function", unit: 3, mastery: 78, emoji: "🚫" },
-  { id: 16, word: "and", type: "function", unit: 12, mastery: 20, emoji: "➕" },
+  { id: 1,  word: "cat",  type: "content",  unit: 2,  mastery: 0, emoji: "🐱" },
+  { id: 2,  word: "dog",  type: "content",  unit: 9,  mastery: 0, emoji: "🐶" },
+  { id: 3,  word: "bird", type: "content",  unit: 2,  mastery: 0, emoji: "🐦" },
+  { id: 4,  word: "frog", type: "content",  unit: 8,  mastery: 0, emoji: "🐸" },
+  { id: 5,  word: "eat",  type: "content",  unit: 3,  mastery: 0, emoji: "🍎" },
+  { id: 6,  word: "fly",  type: "content",  unit: 3,  mastery: 0, emoji: "✈️" },
+  { id: 7,  word: "jump", type: "content",  unit: 4,  mastery: 0, emoji: "🦘" },
+  { id: 8,  word: "run",  type: "content",  unit: 9,  mastery: 0, emoji: "🏃" },
+  { id: 9,  word: "big",  type: "content",  unit: 7,  mastery: 0, emoji: "🐘" },
+  { id: 10, word: "sad",  type: "content",  unit: 13, mastery: 0, emoji: "😢" },
+  { id: 11, word: "the",  type: "function", unit: 3,  mastery: 0, emoji: "📖" },
+  { id: 12, word: "can",  type: "function", unit: 3,  mastery: 0, emoji: "✅" },
+  { id: 13, word: "is",   type: "function", unit: 5,  mastery: 0, emoji: "🔗" },
+  { id: 14, word: "they", type: "function", unit: 6,  mastery: 0, emoji: "👥" },
+  { id: 15, word: "not",  type: "function", unit: 3,  mastery: 0, emoji: "🚫" },
+  { id: 16, word: "and",  type: "function", unit: 12, mastery: 0, emoji: "➕" },
   { id: 17, word: "with", type: "function", unit: 18, mastery: 0, emoji: "🤝" },
-  { id: 18, word: "do", type: "function", unit: 7, mastery: 65, emoji: "⚡" },
-];
-
-const ACTIVITIES = [
-  { id: "video", label: "Magic Video", icon: "🎬", color: "#FF6B6B" },
-  { id: "taphear", label: "Tap & Hear", icon: "👂", color: "#4ECDC4" },
-  { id: "wordhunt", label: "Word Hunt", icon: "🔍", color: "#FFE66D" },
-  { id: "fillstory", label: "Fill the Story", icon: "📝", color: "#A8E6CF" },
-  { id: "quizboss", label: "Quiz Boss", icon: "⚔️", color: "#FF8B94" },
+  { id: 18, word: "do",   type: "function", unit: 7,  mastery: 0, emoji: "⚡" },
 ];
 
 const STUDENTS = [
-  { name: "Emma R.", avatar: "🐸", progress: 78, streak: 12, unit: 9, words: 87 },
-  { name: "Liam K.", avatar: "🤖", progress: 45, streak: 3, unit: 5, words: 52 },
+  { name: "Emma R.",  avatar: "🐸", progress: 78, streak: 12, unit: 9,  words: 87  },
+  { name: "Liam K.",  avatar: "🤖", progress: 45, streak: 3,  unit: 5,  words: 52  },
   { name: "Sofia M.", avatar: "🐶", progress: 92, streak: 21, unit: 11, words: 105 },
-  { name: "Noah T.", avatar: "🐱", progress: 31, streak: 1, unit: 4, words: 38 },
-  { name: "Ava L.", avatar: "🐦", progress: 67, streak: 8, unit: 7, words: 71 },
-  { name: "James P.", avatar: "🐸", progress: 55, streak: 5, unit: 6, words: 60 },
+  { name: "Noah T.",  avatar: "🐱", progress: 31, streak: 1,  unit: 4,  words: 38  },
+  { name: "Ava L.",   avatar: "🐦", progress: 67, streak: 8,  unit: 7,  words: 71  },
+  { name: "James P.", avatar: "🐸", progress: 55, streak: 5,  unit: 6,  words: 60  },
 ];
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("sign_in");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
+const getMasteryColor = (m) => {
+  if (m === 0)   return "#e8e8f0";
+  if (m < 40)    return "#FFB347";
+  if (m < 80)    return "#4ECDC4";
+  return "#FFE66D";
+};
 
-  const [screen, setScreen] = useState("home");
+const getMasteryGlow = (m) => {
+  if (m === 0)   return "none";
+  if (m < 40)    return "0 0 8px #FFB34799";
+  if (m < 80)    return "0 0 12px #4ECDC499";
+  return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
+};
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+
+export default function App() {
+  // ── Auth (replaces all the old manual session code) ──
+  const { user, isLoading: authLoading, authError, signOut, profile } = useAuth();
+
+  // ── Word progress (loaded from Supabase, falls back to WORDS defaults) ──
+  const [words, setWords]               = useState(() => WORDS.map(w => ({ ...w })));
+  const [scoresLoaded, setScoresLoaded] = useState(false);
+
+  // ── Navigation ──
+  const [screen, setScreen]   = useState("home");
   const [activeWord, setActiveWord] = useState(null);
-  const [quizState, setQuizState] = useState({ selected: null, correct: false, score: 0 });
+
+  // ── Particles (celebration effect) ──
   const [particles, setParticles] = useState([]);
 
-  const [words, setWords] = useState(() => WORDS.map(w => ({ ...w })));
-  const [scoresLoaded, setScoresLoaded] = useState(false);
-  const [learnWord, setLearnWord] = useState("run");
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [encouragement, setEncouragement] = useState("");
-  const [pendingNextWord, setPendingNextWord] = useState("");
-  const [pendingQuiz, setPendingQuiz] = useState(null);
+  // ── Game state ──
+  const [gameActive,     setGameActive]     = useState(false);
+  const [activeGameType, setActiveGameType] = useState("word_match");
 
+  // ── Session plan (1 AI call at login, replaces per-tap AI) ──
+  const wordProgressForPlan = useMemo(() =>
+    words.map(w => ({ word: w.word, mastery: w.mastery, last_practiced: null })),
+    [words]
+  );
+  const { sessionPlan, planLoading, planError, regeneratePlan } =
+    useSessionPlan(user, scoresLoaded ? wordProgressForPlan : null);
+
+  // ── Derived ──
   const masteryByWord = useMemo(() => {
     const m = new Map();
     for (const w of words) m.set(w.word, w.mastery);
     return m;
   }, [words]);
 
-  const currentLearn = useMemo(() => {
-    const found = words.find(w => w.word === learnWord);
-    return found ?? words[0] ?? null;
-  }, [learnWord, words]);
+  // ── Load word progress from Supabase on login ──
+  useEffect(() => {
+    if (!user) {
+      setWords(WORDS.map(w => ({ ...w })));
+      setScoresLoaded(false);
+      return;
+    }
+    setScoresLoaded(false);
+    supabase
+      .from("word_progress")
+      .select("word, mastery")
+      .eq("user_id", user?.id)
+      .then(({ data, error }) => {
+        if (error) { console.error("Failed to load word_progress", error); }
+        const byWord = new Map((data ?? []).map(r => [r.word, r.mastery]));
+        setWords(prev => prev.map(w =>
+          byWord.has(w.word)
+            ? { ...w, mastery: Math.max(0, Math.min(100, byWord.get(w.word))) }
+            : w
+        ));
+        setScoresLoaded(true);
+      });
+  }, [user?.id]);
 
+  // ── Save a single word's progress to Supabase ──
+  const saveWordProgress = useCallback(async (word, mastery) => {
+    if (!user) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(mastery)));
+    const { error } = await supabase
+      .from("word_progress")
+      .upsert({ user_id: user?.id, word, mastery: clamped }, { onConflict: "user_id,word" });
+    if (error) console.error("Failed to save word_progress", error);
+  }, [user]);
+
+  // ── Celebration particles ──
   function spawnParticles(x, y) {
     const newP = Array.from({ length: 12 }, (_, i) => ({
       id: Date.now() + i,
@@ -84,163 +133,127 @@ export default function App() {
     setTimeout(() => setParticles(p => p.filter(x => !newP.find(n => n.id === x.id))), 1000);
   }
 
-  const getMasteryColor = (m) => {
-    if (m === 0) return "#e8e8f0";
-    if (m < 40) return "#FFB347";
-    if (m < 80) return "#4ECDC4";
-    return "#FFE66D";
-  };
+  // ── Handle a game answer (called by GameEngine after each tap) ──
+  const handleProgress = useCallback(async ({ word, correct, responseTimeMs, gameType }) => {
+    const current = words.find(w => w.word === word);
+    const currentMastery = current?.mastery ?? 0;
+    const newMastery = Math.min(100, Math.max(0,
+      correct ? currentMastery + 5 : currentMastery - 2
+    ));
 
-  const getMasteryGlow = (m) => {
-    if (m === 0) return "none";
-    if (m < 40) return "0 0 8px #FFB34799";
-    if (m < 80) return "0 0 12px #4ECDC499";
-    return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
-  };
+    // Update local state immediately (instant UI feedback)
+    setWords(prev => prev.map(w =>
+      w.word === word ? { ...w, mastery: newMastery } : w
+    ));
 
-  async function loadUserProgress(u) {
-    if (!u) return;
-    setScoresLoaded(false);
-    const { data, error } = await supabase
-      .from("word_progress")
-      .select("word, mastery")
-      .eq("user_id", u.id);
-    if (error) { console.error("Failed to load word_progress", error); setScoresLoaded(true); return; }
-    const byWord = new Map((data ?? []).map(r => [r.word, r.mastery]));
-    setWords(prev => prev.map(w => (byWord.has(w.word) ? { ...w, mastery: Math.max(0, Math.min(100, byWord.get(w.word) ?? w.mastery)) } : w)));
-    setScoresLoaded(true);
-  }
+    // Persist to Supabase in background
+    await saveWordProgress(word, newMastery);
 
-  async function saveWordProgress(u, word, mastery) {
-    if (!u) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(mastery)));
-    const { error } = await supabase.from("word_progress").upsert({ user_id: u.id, word, mastery: clamped }, { onConflict: "user_id,word" });
-    if (error) console.error("Failed to save word_progress", error);
-  }
+    // Spawn particles on correct answer
+    if (correct) spawnParticles(window.innerWidth / 2, window.innerHeight / 2);
 
-  function setWordMastery(wordId, nextMastery) {
-    setWords(prev => prev.map(w => (w.id === wordId ? { ...w, mastery: nextMastery } : w)));
-  }
+    // TODO: log to learning_events table once you've added that Supabase table
+    // await supabase.from("learning_events").insert({
+    //   user_id: user?.id, word, game_type: gameType,
+    //   correct, response_time_ms: responseTimeMs, attempt_number: 1,
+    // });
+  }, [words, saveWordProgress]);
 
-  async function callAiHelper(word, mastery) {
-    setAiBusy(true);
-    setAiError("");
-    try {
-      const response = await fetch("/api/ai-helper", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word, mastery }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        console.error("=== AI HELPER ERROR ===", data);
-        throw new Error(data?.detail || "AI helper failed");
-      }
-      const quiz = data?.quiz;
-      const nextWord = typeof data?.nextWord === "string" ? data.nextWord : "";
-      const msg = typeof data?.encouragement === "string" ? data.encouragement : "";
-      if (msg) setEncouragement(msg);
-      if (nextWord) setPendingNextWord(nextWord);
-      if (quiz?.question && Array.isArray(quiz?.options) && typeof quiz?.correctIndex === "number") {
-        setPendingQuiz({ question: String(quiz.question), options: quiz.options.map(String).slice(0, 4), correctIndex: Number(quiz.correctIndex) });
-      } else {
-        setPendingQuiz(null);
-      }
-      return data;
-    } catch (err) {
-      console.error("callAiHelper failed:", err?.message || err);
-      setAiError("");
-      setEncouragement("Great job practicing! Keep it up! ⭐");
-      setPendingNextWord(word);
-      setPendingQuiz(null);
-      return { encouragement: "Great job practicing! Keep it up! ⭐", nextWord: word, quiz: null };
-    } finally {
-      setAiBusy(false);
-    }
-  }
-
-  // Auto-advance after answer: called when child taps an emoji option
-  function handleQuizTap(i, isCorrect, e) {
-    if (quizState.selected !== null) return; // already answered
-
-    setQuizState(q => ({ ...q, selected: i, correct: isCorrect, score: isCorrect ? q.score + 1 : q.score }));
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (isCorrect) spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
-
-    const wordObj = currentLearn;
-    const currentMastery = masteryByWord.get(wordObj?.word ?? learnWord) ?? 0;
-    const updatedMastery = isCorrect ? Math.min(100, currentMastery + 5) : currentMastery;
-
-    if (wordObj && isCorrect) {
-      setWordMastery(wordObj.id, updatedMastery);
-      void saveWordProgress(user, wordObj.word, updatedMastery);
-    }
-
-    const wordToSend = wordObj?.word ?? learnWord;
-    setEncouragement("");
-    setPendingNextWord("");
-    setPendingQuiz(null);
-
-    // Fetch next AI response, then auto-advance after 1.4s
-    void callAiHelper(wordToSend, updatedMastery).then((aiData) => {
-      setTimeout(() => {
-        const next = aiData?.nextWord;
-        if (next && words.some(w => w.word === next)) setLearnWord(next);
-        setQuizState({ selected: null, correct: false, score: 0 });
-      }, 1400);
-    });
-  }
-
-  async function handleAuthSubmit(e) {
-    e.preventDefault();
-    setAuthError("");
-    setAuthBusy(true);
-    try {
-      const email = authEmail.trim();
-      const password = authPassword;
-      if (!email || !password) { setAuthError("Please enter an email and password."); return; }
-      const res = authMode === "sign_up"
-        ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.signInWithPassword({ email, password });
-      if (res.error) { setAuthError(res.error.message); return; }
-      const u = res.data?.user ?? res.data?.session?.user ?? null;
-      setUser(u);
-      if (u) await loadUserProgress(u);
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setScoresLoaded(false);
-  }
-
-  useEffect(() => {
-    let unsub = null;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      const u = data?.session?.user ?? null;
-      setUser(u);
-      if (u) await loadUserProgress(u);
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        const nextUser = session?.user ?? null;
-        setUser(nextUser);
-        if (nextUser) void loadUserProgress(nextUser);
-        if (!nextUser) { setScoresLoaded(false); setWords(WORDS.map(w => ({ ...w }))); }
-      });
-      unsub = sub?.subscription ?? null;
-    })();
-    return () => { if (unsub) unsub.unsubscribe(); };
+  const handleSessionEnd = useCallback(({ wordsCorrect, totalWords }) => {
+    console.log(`Session complete: ${wordsCorrect}/${totalWords}`);
+    setGameActive(false);
   }, []);
 
-  useEffect(() => {
-    if (!currentLearn && words.length > 0) setLearnWord(words[0].word);
-  }, [currentLearn, words]);
+  // ── Learn tab renderer ──
+  const renderLearnTab = () => {
+    if (planLoading) {
+      return <GalaxyLoader message="Preparing your lesson…" />;
+    }
 
-  if (!user) {
+    if (!gameActive) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#0F0A1E", paddingBottom: 80 }}>
+          {/* Session goal */}
+          {sessionPlan?.sessionGoal && (
+            <div style={{
+              padding: "1.5rem 1.5rem 0.5rem",
+              textAlign: "center",
+              fontFamily: "'Fredoka One', cursive",
+              color: "#4ECDC4",
+              fontSize: "1.1rem",
+            }}>
+              {sessionPlan.sessionGoal}
+            </div>
+          )}
+
+          {/* Offline mode warning (non-fatal) */}
+          {planError && (
+            <div style={{
+              margin: "0.5rem 1.5rem",
+              padding: "0.75rem 1rem",
+              background: "rgba(255,107,107,0.1)",
+              border: "1px solid rgba(255,107,107,0.3)",
+              borderRadius: 12,
+              color: "#FF6B6B",
+              fontSize: "0.85rem",
+              fontFamily: "'Nunito', sans-serif",
+            }}>
+              ⚠️ Using offline mode — your progress still saves normally.
+            </div>
+          )}
+
+          <GameTypeSelector
+            onSelect={(gameType) => {
+              setActiveGameType(gameType);
+              setGameActive(true);
+            }}
+            unlockedGames={["word_match"]}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <ErrorBoundary screen="GameEngine" onReset={() => setGameActive(false)}>
+        <GameEngine
+          sessionPlan={sessionPlan}
+          gameType={activeGameType}
+          childName={profile?.name}
+          onProgress={handleProgress}
+          onSessionEnd={handleSessionEnd}
+          onHome={() => setGameActive(false)}
+        />
+      </ErrorBoundary>
+    );
+  };
+
+  // ── Login screen ──
+  const LoginScreen = () => {
+    const [authMode,     setAuthMode]     = useState("sign_in");
+    const [authEmail,    setAuthEmail]    = useState("");
+    const [authPassword, setAuthPassword] = useState("");
+    const [localError,   setLocalError]   = useState("");
+    const [busy,         setBusy]         = useState(false);
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      setLocalError("");
+      setBusy(true);
+      try {
+        const email    = authEmail.trim();
+        const password = authPassword;
+        if (!email || !password) { setLocalError("Please enter an email and password."); return; }
+        const res = authMode === "sign_up"
+          ? await supabase.auth.signUp({ email, password })
+          : await supabase.auth.signInWithPassword({ email, password });
+        if (res.error) setLocalError(res.error.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    const err = localError || authError;
+
     return (
       <div style={{
         fontFamily: "'Nunito', system-ui, sans-serif",
@@ -253,537 +266,557 @@ export default function App() {
           border: "1px solid rgba(255,255,255,0.12)", borderRadius: 22, padding: 22,
           boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
         }}>
-          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D55" }}>Magic Words</div>
+          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D55" }}>
+            ✨ Magic Words
+          </div>
           <div style={{ opacity: 0.75, marginTop: 6, fontSize: 13 }}>Sign in to save and sync word mastery.</div>
+
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             {["sign_in", "sign_up"].map(mode => (
               <button key={mode} type="button" onClick={() => setAuthMode(mode)} style={{
                 flex: 1, padding: "10px 12px", borderRadius: 14,
                 border: "1px solid rgba(255,255,255,0.16)",
-                background: authMode === mode ? (mode === "sign_in" ? "rgba(255,230,109,0.25)" : "rgba(78,205,196,0.22)") : "rgba(255,255,255,0.06)",
+                background: authMode === mode
+                  ? (mode === "sign_in" ? "rgba(255,230,109,0.25)" : "rgba(78,205,196,0.22)")
+                  : "rgba(255,255,255,0.06)",
                 color: "#fff", fontWeight: 900, cursor: "pointer",
-              }}>{mode === "sign_in" ? "Sign in" : "Create account"}</button>
+              }}>
+                {mode === "sign_in" ? "Sign in" : "Create account"}
+              </button>
             ))}
           </div>
-          <form onSubmit={handleAuthSubmit} style={{ marginTop: 16 }}>
+
+          <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
             {[
-              { label: "Email", value: authEmail, setter: setAuthEmail, type: "email", auto: "email", ph: "you@example.com" },
+              { label: "Email",    value: authEmail,    setter: setAuthEmail,    type: "email",    auto: "email",           ph: "you@example.com" },
               { label: "Password", value: authPassword, setter: setAuthPassword, type: "password", auto: authMode === "sign_up" ? "new-password" : "current-password", ph: "••••••••" },
             ].map(f => (
               <div key={f.label}>
-                <label style={{ display: "block", fontSize: 11, opacity: 0.7, marginBottom: 6, marginTop: f.label === "Password" ? 12 : 0 }}>{f.label}</label>
-                <input value={f.value} onChange={e => f.setter(e.target.value)} type={f.type} autoComplete={f.auto} placeholder={f.ph} style={{
-                  width: "100%", padding: "12px 14px", borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.12)", background: "rgba(15,10,30,0.7)",
-                  color: "#fff", outline: "none", boxSizing: "border-box",
-                }} />
+                <label style={{ display: "block", fontSize: 11, opacity: 0.7, marginBottom: 6, marginTop: f.label === "Password" ? 12 : 0 }}>
+                  {f.label}
+                </label>
+                <input
+                  value={f.value}
+                  onChange={e => f.setter(e.target.value)}
+                  type={f.type}
+                  autoComplete={f.auto}
+                  placeholder={f.ph}
+                  style={{
+                    width: "100%", padding: "12px 14px", borderRadius: 14,
+                    border: "1px solid rgba(255,255,255,0.12)", background: "rgba(15,10,30,0.7)",
+                    color: "#fff", outline: "none", boxSizing: "border-box",
+                  }}
+                />
               </div>
             ))}
-            {authError && <div style={{ marginTop: 12, background: "rgba(255,107,107,0.14)", border: "1px solid rgba(255,107,107,0.35)", borderRadius: 14, padding: "10px 12px", fontSize: 12, color: "#FF8B94", fontWeight: 800 }}>{authError}</div>}
-            <button disabled={authBusy} type="submit" style={{
+
+            {err && (
+              <div style={{
+                marginTop: 12, background: "rgba(255,107,107,0.14)",
+                border: "1px solid rgba(255,107,107,0.35)", borderRadius: 14,
+                padding: "10px 12px", fontSize: 12, color: "#FF8B94", fontWeight: 800,
+              }}>
+                {err}
+              </div>
+            )}
+
+            <button disabled={busy} type="submit" style={{
               marginTop: 14, width: "100%", padding: "12px 14px", borderRadius: 16, border: "none",
               background: "linear-gradient(135deg, #FFE66D, #FFB347)", color: "#0F0A1E",
-              fontWeight: 900, cursor: authBusy ? "not-allowed" : "pointer", opacity: authBusy ? 0.7 : 1,
-            }}>{authBusy ? "Working..." : authMode === "sign_up" ? "Create account" : "Sign in"}</button>
+              fontWeight: 900, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1,
+            }}>
+              {busy ? "Working…" : authMode === "sign_up" ? "Create account" : "Sign in"}
+            </button>
           </form>
         </div>
       </div>
     );
-  }
+  };
 
+  // ════════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════════
   return (
-    <div style={{ fontFamily: "'Nunito', system-ui, sans-serif", background: "#0F0A1E", minHeight: "100vh", color: "#fff", position: "relative", overflow: "hidden" }}>
-      {/* Stars */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        {Array.from({ length: 40 }).map((_, i) => (
-          <div key={i} style={{
-            position: "absolute", borderRadius: "50%", background: "#fff",
-            width: Math.random() * 3 + 1 + "px", height: Math.random() * 3 + 1 + "px",
-            opacity: Math.random() * 0.6 + 0.2,
-            left: Math.random() * 100 + "%", top: Math.random() * 100 + "%",
-            animation: `twinkle ${Math.random() * 3 + 2}s ease-in-out infinite`,
-            animationDelay: Math.random() * 3 + "s",
-          }} />
-        ))}
-      </div>
+    <ErrorBoundary>
+      <AuthGuard
+        user={user}
+        isLoading={authLoading}
+        fallback={<LoginScreen />}
+        loadingMessage="Loading your galaxy…"
+      >
+        {/* ── Global styles ── */}
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+          * { box-sizing: border-box; }
+          @keyframes twinkle       { 0%,100%{opacity:0.2} 50%{opacity:0.9} }
+          @keyframes particleFly   { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0} }
+          @keyframes bounceIn      { 0%{transform:scale(0.3) rotate(-10deg);opacity:0} 60%{transform:scale(1.1) rotate(3deg)} 100%{transform:scale(1) rotate(0);opacity:1} }
+          @keyframes float         { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+          @keyframes pulse         { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+          @keyframes slideUp       { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+          @keyframes fadeInUp      { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+          .nav-btn       { transition:all 0.2s; cursor:pointer; }
+          .nav-btn:hover { transform:translateY(-2px); }
+          .word-orb       { transition:all 0.3s; cursor:pointer; }
+          .word-orb:hover { transform:scale(1.15); }
+          .activity-card       { transition:all 0.25s; cursor:pointer; }
+          .activity-card:hover { transform:translateY(-4px) scale(1.02); }
+          .btn-primary        { transition:all 0.2s; cursor:pointer; }
+          .btn-primary:hover  { transform:translateY(-2px); filter:brightness(1.1); }
+          .btn-primary:active { transform:translateY(0) scale(0.97); }
+          .app-container { max-width:480px; margin:0 auto; }
+          .screen-padding { padding:0 20px; }
+          @media (max-width:380px) { .screen-padding { padding:0 14px; } }
+          @media (min-width:600px) { .app-container { border-left:1px solid rgba(255,255,255,0.06); border-right:1px solid rgba(255,255,255,0.06); } }
+        `}</style>
 
-      {/* Particles */}
-      {particles.map(p => (
-        <div key={p.id} style={{
-          position: "fixed", left: p.x, top: p.y,
-          width: 10, height: 10, borderRadius: "50%", background: p.color,
-          zIndex: 9999, pointerEvents: "none",
-          animation: "particleFly 1s ease-out forwards",
-          "--dx": p.dx + "px", "--dy": p.dy + "px",
-        }} />
-      ))}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes twinkle { 0%,100%{opacity:0.2} 50%{opacity:0.9} }
-        @keyframes particleFly {
-          0%{transform:translate(0,0) scale(1);opacity:1}
-          100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}
-        }
-        @keyframes bounceIn { 0%{transform:scale(0.3) rotate(-10deg);opacity:0} 60%{transform:scale(1.1) rotate(3deg)} 100%{transform:scale(1) rotate(0);opacity:1} }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-        @keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes correctPop { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
-        @keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
-        @keyframes fadeInUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
-        .nav-btn { transition: all 0.2s; cursor: pointer; }
-        .nav-btn:hover { transform: translateY(-2px); }
-        .word-orb { transition: all 0.3s; cursor: pointer; }
-        .word-orb:hover { transform: scale(1.15); }
-        .activity-card { transition: all 0.25s; cursor: pointer; }
-        .activity-card:hover { transform: translateY(-4px) scale(1.02); }
-        .btn-primary { transition: all 0.2s; cursor: pointer; }
-        .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        .btn-primary:active { transform: translateY(0) scale(0.97); }
-        .emoji-option { transition: all 0.2s; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
-        .emoji-option:active { transform: scale(0.93); }
-        .emoji-option.answered { pointer-events: none; }
-        .emoji-option.correct-answer { animation: correctPop 0.35s ease; }
-        .emoji-option.wrong-answer { animation: wrongShake 0.35s ease; }
-
-        /* Responsive layout */
-        .app-container { max-width: 480px; margin: 0 auto; }
-        .quiz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .word-hero-emoji { font-size: 70px; }
-        .word-hero-text { font-size: 56px; }
-        .screen-padding { padding: 0 20px; }
-        .top-padding { padding-top: 50px; }
-
-        @media (max-width: 380px) {
-          .word-hero-emoji { font-size: 52px; }
-          .word-hero-text { font-size: 42px; }
-          .quiz-grid { gap: 8px; }
-          .screen-padding { padding: 0 14px; }
-        }
-        @media (min-width: 600px) {
-          .app-container { border-left: 1px solid rgba(255,255,255,0.06); border-right: 1px solid rgba(255,255,255,0.06); }
-        }
-      `}</style>
-
-      {/* Bottom nav */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "rgba(15,10,30,0.95)", backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.1)",
-        display: "flex", justifyContent: "space-around",
-        padding: "12px 0 max(16px, env(safe-area-inset-bottom))", zIndex: 100,
-      }}>
-        {[
-          { id: "home", icon: "🏠", label: "Home" },
-          { id: "learn", icon: "🌟", label: "Learn" },
-          { id: "words", icon: "📚", label: "My Words" },
-          { id: "parent", icon: "👨‍👩‍👧", label: "Parent" },
-          { id: "teacher", icon: "🏫", label: "Teacher" },
-        ].map(nav => (
-          <div key={nav.id} className="nav-btn" onClick={() => setScreen(nav.id)}
-            style={{ textAlign: "center", opacity: screen === nav.id ? 1 : 0.5, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontSize: 22 }}>{nav.icon}</div>
-            <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, color: screen === nav.id ? "#FFE66D" : "#fff" }}>{nav.label}</div>
-            {screen === nav.id && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#FFE66D", margin: "2px auto 0", boxShadow: "0 0 8px #FFE66D" }} />}
+        <div style={{
+          fontFamily: "'Nunito', system-ui, sans-serif",
+          background: "#0F0A1E", minHeight: "100vh",
+          color: "#fff", position: "relative", overflow: "hidden",
+        }}>
+          {/* ── Star field ── */}
+          <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+            {Array.from({ length: 40 }).map((_, i) => (
+              <div key={i} style={{
+                position: "absolute", borderRadius: "50%", background: "#fff",
+                width:   (1 + (i * 7 % 3)) + "px",
+                height:  (1 + (i * 7 % 3)) + "px",
+                opacity: 0.2 + (i % 5) * 0.1,
+                left:    ((i * 73) % 100) + "%",
+                top:     ((i * 47) % 100) + "%",
+                animation: `twinkle ${2 + (i % 3)}s ease-in-out infinite`,
+                animationDelay: (i % 4) * 0.5 + "s",
+              }} />
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Screens */}
-      <div style={{ position: "relative", zIndex: 1, paddingBottom: 90 }}>
-        <div className="app-container">
+          {/* ── Particles ── */}
+          {particles.map(p => (
+            <div key={p.id} style={{
+              position: "fixed", left: p.x, top: p.y,
+              width: 10, height: 10, borderRadius: "50%", background: p.color,
+              zIndex: 9999, pointerEvents: "none",
+              animation: "particleFly 1s ease-out forwards",
+              "--dx": p.dx + "px", "--dy": p.dy + "px",
+            }} />
+          ))}
 
-          {/* ═══ HOME ═══ */}
-          {screen === "home" && (
-            <div className="screen-padding" style={{ animation: "slideUp 0.4s ease" }}>
-              <div style={{ paddingTop: 50, paddingBottom: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>Emma ⭐</div>
-                    <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
-                      Signed in as <span style={{ fontWeight: 800 }}>{user.email}</span>{" "}
-                      {!scoresLoaded && <span style={{ opacity: 0.8 }}>· Syncing…</span>}
-                    </div>
+          {/* ── Bottom nav (hidden during active game) ── */}
+          {!gameActive && (
+            <div style={{
+              position: "fixed", bottom: 0, left: 0, right: 0,
+              background: "rgba(15,10,30,0.95)", backdropFilter: "blur(20px)",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              display: "flex", justifyContent: "space-around",
+              padding: "12px 0 max(16px, env(safe-area-inset-bottom))", zIndex: 100,
+            }}>
+              {[
+                { id: "home",    icon: "🏠", label: "Home"    },
+                { id: "learn",   icon: "🌟", label: "Learn"   },
+                { id: "words",   icon: "📚", label: "My Words"},
+                { id: "parent",  icon: "👨‍👩‍👧", label: "Parent" },
+                { id: "teacher", icon: "🏫", label: "Teacher" },
+              ].map(nav => (
+                <div
+                  key={nav.id}
+                  className="nav-btn"
+                  onClick={() => { setScreen(nav.id); setGameActive(false); }}
+                  style={{
+                    textAlign: "center",
+                    opacity: screen === nav.id ? 1 : 0.5,
+                    minWidth: 44, minHeight: 44,
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <div style={{ fontSize: 22 }}>{nav.icon}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, color: screen === nav.id ? "#FFE66D" : "#fff" }}>
+                    {nav.label}
                   </div>
-                  <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44" }}>
-                    <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 12</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
-                  </div>
+                  {screen === nav.id && (
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#FFE66D", margin: "2px auto 0", boxShadow: "0 0 8px #FFE66D" }} />
+                  )}
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                  <div className="btn-primary" onClick={handleLogout} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 14, padding: "8px 12px", fontSize: 12, fontWeight: 900, opacity: 0.85 }}>Log out</div>
-                </div>
-              </div>
-
-              <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(255,230,109,0.1))", borderRadius: 24, padding: 20, marginBottom: 20, border: "1px solid rgba(78,205,196,0.3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                  <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
-                    <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
-                      <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                      <circle cx="40" cy="40" r="32" fill="none" stroke="#4ECDC4" strokeWidth="8" strokeDasharray={`${2 * Math.PI * 32 * 0.43} ${2 * Math.PI * 32}`} strokeLinecap="round" />
-                    </svg>
-                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#4ECDC4" }}>87</div>
-                        <div style={{ fontSize: 8, opacity: 0.7 }}>words</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Unit 9: On the Move!</div>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>run · dog · look · one · other</div>
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: "60%", borderRadius: 10, background: "linear-gradient(90deg, #4ECDC4, #FFE66D)", boxShadow: "0 0 10px #4ECDC4" }} />
-                      </div>
-                      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>3 of 5 words mastered</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ fontSize: 40, animation: "float 3s ease-in-out infinite", flexShrink: 0 }}>✨</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Daily Magic Word</div>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, color: "#FFE66D", textShadow: "0 0 15px #FFE66D88" }}>look</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>Tap to unlock today's lesson →</div>
-                </div>
-                <div className="btn-primary" onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 14, padding: "10px 16px", fontSize: 20, boxShadow: "0 4px 15px #FF6B6B44", animation: "pulse 2s ease-in-out infinite", flexShrink: 0 }}>▶</div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {[{ icon: "🎬", label: "Watch", done: true }, { icon: "👂", label: "Listen", done: true }, { icon: "🔍", label: "Hunt", done: false }, { icon: "📝", label: "Story", done: false }, { icon: "⚔️", label: "Boss!", done: false }].map((a, i) => (
-                    <div key={i} className="activity-card" onClick={() => setScreen("learn")} style={{
-                      flex: 1, background: a.done ? "rgba(78,205,196,0.2)" : "rgba(255,255,255,0.07)",
-                      border: `1px solid ${a.done ? "#4ECDC4" : "rgba(255,255,255,0.1)"}`,
-                      borderRadius: 14, padding: "10px 0", textAlign: "center", minHeight: 64,
-                    }}>
-                      <div style={{ fontSize: 18 }}>{a.done ? "✅" : a.icon}</div>
-                      <div style={{ fontSize: 9, fontWeight: 700, marginTop: 4, opacity: a.done ? 0.7 : 1 }}>{a.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Word Garden 🌱</div>
-                  <div className="btn-primary" onClick={() => setScreen("words")} style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700 }}>See all →</div>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {words.slice(0, 9).map(w => (
-                    <div key={w.id} className="word-orb" style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery) }}>{w.word}</div>
-                  ))}
-                  <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: "1px dashed rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.4)" }}>+191</div>
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
-          {/* ═══ LEARN ═══ */}
-          {screen === "learn" && (
-            <div style={{ animation: "slideUp 0.4s ease" }}>
-              <div style={{ background: "linear-gradient(160deg, #1a0f3d, #0F0A1E)", padding: "50px 20px 30px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>Unit 9 · On the Move!</div>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 32 }}>
-                  Today's Word:{" "}
-                  <span style={{ color: "#FFE66D", textShadow: "0 0 20px #FFE66D" }}>{currentLearn?.word ?? learnWord}</span>
-                </div>
-                <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {[
-                    { text: currentLearn?.type === "function" ? "Magic Word" : "Content Word", bg: "rgba(78,205,196,0.2)", color: "#4ECDC4" },
-                    { text: `Unit ${currentLearn?.unit ?? 1}`, bg: "rgba(255,107,107,0.2)", color: "#FF6B6B" },
-                    { text: `${masteryByWord.get(currentLearn?.word ?? learnWord) ?? 0}% Mastered`, bg: "rgba(255,230,109,0.2)", color: "#FFE66D" },
-                  ].map(b => (
-                    <div key={b.text} style={{ background: b.bg, borderRadius: 10, padding: "4px 12px", fontSize: 12, color: b.color, fontWeight: 700 }}>{b.text}</div>
-                  ))}
-                </div>
-              </div>
+          {/* ── Screen content ── */}
+          <div style={{ position: "relative", zIndex: 1, paddingBottom: gameActive ? 0 : 90 }}>
+            <div className="app-container">
 
-              <div className="screen-padding" style={{ paddingTop: 24 }}>
-                {/* Word card */}
-                <div style={{ background: "linear-gradient(135deg, #1e1040, #160d35)", border: "2px solid rgba(255,230,109,0.3)", borderRadius: 28, padding: "24px 20px", marginBottom: 24, textAlign: "center", boxShadow: "0 8px 40px rgba(255,230,109,0.1)", animation: "float 4s ease-in-out infinite" }}>
-                  <div className="word-hero-emoji">{currentLearn?.emoji ?? "✨"}</div>
-                  <div className="word-hero-text" style={{ fontFamily: "'Fredoka One', sans-serif", color: "#FFE66D", textShadow: "0 0 30px #FFE66D88", letterSpacing: 4, marginTop: 8 }}>{currentLearn?.word ?? learnWord}</div>
-                  <div style={{ fontSize: 15, opacity: 0.7, marginTop: 8 }}>
-                    {aiBusy ? "✨ Getting your next challenge…" : pendingQuiz?.question ? "Tap the right answer below!" : "Tap an emoji to practice."}
+              {/* ═══ HOME ═══ */}
+              {screen === "home" && (
+                <div className="screen-padding" style={{ animation: "slideUp 0.4s ease" }}>
+                  <div style={{ paddingTop: 50, paddingBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
+                          {profile?.name ?? "Star Learner"} ⭐
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
+                        Signed in as <span style={{ fontWeight: 800 }}>{user?.email}</span>
+                          {!scoresLoaded && <span style={{ opacity: 0.8 }}>· Syncing…</span>}
+                        </div>
+                      </div>
+                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44" }}>
+                        <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 12</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                      <div className="btn-primary" onClick={signOut} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 14, padding: "8px 12px", fontSize: 12, fontWeight: 900, opacity: 0.85 }}>
+                        Log out
+                      </div>
+                    </div>
                   </div>
-                  <div className="btn-primary" style={{ display: "inline-block", marginTop: 14, background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", borderRadius: 50, padding: "10px 24px", fontSize: 14, fontWeight: 800, boxShadow: "0 4px 20px #4ECDC444" }}>🔊 Hear it!</div>
-                </div>
 
-                {/* Quiz question */}
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 14, minHeight: 32 }}>
-                  {pendingQuiz?.question
-                    ? pendingQuiz.question
-                    : `Which picture shows "${currentLearn?.word ?? learnWord}"? 🎯`}
-                </div>
-
-                {/* Emoji options — no "Pick" button, tap to answer */}
-                <div className="quiz-grid" style={{ marginBottom: 20 }}>
-                  {(pendingQuiz?.options?.length === 4 ? pendingQuiz.options : ["🏊", "🏃", "😴", "🍎"]).map((emoji, i) => {
-                    const isCorrect = pendingQuiz?.correctIndex === i || (!pendingQuiz && i === 1);
-                    const isSelected = quizState.selected === i;
-                    const isAnswered = quizState.selected !== null;
-                    const revealCorrect = isAnswered && isCorrect;
-                    const revealWrong = isSelected && !isCorrect;
-
-                    return (
-                      <div
-                        key={i}
-                        className={`emoji-option ${isAnswered ? "answered" : ""} ${revealCorrect ? "correct-answer" : ""} ${revealWrong ? "wrong-answer" : ""}`}
-                        onClick={(e) => handleQuizTap(i, isCorrect, e)}
-                        style={{
-                          background: revealCorrect
-                            ? "rgba(78,205,196,0.3)"
-                            : revealWrong
-                            ? "rgba(255,107,107,0.25)"
-                            : "rgba(255,255,255,0.07)",
-                          border: `2px solid ${revealCorrect ? "#4ECDC4" : revealWrong ? "#FF6B6B" : "rgba(255,255,255,0.12)"}`,
-                          borderRadius: 22,
-                          padding: "22px 10px",
-                          textAlign: "center",
-                          minHeight: 100,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 8,
-                          boxShadow: revealCorrect ? "0 0 24px #4ECDC455" : revealWrong ? "0 0 16px #FF6B6B33" : "none",
-                        }}
-                      >
-                        <div style={{ fontSize: 44, lineHeight: 1 }}>{emoji}</div>
-                        {isAnswered && (
-                          <div style={{ fontSize: 20, animation: "fadeInUp 0.25s ease" }}>
-                            {revealCorrect ? "✅" : isSelected ? "❌" : ""}
+                  {/* Unit progress ring */}
+                  <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(255,230,109,0.1))", borderRadius: 24, padding: 20, marginBottom: 20, border: "1px solid rgba(78,205,196,0.3)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                      <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
+                        <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+                          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+                          <circle cx="40" cy="40" r="32" fill="none" stroke="#4ECDC4" strokeWidth="8"
+                            strokeDasharray={`${2 * Math.PI * 32 * 0.43} ${2 * Math.PI * 32}`}
+                            strokeLinecap="round" />
+                        </svg>
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#4ECDC4" }}>
+                              {words.filter(w => w.mastery >= 80).length}
+                            </div>
+                            <div style={{ fontSize: 8, opacity: 0.7 }}>mastered</div>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-
-                {/* Feedback after answer — shows briefly before auto-advance */}
-                {quizState.selected !== null && (
-                  <div style={{
-                    background: quizState.correct ? "rgba(78,205,196,0.15)" : "rgba(255,107,107,0.15)",
-                    border: `1px solid ${quizState.correct ? "#4ECDC4" : "#FF6B6B"}`,
-                    borderRadius: 20, padding: 16, marginBottom: 20,
-                    animation: "bounceIn 0.4s ease", textAlign: "center",
-                  }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20 }}>
-                      {encouragement || (quizState.correct ? "🎉 Amazing! You got it!" : "💪 Nice try! Keep going!")}
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.6, marginTop: 8 }}>
-                      {aiBusy ? "Loading next word…" : "Next word coming up!"}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Unit 9: On the Move!</div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>run · dog · look · one · other</div>
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: "60%", borderRadius: 10, background: "linear-gradient(90deg, #4ECDC4, #FFE66D)", boxShadow: "0 0 10px #4ECDC4" }} />
+                          </div>
+                          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>3 of 5 words mastered</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* Activity strip */}
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>More Activities</div>
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
-                  {ACTIVITIES.map(act => (
-                    <div key={act.id} className="activity-card" style={{ flexShrink: 0, width: 86, background: `${act.color}22`, border: `1px solid ${act.color}55`, borderRadius: 18, padding: "14px 0", textAlign: "center" }}>
-                      <div style={{ fontSize: 26 }}>{act.icon}</div>
-                      <div style={{ fontSize: 10, fontWeight: 700, marginTop: 6, color: act.color }}>{act.label}</div>
+                  {/* Daily magic word */}
+                  <div style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ fontSize: 40, animation: "float 3s ease-in-out infinite", flexShrink: 0 }}>✨</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Daily Magic Word</div>
+                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, color: "#FFE66D", textShadow: "0 0 15px #FFE66D88" }}>look</div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>Tap to unlock today's lesson →</div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ═══ MY WORDS ═══ */}
-          {screen === "words" && (
-            <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, marginBottom: 4 }}>My Word Galaxy 🌌</div>
-              <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 16 }}>87 of 200 magic words unlocked</div>
-              <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-                {[{ color: "#e8e8f0", label: "Not started" }, { color: "#FFB347", label: "Learning" }, { color: "#4ECDC4", label: "Getting there" }, { color: "#FFE66D", label: "Mastered ⭐" }].map(l => (
-                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: l.color, flexShrink: 0 }} />
-                    <div style={{ fontSize: 11, opacity: 0.8 }}>{l.label}</div>
+                    <div className="btn-primary" onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 14, padding: "10px 16px", fontSize: 20, boxShadow: "0 4px 15px #FF6B6B44", animation: "pulse 2s ease-in-out infinite", flexShrink: 0 }}>▶</div>
                   </div>
-                ))}
-              </div>
 
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#4ECDC4" }}>Content Words</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                {words.filter(w => w.type === "content").map(w => (
-                  <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>{w.emoji} {w.word}</div>
-                ))}
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.08)", borderRadius: 22, padding: "8px 16px", fontSize: 15, color: "rgba(255,255,255,0.15)", fontWeight: 800 }}>🔒 ???</div>)}
-              </div>
+                  {/* Today's quest */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[
+                        { icon: "🎬", label: "Watch",  done: true  },
+                        { icon: "👂", label: "Listen", done: true  },
+                        { icon: "🔍", label: "Hunt",   done: false },
+                        { icon: "📝", label: "Story",  done: false },
+                        { icon: "⚔️", label: "Boss!",  done: false },
+                      ].map((a, i) => (
+                        <div key={i} className="activity-card" onClick={() => setScreen("learn")} style={{
+                          flex: 1, background: a.done ? "rgba(78,205,196,0.2)" : "rgba(255,255,255,0.07)",
+                          border: `1px solid ${a.done ? "#4ECDC4" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: 14, padding: "10px 0", textAlign: "center", minHeight: 64,
+                        }}>
+                          <div style={{ fontSize: 18 }}>{a.done ? "✅" : a.icon}</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, marginTop: 4, opacity: a.done ? 0.7 : 1 }}>{a.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#FF8B94" }}>Magic Words</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                {words.filter(w => w.type === "function").map(w => (
-                  <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>{w.word}</div>
-                ))}
-              </div>
-
-              {/* Word detail modal */}
-              {activeWord && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setActiveWord(null)}>
-                  <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg, #1e1040, #160d35)", border: `2px solid ${getMasteryColor(activeWord.mastery)}`, borderRadius: 28, padding: 28, width: "100%", maxWidth: 360, animation: "bounceIn 0.3s ease", boxShadow: `0 20px 60px ${getMasteryColor(activeWord.mastery)}44` }}>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 56 }}>{activeWord.emoji}</div>
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", marginTop: 8 }}>{activeWord.word}</div>
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                          <span style={{ fontSize: 13, opacity: 0.7 }}>Mastery</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: getMasteryColor(activeWord.mastery) }}>{activeWord.mastery}%</span>
+                  {/* Word garden preview */}
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Word Garden 🌱</div>
+                      <div className="btn-primary" onClick={() => setScreen("words")} style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700 }}>See all →</div>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {words.slice(0, 9).map(w => (
+                        <div key={w.id} className="word-orb" style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery) }}>
+                          {w.word}
                         </div>
-                        <div style={{ height: 10, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${activeWord.mastery}%`, borderRadius: 10, background: `linear-gradient(90deg, ${getMasteryColor(activeWord.mastery)}, ${getMasteryColor(activeWord.mastery)}aa)`, transition: "width 1s ease" }} />
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                        <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                          <div style={{ fontWeight: 800 }}>Unit {activeWord.unit}</div>
-                          <div style={{ fontSize: 11, opacity: 0.6 }}>Level</div>
-                        </div>
-                        <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                          <div style={{ fontWeight: 800, color: activeWord.type === "content" ? "#4ECDC4" : "#FF8B94" }}>{activeWord.type === "content" ? "Content" : "Function"}</div>
-                          <div style={{ fontSize: 11, opacity: 0.6 }}>Type</div>
-                        </div>
-                      </div>
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 8 }}>Adjust mastery</div>
-                        <input type="range" min="0" max="100" value={activeWord.mastery} onChange={e => {
-                          const next = Number(e.target.value);
-                          setWords(prev => prev.map(w => w.id === activeWord.id ? { ...w, mastery: next } : w));
-                          setActiveWord(prev => prev ? { ...prev, mastery: next } : prev);
-                          void saveWordProgress(user, activeWord.word, next);
-                        }} style={{ width: "100%" }} />
-                      </div>
-                      <div className="btn-primary" onClick={() => { setLearnWord(activeWord.word); setActiveWord(null); setScreen("learn"); }} style={{ marginTop: 16, width: "100%", background: "linear-gradient(135deg, #FFE66D, #FFB347)", color: "#0F0A1E", borderRadius: 14, padding: "12px 0", fontWeight: 900, fontSize: 15, textAlign: "center" }}>Practice this word →</div>
-                      <div style={{ marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => setActiveWord(null)}>Close</div>
+                      ))}
+                      <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: "1px dashed rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.4)" }}>+182</div>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ═══ PARENT ═══ */}
-          {screen === "parent" && (
-            <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-              <div style={{ fontSize: 13, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Parent Dashboard</div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 20 }}>Emma's Progress 👧</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
-                {[{ val: "87", sub: "Words learned", color: "#4ECDC4" }, { val: "12🔥", sub: "Day streak", color: "#FF6B6B" }, { val: "4.2h", sub: "This week", color: "#FFE66D" }].map((s, i) => (
-                  <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, color: s.color }}>{s.val}</div>
-                    <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>
+              {/* ═══ LEARN ═══ */}
+              {screen === "learn" && renderLearnTab()}
+
+              {/* ═══ MY WORDS ═══ */}
+              {screen === "words" && (
+                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, marginBottom: 4 }}>My Word Galaxy 🌌</div>
+                  <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 16 }}>
+                    {words.filter(w => w.mastery > 0).length} of {words.length} demo words unlocked
                   </div>
-                ))}
-              </div>
-              <div style={{ background: "linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))", border: "1px solid rgba(255,230,109,0.4)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ fontSize: 28 }}>🤖</div>
-                  <div>
-                    <div style={{ fontWeight: 800, color: "#FFE66D", marginBottom: 4 }}>AI Insight this week</div>
-                    <div style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.85 }}>Emma is excelling at content words (82% avg mastery) but needs more practice with function words like <strong>"and," "with,"</strong> and <strong>"they."</strong> Recommended: 10 min of Unit 12 activities.</div>
+
+                  {/* Legend */}
+                  <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                    {[
+                      { color: "#e8e8f0", label: "Not started"  },
+                      { color: "#FFB347", label: "Learning"     },
+                      { color: "#4ECDC4", label: "Getting there"},
+                      { color: "#FFE66D", label: "Mastered ⭐"  },
+                    ].map(l => (
+                      <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: l.color, flexShrink: 0 }} />
+                        <div style={{ fontSize: 11, opacity: 0.8 }}>{l.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#4ECDC4" }}>Content Words</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+                    {words.filter(w => w.type === "content").map(w => (
+                      <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>
+                        {w.emoji} {w.word}
+                      </div>
+                    ))}
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.08)", borderRadius: 22, padding: "8px 16px", fontSize: 15, color: "rgba(255,255,255,0.15)", fontWeight: 800 }}>🔒 ???</div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#FF8B94" }}>Magic Words</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+                    {words.filter(w => w.type === "function").map(w => (
+                      <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>
+                        {w.word}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Word detail modal */}
+                  {activeWord && (
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setActiveWord(null)}>
+                      <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg, #1e1040, #160d35)", border: `2px solid ${getMasteryColor(activeWord.mastery)}`, borderRadius: 28, padding: 28, width: "100%", maxWidth: 360, animation: "bounceIn 0.3s ease", boxShadow: `0 20px 60px ${getMasteryColor(activeWord.mastery)}44` }}>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 56 }}>{activeWord.emoji}</div>
+                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", marginTop: 8 }}>{activeWord.word}</div>
+                          <div style={{ marginTop: 16 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                              <span style={{ fontSize: 13, opacity: 0.7 }}>Mastery</span>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: getMasteryColor(activeWord.mastery) }}>{activeWord.mastery}%</span>
+                            </div>
+                            <div style={{ height: 10, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${activeWord.mastery}%`, borderRadius: 10, background: `linear-gradient(90deg, ${getMasteryColor(activeWord.mastery)}, ${getMasteryColor(activeWord.mastery)}aa)`, transition: "width 1s ease" }} />
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
+                              <div style={{ fontWeight: 800 }}>Unit {activeWord.unit}</div>
+                              <div style={{ fontSize: 11, opacity: 0.6 }}>Level</div>
+                            </div>
+                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
+                              <div style={{ fontWeight: 800, color: activeWord.type === "content" ? "#4ECDC4" : "#FF8B94" }}>
+                                {activeWord.type === "content" ? "Content" : "Function"}
+                              </div>
+                              <div style={{ fontSize: 11, opacity: 0.6 }}>Type</div>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: 16 }}>
+                            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 8 }}>Adjust mastery</div>
+                            <input type="range" min="0" max="100" value={activeWord.mastery}
+                              onChange={e => {
+                                const next = Number(e.target.value);
+                                setWords(prev => prev.map(w => w.id === activeWord.id ? { ...w, mastery: next } : w));
+                                setActiveWord(prev => prev ? { ...prev, mastery: next } : prev);
+                                void saveWordProgress(activeWord.word, next);
+                              }}
+                              style={{ width: "100%" }}
+                            />
+                          </div>
+                          <div className="btn-primary" onClick={() => { setActiveWord(null); setScreen("learn"); }} style={{ marginTop: 16, width: "100%", background: "linear-gradient(135deg, #FFE66D, #FFB347)", color: "#0F0A1E", borderRadius: 14, padding: "12px 0", fontWeight: 900, fontSize: 15, textAlign: "center" }}>
+                            Practice this word →
+                          </div>
+                          <div style={{ marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => setActiveWord(null)}>Close</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ═══ PARENT ═══ */}
+              {screen === "parent" && (
+                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
+                  <div style={{ fontSize: 13, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Parent Dashboard</div>
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 20 }}>
+                    {profile?.name ? `${profile.name}'s Progress 👧` : "Progress Dashboard 👧"}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+                    {[
+                      { val: words.filter(w => w.mastery >= 80).length.toString(), sub: "Words mastered", color: "#4ECDC4" },
+                      { val: "12🔥", sub: "Day streak",  color: "#FF6B6B" },
+                      { val: "4.2h", sub: "This week",   color: "#FFE66D" },
+                    ].map((s, i) => (
+                      <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, color: s.color }}>{s.val}</div>
+                        <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* AI coaching tip from session plan */}
+                  <div style={{ background: "linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))", border: "1px solid rgba(255,230,109,0.4)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{ fontSize: 28 }}>🤖</div>
+                      <div>
+                        <div style={{ fontWeight: 800, color: "#FFE66D", marginBottom: 4 }}>AI Insight this week</div>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.85 }}>
+                          {sessionPlan?.coachingTip || "Keep practicing! Focus on words with lower mastery scores first. Short daily sessions work better than long ones for young learners."}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weekly activity chart */}
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 16 }}>Weekly Activity ⏱️</div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
+                      {[
+                        { day: "Mon", mins: 22 }, { day: "Tue", mins: 35 },
+                        { day: "Wed", mins: 18 }, { day: "Thu", mins: 45 },
+                        { day: "Fri", mins: 30 }, { day: "Sat", mins: 55 },
+                        { day: "Sun", mins: 20 },
+                      ].map((d, i) => (
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                          <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>
+                          <div style={{ width: "100%", height: d.mins * 1.2 + "px", background: i === 5 ? "#FF6B6B" : i === 3 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0" }} />
+                          <div style={{ fontSize: 9, opacity: 0.6 }}>{d.day}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mastery heatmap — live data */}
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                      {words.map(w => (
+                        <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{ width: 28, height: 28, borderRadius: 6, background: getMasteryColor(w.mastery), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.2)" }}>
+                          {w.word.slice(0, 2)}
+                        </div>
+                      ))}
+                      {Array.from({ length: 22 }).map((_, i) => (
+                        <div key={i} style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.1)" }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Upgrade CTA */}
+                  <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: 20, textAlign: "center", boxShadow: "0 8px 30px #FF6B6B44" }}>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22 }}>🌟 Free Plan</div>
+                    <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>Units 1–5 only. Unlock all 200 words!</div>
+                    <div className="btn-primary" style={{ display: "inline-block", marginTop: 12, background: "white", color: "#FF6B6B", borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15 }}>
+                      Upgrade — $9.99/mo
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 16 }}>Weekly Activity ⏱️</div>
-                <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
-                  {[{ day: "Mon", mins: 22, color: "#4ECDC4" }, { day: "Tue", mins: 35, color: "#4ECDC4" }, { day: "Wed", mins: 18, color: "#4ECDC4" }, { day: "Thu", mins: 45, color: "#FFE66D" }, { day: "Fri", mins: 30, color: "#4ECDC4" }, { day: "Sat", mins: 55, color: "#FF6B6B" }, { day: "Sun", mins: 20, color: "#4ECDC4" }].map((d, i) => (
-                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>
-                      <div style={{ width: "100%", height: d.mins * 1.2 + "px", background: d.color, borderRadius: "4px 4px 0 0" }} />
-                      <div style={{ fontSize: 9, opacity: 0.6 }}>{d.day}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                  {words.map(w => <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{ width: 28, height: 28, borderRadius: 6, background: getMasteryColor(w.mastery), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.2)" }}>{w.word.slice(0, 2)}</div>)}
-                  {Array.from({ length: 22 }).map((_, i) => <div key={i} style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.1)" }} />)}
-                </div>
-              </div>
-              <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: 20, textAlign: "center", boxShadow: "0 8px 30px #FF6B6B44" }}>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22 }}>🌟 Free Plan</div>
-                <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>Units 1–5 only. Unlock all 200 words!</div>
-                <div className="btn-primary" style={{ display: "inline-block", marginTop: 12, background: "white", color: "#FF6B6B", borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15 }}>Upgrade — $9.99/mo</div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* ═══ TEACHER ═══ */}
-          {screen === "teacher" && (
-            <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-              <div style={{ fontSize: 13, color: "#A8E6CF", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Teacher Dashboard</div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, marginBottom: 4 }}>Ms. Johnson's Class 🏫</div>
-              <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 20 }}>Kindergarten · Room 12 · 6 students</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                {[{ val: "67%", sub: "Avg mastery", color: "#4ECDC4" }, { val: "5/6", sub: "Active today", color: "#A8E6CF" }, { val: "8.2", sub: "Avg streak days", color: "#FFE66D" }, { val: "2", sub: "⚠️ Need attention", color: "#FF8B94" }].map((s, i) => (
-                  <div key={i} style={{ background: `${s.color}12`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: 16 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, color: s.color }}>{s.val}</div>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{s.sub}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Student Progress 📋</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-                {STUDENTS.map((s, i) => (
-                  <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.progress < 40 ? "#FF8B9444" : "rgba(255,255,255,0.1)"}`, borderRadius: 18, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 28, width: 44, height: 44, background: "rgba(255,255,255,0.08)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{s.avatar}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <div style={{ fontWeight: 800, fontSize: 15 }}>{s.name}</div>
-                        <div style={{ fontSize: 11, opacity: 0.6 }}>Unit {s.unit}</div>
-                      </div>
-                      <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${s.progress}%`, borderRadius: 6, background: s.progress > 70 ? "linear-gradient(90deg, #4ECDC4, #A8E6CF)" : s.progress > 40 ? "linear-gradient(90deg, #FFE66D, #FFB347)" : "linear-gradient(90deg, #FF8B94, #FF6B6B)" }} />
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                        <div style={{ fontSize: 11, opacity: 0.6 }}>{s.progress}% mastery</div>
-                        <div style={{ fontSize: 11, color: s.streak > 7 ? "#FFE66D" : "rgba(255,255,255,0.5)" }}>🔥 {s.streak} days</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Quick Actions ⚡</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                {[{ icon: "📤", label: "Assign Unit", color: "#4ECDC4" }, { icon: "📊", label: "Export Report", color: "#FFE66D" }, { icon: "📺", label: "Classroom Mode", color: "#FF8B94" }, { icon: "💬", label: "Message Parents", color: "#A8E6CF" }].map((a, i) => (
-                  <div key={i} className="activity-card" style={{ background: `${a.color}12`, border: `1px solid ${a.color}33`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 24 }}>{a.icon}</div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: a.color }}>{a.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16 }}>
-                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Standards Alignment 📐</div>
-                {[{ std: "RF.K.3c", desc: "High-frequency words", complete: 82 }, { std: "RF.1.3g", desc: "Irregular words", complete: 55 }, { std: "L.K.5d", desc: "Word relationships", complete: 67 }].map((s, i) => (
-                  <div key={i} style={{ marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#4ECDC4" }}>{s.std}</span> — {s.desc}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#FFE66D" }}>{s.complete}%</div>
-                    </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${s.complete}%`, borderRadius: 6, background: "linear-gradient(90deg, #4ECDC4, #A8E6CF)" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              {/* ═══ TEACHER ═══ */}
+              {screen === "teacher" && (
+                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
+                  <div style={{ fontSize: 13, color: "#A8E6CF", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Teacher Dashboard</div>
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, marginBottom: 4 }}>Ms. Johnson's Class 🏫</div>
+                  <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 20 }}>Kindergarten · Room 12 · 6 students</div>
 
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                    {[
+                      { val: "67%", sub: "Avg mastery",       color: "#4ECDC4" },
+                      { val: "5/6", sub: "Active today",      color: "#A8E6CF" },
+                      { val: "8.2", sub: "Avg streak days",   color: "#FFE66D" },
+                      { val: "2",   sub: "⚠️ Need attention", color: "#FF8B94" },
+                    ].map((s, i) => (
+                      <div key={i} style={{ background: `${s.color}12`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: 16 }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, color: s.color }}>{s.val}</div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{s.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Student Progress 📋</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+                    {STUDENTS.map((s, i) => (
+                      <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.progress < 40 ? "#FF8B9444" : "rgba(255,255,255,0.1)"}`, borderRadius: 18, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 28, width: 44, height: 44, background: "rgba(255,255,255,0.08)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{s.avatar}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                            <div style={{ fontWeight: 800, fontSize: 15 }}>{s.name}</div>
+                            <div style={{ fontSize: 11, opacity: 0.6 }}>Unit {s.unit}</div>
+                          </div>
+                          <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${s.progress}%`, borderRadius: 6, background: s.progress > 70 ? "linear-gradient(90deg, #4ECDC4, #A8E6CF)" : s.progress > 40 ? "linear-gradient(90deg, #FFE66D, #FFB347)" : "linear-gradient(90deg, #FF8B94, #FF6B6B)" }} />
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                            <div style={{ fontSize: 11, opacity: 0.6 }}>{s.progress}% mastery</div>
+                            <div style={{ fontSize: 11, color: s.streak > 7 ? "#FFE66D" : "rgba(255,255,255,0.5)" }}>🔥 {s.streak} days</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Quick Actions ⚡</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                    {[
+                      { icon: "📤", label: "Assign Unit",      color: "#4ECDC4" },
+                      { icon: "📊", label: "Export Report",    color: "#FFE66D" },
+                      { icon: "📺", label: "Classroom Mode",   color: "#FF8B94" },
+                      { icon: "💬", label: "Message Parents",  color: "#A8E6CF" },
+                    ].map((a, i) => (
+                      <div key={i} className="activity-card" style={{ background: `${a.color}12`, border: `1px solid ${a.color}33`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ fontSize: 24 }}>{a.icon}</div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: a.color }}>{a.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16 }}>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Standards Alignment 📐</div>
+                    {[
+                      { std: "RF.K.3c", desc: "High-frequency words", complete: 82 },
+                      { std: "RF.1.3g", desc: "Irregular words",       complete: 55 },
+                      { std: "L.K.5d",  desc: "Word relationships",    complete: 67 },
+                    ].map((s, i) => (
+                      <div key={i} style={{ marginBottom: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#4ECDC4" }}>{s.std}</span> — {s.desc}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#FFE66D" }}>{s.complete}%</div>
+                        </div>
+                        <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${s.complete}%`, borderRadius: 6, background: "linear-gradient(90deg, #4ECDC4, #A8E6CF)" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </AuthGuard>
+    </ErrorBoundary>
   );
 }
