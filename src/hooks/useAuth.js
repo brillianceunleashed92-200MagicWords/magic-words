@@ -36,6 +36,9 @@ export function useAuth() {
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
       setAuthLoading(false);
+    }).catch(() => {
+      setSession(null);
+      setAuthLoading(false);
     });
 
     // Listen for auth state changes (login, logout, token refresh)
