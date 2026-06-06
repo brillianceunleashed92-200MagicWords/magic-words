@@ -288,15 +288,18 @@ function FeedbackOverlay({ correct, message, emoji }) {
 
 // ─── GAME 1: Word Match ────────────────────────────────────────────────────────
 // See word → tap the correct emoji. Classic MVP game, polished.
-function WordMatch({ quiz, onAnswer }) {
-  const [selected, setSelected] = useState(null);
-  const [answered, setAnswered] = useState(false);
+function WordMatch({ quiz, onAnswer, encouragement }) {
+  const [selected,    setSelected]    = useState(null);
+  const [answered,    setAnswered]    = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayData, setOverlayData] = useState(null);
   const startRef = useRef(Date.now());
 
-  // Reset state when quiz changes
   useEffect(() => {
     setSelected(null);
     setAnswered(false);
+    setShowOverlay(false);
+    setOverlayData(null);
     startRef.current = Date.now();
   }, [quiz?.word]);
 
@@ -306,73 +309,84 @@ function WordMatch({ quiz, onAnswer }) {
     const responseTimeMs = Date.now() - startRef.current;
     setSelected(idx);
     setAnswered(true);
-    // Slight delay so animation plays before advancing
-    setTimeout(() => onAnswer({ correct, responseTimeMs }), 1400);
-  }, [answered, quiz, onAnswer]);
+    // Show portal overlay immediately — no tile-level inline feedback
+    setOverlayData({
+      correct,
+      message: correct
+        ? (encouragement ?? 'Great job! ⭐')
+        : `The answer was "${quiz.word}" ${quiz.emoji}`,
+      emoji: correct ? quiz.emoji : '💪',
+    });
+    setShowOverlay(true);
+    setTimeout(() => {
+      setShowOverlay(false);
+      onAnswer({ correct, responseTimeMs });
+    }, 1400);
+  }, [answered, quiz, onAnswer, encouragement]);
 
   if (!quiz) return null;
 
   return (
-    <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-      {/* Target word */}
-      <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-        <div style={{
-          fontFamily: 'Fredoka One',
-          fontSize: 'clamp(2.5rem, 8vw, 4rem)',
-          color: T.white,
-          animation: 'mw-word-glow 3s ease-in-out infinite',
-          letterSpacing: '2px',
-        }}>
-          {quiz.word}
+    <>
+      {showOverlay && overlayData && (
+        <FeedbackOverlay
+          correct={overlayData.correct}
+          message={overlayData.message}
+          emoji={overlayData.emoji}
+        />
+      )}
+      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
+        {/* Target word */}
+        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
+          <div style={{
+            fontFamily: 'Fredoka One',
+            fontSize: 'clamp(2.5rem, 8vw, 4rem)',
+            color: T.white,
+            animation: 'mw-word-glow 3s ease-in-out infinite',
+            letterSpacing: '2px',
+          }}>
+            {quiz.word}
+          </div>
+          <div style={{
+            fontFamily: 'Nunito',
+            fontSize: '1rem',
+            color: T.muted,
+            marginTop: '0.25rem',
+          }}>
+            {quiz.question}
+          </div>
         </div>
+
+        {/* Emoji options grid */}
         <div style={{
-          fontFamily: 'Nunito',
-          fontSize: '1rem',
-          color: T.muted,
-          marginTop: '0.25rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '0.875rem',
         }}>
-          {quiz.question}
+          {quiz.options.map((opt, idx) => {
+            let className = 'mw-option-btn';
+            if (answered) {
+              if (idx === quiz.correctIndex) className += ' correct revealed';
+              else if (idx === selected)     className += ' wrong';
+            }
+            return (
+              <button
+                key={idx}
+                className={className}
+                onClick={() => handleTap(idx)}
+                disabled={answered}
+                style={{ animationDelay: (idx * 0.07) + 's' }}
+              >
+                <span style={{ fontSize: '3rem', lineHeight: 1 }}>{opt.emoji}</span>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: T.muted }}>
+                  {opt.word}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
-
-      {/* Emoji options grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '0.875rem',
-      }}>
-        {quiz.options.map((opt, idx) => {
-          let className = 'mw-option-btn';
-          if (answered) {
-            if (idx === quiz.correctIndex) className += ' correct revealed';
-            else if (idx === selected)     className += ' wrong';
-            else                           className += '';
-          }
-
-          return (
-            <button
-              key={idx}
-              className={className}
-              onClick={() => handleTap(idx)}
-              disabled={answered}
-              style={{ animationDelay: (idx * 0.07) + 's' }}
-            >
-              <span style={{ fontSize: '3rem', lineHeight: 1 }}>{opt.emoji}</span>
-              <span style={{
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                color: answered && idx === quiz.correctIndex ? T.teal
-                     : answered && idx === selected           ? T.coral
-                     : T.muted,
-                transition: 'color 0.2s',
-              }}>
-                {opt.word}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -927,8 +941,6 @@ export function GameEngine({
 
   const [currentIdx,   setCurrentIdx]   = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackData, setFeedbackData] = useState(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [sessionDone,  setSessionDone]  = useState(false);
   const [encouragIdx,  setEncouragIdx]  = useState(0);
@@ -954,14 +966,6 @@ export function GameEngine({
       attemptNumber: 1,
     });
 
-    // Show feedback overlay
-    const enc = encouragements[encouragIdx % encouragements.length];
-    setFeedbackData({
-      correct,
-      message: correct ? enc : `The answer was "${currentQuiz.word}" ${currentQuiz.emoji}`,
-      emoji:   correct ? currentQuiz.emoji : '💪',
-    });
-    setShowFeedback(true);
     setEncouragIdx(i => i + 1);
 
     // Auto-advance
@@ -1018,13 +1022,6 @@ export function GameEngine({
       fontFamily: 'Nunito, sans-serif',
     }}>
       <ConfettiBurst active={showConfetti} />
-      {showFeedback && feedbackData && (
-        <FeedbackOverlay
-          correct={feedbackData.correct}
-          message={feedbackData.message}
-          emoji={feedbackData.emoji}
-        />
-      )}
 
       <SessionProgress
         current={currentIdx + 1}
@@ -1034,7 +1031,12 @@ export function GameEngine({
 
       {/* Render the correct game component */}
       {gameType === 'word_match' && (
-        <WordMatch key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+        <WordMatch
+          key={currentIdx}
+          quiz={currentQuiz}
+          onAnswer={handleAnswer}
+          encouragement={encouragements[encouragIdx % encouragements.length]}
+        />
       )}
       {gameType === 'sound_match' && (
         <SoundMatch
