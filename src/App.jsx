@@ -4,7 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthGuard, GalaxyLoader } from "./components/AuthGuard";
 import { useAuth } from "./hooks/useAuth";
 import { useSessionPlan } from "./hooks/useSessionPlan";
-import { GameEngine, GameTypeSelector, SessionComplete } from "./games/GameEngine";
+import { GameEngine, GameTypeSelector, SessionComplete, UpgradeModal } from "./games/GameEngine";
 
 const WORDS = [
   { id: 1,  word: "cat",  type: "content",  unit: 2,  mastery: 0, emoji: "🐱" },
@@ -35,6 +35,52 @@ const STUDENTS = [
   { name: "Ava L.",   avatar: "🐦", progress: 67, streak: 8,  unit: 7,  words: 71  },
   { name: "James P.", avatar: "🐸", progress: 55, streak: 5,  unit: 6,  words: 60  },
 ];
+
+const AVATARS = [
+  { emoji: '🚀', name: 'Rocket Kid' },
+  { emoji: '👾', name: 'Space Alien' },
+  { emoji: '🌟', name: 'Star' },
+  { emoji: '🦊', name: 'Space Fox' },
+  { emoji: '🐸', name: 'Galaxy Frog' },
+  { emoji: '🦁', name: 'Cosmic Lion' },
+  { emoji: '🐶', name: 'Astro Pup' },
+  { emoji: '🐱', name: 'Moon Cat' },
+];
+
+const LEVELS = [
+  { level: 1, minXP: 0,    title: 'Star Cadet',       emoji: '🌟' },
+  { level: 2, minXP: 100,  title: 'Space Scout',      emoji: '🔭' },
+  { level: 3, minXP: 250,  title: 'Galaxy Explorer',  emoji: '🌌' },
+  { level: 4, minXP: 500,  title: 'Cosmic Reader',    emoji: '📚' },
+  { level: 5, minXP: 1000, title: 'Word Wizard',      emoji: '🪄' },
+  { level: 6, minXP: 2000, title: 'Star Commander',   emoji: '⭐' },
+  { level: 7, minXP: 3500, title: 'Galaxy Master',    emoji: '🏆' },
+  { level: 8, minXP: 5000, title: 'Legendary Reader', emoji: '👑' },
+];
+
+function getLevelInfo(xp) {
+  let current = LEVELS[0];
+  for (const lvl of LEVELS) {
+    if (xp >= lvl.minXP) current = lvl;
+    else break;
+  }
+  const nextIdx = LEVELS.findIndex(l => l.level === current.level) + 1;
+  const next = LEVELS[nextIdx];
+  const progress = next
+    ? Math.round(((xp - current.minXP) / (next.minXP - current.minXP)) * 100)
+    : 100;
+  return { ...current, nextLevelXP: next?.minXP ?? null, progress };
+}
+
+function getDailyMessage(streak, words) {
+  if (streak > 1) return `🔥 ${streak} days in a row! You're on fire!`;
+  const masteredCount = words.filter(w => w.mastery >= 80).length;
+  const justMastered = words.find(w => w.mastery >= 80);
+  if (masteredCount === 1 && justMastered) return `You just mastered "${justMastered.word}"! Amazing! 🌟`;
+  if (masteredCount > 0 && masteredCount < 5) return `You know ${masteredCount} magic words! Keep going! 🚀`;
+  if (words.filter(w => w.mastery > 0).length === 0) return `Ready for your first space mission? Let's go! 🚀`;
+  return `Welcome back, explorer! Your words are waiting ✨`;
+}
 
 const getMasteryColor = (m) => {
   if (m === 0)   return "#e8e8f0";
@@ -105,6 +151,15 @@ export default function App() {
   // ── Parent dashboard real data ──
   const [weeklyActivity, setWeeklyActivity] = useState(null); // null = not loaded yet
 
+  // ── User stats (XP, level, avatar) ──
+  const [avatar,           setAvatar]           = useState('🚀');
+  const [totalXP,          setTotalXP]          = useState(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showLevelUp,      setShowLevelUp]      = useState(false);
+  const [levelUpInfo,      setLevelUpInfo]      = useState(null);
+  const [xpFloats,         setXpFloats]         = useState([]);
+
   // ── Teacher class ──
   const [teacherClass,     setTeacherClass]     = useState(null);
   const [showCreateClass,  setShowCreateClass]  = useState(false);
@@ -162,6 +217,22 @@ export default function App() {
       });
   }, [user?.id]); // eslint-disable-line
 
+  // ── Load user_stats (XP, level, avatar) on login ──
+  useEffect(() => {
+    if (!user) { setAvatar('🚀'); setTotalXP(0); return; }
+    supabase
+      .from('user_stats')
+      .select('total_xp, current_level, avatar')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setAvatar(data.avatar ?? '🚀');
+          setTotalXP(data.total_xp ?? 0);
+        }
+      });
+  }, [user?.id]); // eslint-disable-line
+
   // ── Load weekly learning activity (last 7 days) ──
   useEffect(() => {
     if (!user) { setWeeklyActivity(null); return; }
@@ -174,7 +245,7 @@ export default function App() {
       .eq('user_id', user.id)
       .gte('created_at', since.toISOString())
       .then(({ data, error }) => {
-        if (error || !data) return;
+        if (error || !data) { setWeeklyActivity([]); return; }
         const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const counts = {};
         data.forEach(ev => {
@@ -244,6 +315,51 @@ export default function App() {
     setFreezesLeft(newFreezes);
     if (usedFreeze) setFreezeUsed(true);
   }, [user]); // eslint-disable-line
+
+  // ── Save XP to user_stats ──
+  const saveXP = useCallback(async (newTotal) => {
+    if (!user) return;
+    const levelInfo = getLevelInfo(newTotal);
+    await supabase.from('user_stats').upsert({
+      user_id:       user.id,
+      total_xp:      newTotal,
+      current_level: levelInfo.level,
+      avatar,
+      updated_at:    new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  }, [user, avatar]); // eslint-disable-line
+
+  // ── Save avatar to user_stats ──
+  const saveAvatar = useCallback(async (newAvatar) => {
+    if (!user) return;
+    setAvatar(newAvatar);
+    setShowAvatarPicker(false);
+    await supabase.from('user_stats').upsert({
+      user_id:       user.id,
+      avatar:        newAvatar,
+      total_xp:      totalXP,
+      current_level: getLevelInfo(totalXP).level,
+      updated_at:    new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  }, [user, totalXP]); // eslint-disable-line
+
+  // ── Handle XP earned from a session (called by GameEngine via onXP) ──
+  const handleXP = useCallback(async (sessionXPAmount) => {
+    const prevLevel = getLevelInfo(totalXP);
+    const newTotal  = totalXP + sessionXPAmount;
+    setTotalXP(newTotal);
+    const newLevel = getLevelInfo(newTotal);
+    const floatId = Date.now();
+    setXpFloats(prev => [...prev, { id: floatId, amount: sessionXPAmount }]);
+    setTimeout(() => setXpFloats(prev => prev.filter(f => f.id !== floatId)), 1400);
+    if (newLevel.level > prevLevel.level) {
+      setLevelUpInfo(newLevel);
+      setShowLevelUp(true);
+      spawnParticles(window.innerWidth / 2, window.innerHeight / 2);
+      setTimeout(() => setShowLevelUp(false), 3000);
+    }
+    await saveXP(newTotal);
+  }, [totalXP, saveXP]); // eslint-disable-line
 
   // ── Save a word's progress — tracks cumulative correct/attempt counts ──
   const saveWordProgress = useCallback(async (word, correct) => {
@@ -340,12 +456,21 @@ export default function App() {
     })();
   }, [words, saveWordProgress, user]);
 
-  const handleSessionEnd = useCallback(({ wordsCorrect, totalWords, wordsPlayed }) => {
+  const handleSessionEnd = useCallback(async ({ wordsCorrect, totalWords, wordsPlayed }) => {
     setSessionResult({ wordsCorrect, totalWords, wordsPlayed: wordsPlayed ?? [] });
     setGameActive(false);
     setScreen("sessionComplete");
-    updateStreak().catch(() => {});
-  }, [updateStreak]);
+    try {
+      await updateStreak();
+      // Force fresh read so home screen badge reflects the new streak immediately
+      const { data } = await supabase
+        .from('user_streaks')
+        .select('current_streak')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      if (data) setStreak(data.current_streak ?? 0);
+    } catch {}
+  }, [updateStreak, user]);
 
   // ── Learn tab renderer ──
   const renderLearnTab = () => {
@@ -405,6 +530,7 @@ export default function App() {
           onProgress={handleProgress}
           onSessionEnd={handleSessionEnd}
           onHome={() => setGameActive(false)}
+          onXP={handleXP}
         />
       </ErrorBoundary>
     );
@@ -585,6 +711,70 @@ export default function App() {
             }} />
           ))}
 
+          {/* ── Global overlays ── */}
+          {showUpgradeModal && <UpgradeModal onClose={() => setShowUpgradeModal(false)} />}
+
+          {/* XP float animations */}
+          {xpFloats.map(f => (
+            <div key={f.id} style={{
+              position: "fixed", top: "22%", left: "50%",
+              fontFamily: "'Fredoka One', sans-serif", fontSize: "1.8rem", color: "#FFE66D",
+              zIndex: 9999, animation: "xp-float-up 1.4s ease forwards",
+              pointerEvents: "none", textShadow: "0 0 20px rgba(255,230,109,0.8)",
+              whiteSpace: "nowrap",
+            }}>
+              +{f.amount} XP ⭐
+            </div>
+          ))}
+
+          {/* Level-up celebration overlay */}
+          {showLevelUp && levelUpInfo && (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "2rem" }}
+              onClick={() => setShowLevelUp(false)}
+            >
+              <div style={{ fontSize: 80, animation: "level-up-bounce 0.6s ease" }}>{levelUpInfo.emoji}</div>
+              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: "2.5rem", color: "#FFE66D", margin: "1rem 0 0.5rem", textShadow: "0 0 30px #FFE66D88" }}>LEVEL UP! 🎉</div>
+              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: "1.5rem", color: "#4ECDC4" }}>Level {levelUpInfo.level}</div>
+              <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: "1.1rem", color: "rgba(255,255,255,0.85)", marginTop: "0.5rem" }}>You're now a {levelUpInfo.title}!</div>
+              <div style={{ marginTop: "1.5rem", fontSize: "0.875rem", opacity: 0.5 }}>Tap to continue</div>
+            </div>
+          )}
+
+          {/* Avatar picker modal */}
+          {showAvatarPicker && (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}
+              onClick={() => setShowAvatarPicker(false)}
+            >
+              <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
+                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: "1.5rem", color: "#FFE66D", marginBottom: "1.5rem" }}>
+                  Choose your space identity! 🚀
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                  {AVATARS.map(a => (
+                    <button key={a.emoji} onClick={() => saveAvatar(a.emoji)} style={{
+                      background: avatar === a.emoji ? "rgba(78,205,196,0.2)" : "rgba(255,255,255,0.06)",
+                      border: avatar === a.emoji ? "2px solid #4ECDC4" : "2px solid rgba(255,255,255,0.12)",
+                      boxShadow: avatar === a.emoji ? "0 0 16px rgba(78,205,196,0.5)" : "none",
+                      borderRadius: 16, width: 80, height: 80, fontSize: "2.5rem", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {a.emoji}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setShowAvatarPicker(false)} style={{
+                  background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E",
+                  border: "none", borderRadius: 50, padding: "0.75rem 2rem",
+                  fontFamily: "'Fredoka One', sans-serif", fontSize: "1rem", cursor: "pointer",
+                }}>
+                  Done ✓
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Bottom nav (hidden during active game) ── */}
           {!gameActive && (
             <div style={{
@@ -633,17 +823,47 @@ export default function App() {
               {screen === "home" && (
                 <div className="screen-padding" style={{ animation: "slideUp 0.4s ease" }}>
                   <div style={{ paddingTop: 50, paddingBottom: 20 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
-                          {getChildName(user)} ⭐
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                        {/* Nova + Welcome label */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span
+                            role="img" aria-label="Nova astronaut"
+                            style={{ fontSize: 36, display: "inline-block", animation: "nova-wave 2s ease-in-out infinite", transformOrigin: "bottom center", cursor: "pointer" }}
+                            onClick={() => speakWord(`Hi ${getChildName(user)}`)}
+                          >👨‍🚀</span>
+                          <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
+                        </div>
+                        {/* Avatar + name + edit button */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 26 }}>{avatar}</span>
+                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
+                            {getChildName(user)} ⭐
+                          </div>
+                          <button onClick={() => setShowAvatarPicker(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, opacity: 0.6, padding: "0 2px", lineHeight: 1 }} aria-label="Edit avatar">🖊️</button>
+                        </div>
+                        {/* Level pill */}
+                        {(() => {
+                          const lvl = getLevelInfo(totalXP);
+                          return (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(78,205,196,0.1)", border: "1px solid rgba(78,205,196,0.3)", borderRadius: 20, padding: "3px 10px", marginTop: 6 }}>
+                              <span style={{ fontSize: 11 }}>{lvl.emoji}</span>
+                              <span style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700 }}>Level {lvl.level} · {lvl.title}</span>
+                            </div>
+                          );
+                        })()}
+                        {/* XP display */}
+                        <div style={{ marginTop: 4, fontSize: 12, color: "#FFE66D", fontWeight: 700, opacity: 0.9 }}>⭐ {totalXP} XP</div>
+                        {/* Daily contextual message */}
+                        <div style={{ marginTop: 4, fontSize: 13, color: "#4ECDC4", opacity: 0.8, lineHeight: 1.4 }}>
+                          {getDailyMessage(streak, words)}
                         </div>
                         {!scoresLoaded && (
                           <div style={{ marginTop: 4, fontSize: 11, opacity: 0.6 }}>Syncing…</div>
                         )}
                       </div>
-                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44" }}>
+                      {/* Streak badge */}
+                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44", flexShrink: 0 }}>
                         <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 {streak}</div>
                         <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
                         {freezeUsed && <div style={{ fontSize: 9, color: '#A8E6CF', marginTop: 2 }}>❄️ Streak saved!</div>}
@@ -741,7 +961,7 @@ export default function App() {
                           speakWord(w.word);
                           generatePlanForWord(w.word);
                           setScreen('learn');
-                        }} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
+                        }} style={{ background: w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.8)", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
                           {w.word}
                         </div>
                       ))}
@@ -778,7 +998,7 @@ export default function App() {
                 <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
                   <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, marginBottom: 4 }}>My Word Galaxy 🌌</div>
                   <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 16 }}>
-                    {words.filter(w => w.mastery > 0).length} of {words.length} demo words unlocked
+                    {words.filter(w => w.mastery > 0).length} of {words.length} words in your galaxy
                   </div>
 
                   {/* Legend */}
@@ -804,8 +1024,8 @@ export default function App() {
                         <div key={w.id} className="word-orb"
                           onClick={() => locked ? null : setActiveWord(w)}
                           style={{
-                            background: locked ? "rgba(255,255,255,0.05)" : getMasteryColor(w.mastery),
-                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)"),
+                            background: locked ? "rgba(255,255,255,0.05)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
+                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.7)"),
                             borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
                             boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
                             border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
@@ -831,8 +1051,8 @@ export default function App() {
                         <div key={w.id} className="word-orb"
                           onClick={() => locked ? null : setActiveWord(w)}
                           style={{
-                            background: locked ? "rgba(255,255,255,0.05)" : getMasteryColor(w.mastery),
-                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)"),
+                            background: locked ? "rgba(255,255,255,0.05)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
+                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.7)"),
                             borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
                             boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
                             border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
@@ -945,25 +1165,26 @@ export default function App() {
                       Weekly Activity ⏱️
                       {weeklyActivity === null && <span style={{ fontSize: 11, fontFamily: "'Nunito'", opacity: 0.5, marginLeft: 8 }}>loading…</span>}
                     </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
-                      {(weeklyActivity ?? [
-                        { day: "Mon", mins: 0 }, { day: "Tue", mins: 0 },
-                        { day: "Wed", mins: 0 }, { day: "Thu", mins: 0 },
-                        { day: "Fri", mins: 0 }, { day: "Sat", mins: 0 },
-                        { day: "Sun", mins: 0 },
-                      ]).map((d, i, arr) => {
-                        const maxMins = Math.max(...arr.map(x => x.mins), 1);
-                        const barH = Math.round((d.mins / maxMins) * 60) + 4;
-                        const isToday = i === arr.length - 1;
-                        return (
-                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                            {d.mins > 0 && <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>}
-                            <div style={{ width: "100%", height: barH + "px", background: isToday ? "#FF6B6B" : d.mins > 30 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0", opacity: d.mins === 0 ? 0.2 : 1 }} />
-                            <div style={{ fontSize: 9, opacity: isToday ? 1 : 0.6, color: isToday ? "#FF8B94" : undefined }}>{d.day}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {weeklyActivity !== null && weeklyActivity.length > 0 && weeklyActivity.some(d => d.mins > 0) ? (
+                      <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
+                        {weeklyActivity.map((d, i, arr) => {
+                          const maxMins = Math.max(...arr.map(x => x.mins), 1);
+                          const barH = Math.round((d.mins / maxMins) * 60) + 4;
+                          const isToday = i === arr.length - 1;
+                          return (
+                            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                              {d.mins > 0 && <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>}
+                              <div style={{ width: "100%", height: barH + "px", background: isToday ? "#FF6B6B" : d.mins > 30 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0", opacity: d.mins === 0 ? 0.2 : 1 }} />
+                              <div style={{ fontSize: 9, opacity: isToday ? 1 : 0.6, color: isToday ? "#FF8B94" : undefined }}>{d.day}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : weeklyActivity !== null ? (
+                      <div style={{ textAlign: "center", padding: "16px 0", color: "#4ECDC4", fontSize: 13, fontFamily: "'Nunito', sans-serif", opacity: 0.85 }}>
+                        No activity yet — play a session to see your chart! 🚀
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Needs attention section */}
@@ -1003,7 +1224,7 @@ export default function App() {
                   <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: 20, textAlign: "center", boxShadow: "0 8px 30px #FF6B6B44" }}>
                     <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22 }}>🌟 Free Plan</div>
                     <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>Units 1–5 only. Unlock all 200 words!</div>
-                    <div className="btn-primary" style={{ display: "inline-block", marginTop: 12, background: "white", color: "#FF6B6B", borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15 }}>
+                    <div className="btn-primary" onClick={() => setShowUpgradeModal(true)} style={{ display: "inline-block", marginTop: 12, background: "white", color: "#FF6B6B", borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15, cursor: "pointer" }}>
                       Upgrade — $9.99/mo
                     </div>
                   </div>

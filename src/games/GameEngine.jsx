@@ -362,33 +362,10 @@ function FeedbackOverlay({ correct, message, emoji }) {
   );
 }
 
-// ─── Word tile: Unsplash image for content words, emoji fallback ──────────────
-function WordTile({ word, emoji, wordClass }) {
-  const [imgError,  setImgError]  = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const isContent = wordClass !== 'function' && !(_WORD_CLASS_MAP[word] === 'function');
-
-  if (!isContent || imgError) {
-    return <span style={{ fontSize: '3.5rem', lineHeight: 1 }}>{emoji}</span>;
-  }
+// ─── Word tile: large centered emoji ─────────────────────────────────────────
+function WordTile({ emoji }) {
   return (
-    <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '14px', overflow: 'hidden', flexShrink: 0 }}>
-      {!imgLoaded && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(255,255,255,0.08)',
-          borderRadius: '14px',
-          animation: 'mw-pulse-glow 1s ease-in-out infinite',
-        }} />
-      )}
-      <img
-        src={`https://picsum.photos/seed/${encodeURIComponent(word)}/160/160`}
-        alt={word}
-        style={{ width: '80px', height: '80px', objectFit: 'cover', display: imgLoaded ? 'block' : 'none' }}
-        onLoad={() => setImgLoaded(true)}
-        onError={() => setImgError(true)}
-      />
-    </div>
+    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center' }}>{emoji}</span>
   );
 }
 
@@ -401,6 +378,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   const [overlayData, setOverlayData] = useState(null);
   const [audioUrl,    setAudioUrl]    = useState(null);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [novaState,   setNovaState]   = useState('idle');
   const startRef = useRef(Date.now());
 
   // Reset game state immediately — never wait for audio
@@ -441,6 +419,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     const responseTimeMs = Date.now() - startRef.current;
     setSelected(idx);
     setAnswered(true);
+    setNovaState(correct ? 'correct' : 'wrong');
     setOverlayData({
       correct,
       message: correct
@@ -451,13 +430,14 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     setShowOverlay(true);
     setTimeout(() => {
       setShowOverlay(false);
+      setNovaState('idle');
       if (!correct) {
         // Replay word audio so child hears it again, then hold on the correct tile for 600ms
         const url = audioCache.get(quiz.word);
         if (url) new Audio(url).play().catch(() => {});
-        setTimeout(() => onAnswer({ correct, responseTimeMs }), 600);
+        setTimeout(() => onAnswer({ correct, responseTimeMs, firstTry: true }), 600);
       } else {
-        onAnswer({ correct, responseTimeMs });
+        onAnswer({ correct, responseTimeMs, firstTry: true });
       }
     }, 1400);
   }, [answered, quiz, onAnswer, encouragement]);
@@ -473,6 +453,16 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
           emoji={overlayData.emoji}
         />
       )}
+      {/* Nova mascot */}
+      <div style={{
+        position: 'fixed', top: 70, left: 16, zIndex: 200, fontSize: 40,
+        animation: novaState === 'idle'    ? 'nova-float 3s ease-in-out infinite'
+                 : novaState === 'correct' ? 'nova-bounce 0.6s ease'
+                 : 'nova-shake 0.4s ease',
+        pointerEvents: 'none',
+      }}>
+        👨‍🚀
+      </div>
       <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
         {/* Target word + replay button */}
         <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
@@ -548,7 +538,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
                   ...hintStyle,
                 }}
               >
-                <WordTile word={opt.word} emoji={opt.emoji} wordClass={quiz.wordClass} />
+                <WordTile emoji={opt.emoji} />
               </button>
             );
           })}
@@ -1084,7 +1074,7 @@ const PREMIUM_FEATURES = [
   '📊 Advanced parent analytics',
 ];
 
-function UpgradeModal({ onClose }) {
+export function UpgradeModal({ onClose }) {
   return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9998,
@@ -1210,6 +1200,7 @@ export function GameEngine({
   onProgress,
   onSessionEnd,
   onHome,
+  onXP,
 }) {
   useEffect(() => { injectCSS(); }, []);
 
@@ -1224,7 +1215,9 @@ export function GameEngine({
   const [consecutiveCorrect, setConsecutiveCorrect] = useState(0);
   const [consecutiveWrong,   setConsecutiveWrong]   = useState(0);
   const [wordsPlayed,        setWordsPlayed]        = useState([]);
+  const [xpToast,           setXpToast]           = useState(null);
   const sessionStartRef = useRef(Date.now());
+  const sessionXPRef    = useRef(0);
 
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
@@ -1234,7 +1227,18 @@ export function GameEngine({
     quizzes.forEach(q => { if (q?.word) fetchAudio(q.word); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAnswer = useCallback(({ correct, responseTimeMs }) => {
+  const handleAnswer = useCallback(({ correct, responseTimeMs, firstTry = true }) => {
+    // XP calculation
+    if (correct) {
+      let xpEarned = 10;
+      if (firstTry) xpEarned += 5;
+      if (responseTimeMs < 3000) xpEarned += 5;
+      sessionXPRef.current += xpEarned;
+      const toastId = Date.now();
+      setXpToast({ id: toastId, amount: xpEarned });
+      setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 900);
+    }
+
     const newCorrect = correctCount + (correct ? 1 : 0);
     if (correct) {
       setCorrectCount(newCorrect);
@@ -1263,7 +1267,10 @@ export function GameEngine({
 
     // WordMatch already waits 1400ms before calling onAnswer — advance immediately
     if (currentIdx + 1 >= totalQuizzes) {
+      const isPerfect = newCorrect === totalQuizzes;
+      const totalXP = sessionXPRef.current + 20 + (isPerfect ? 50 : 0);
       setSessionDone(true);
+      onXP?.(totalXP);
       onSessionEnd?.({
         wordsCorrect: newCorrect,
         totalWords:   totalQuizzes,
@@ -1273,7 +1280,7 @@ export function GameEngine({
     } else {
       setCurrentIdx(i => i + 1);
     }
-  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd]);
+  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
@@ -1283,6 +1290,7 @@ export function GameEngine({
     setConsecutiveWrong(0);
     setWordsPlayed([]);
     sessionStartRef.current = Date.now();
+    sessionXPRef.current = 0;
   };
 
   if (sessionDone) {
@@ -1316,6 +1324,17 @@ export function GameEngine({
       fontFamily: 'Nunito, sans-serif',
     }}>
       <ConfettiBurst active={showConfetti} />
+      {xpToast && (
+        <div key={xpToast.id} style={{
+          position: 'fixed', top: '35%', left: '50%',
+          fontFamily: 'Fredoka One', fontSize: '1.5rem', color: '#FFE66D',
+          zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
+          pointerEvents: 'none', textShadow: '0 0 20px rgba(255,230,109,0.8)',
+          whiteSpace: 'nowrap',
+        }}>
+          +{xpToast.amount} XP ⭐
+        </div>
+      )}
 
       <SessionProgress
         current={currentIdx + 1}
