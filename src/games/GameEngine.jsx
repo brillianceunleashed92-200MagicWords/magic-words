@@ -21,24 +21,55 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 // ─── Audio cache — word → blob URL, survives React re-renders ────────────────
-const audioCache = new Map();
+const audioCache    = new Map(); // word → blob URL string
+const audioFetching = new Map(); // word → Promise (in-flight dedup)
 
-async function fetchAudio(word) {
-  if (!word) return null;
-  if (audioCache.has(word)) return audioCache.get(word);
-  try {
-    const res = await fetch('/api/speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word }),
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    audioCache.set(word, url);
-    return url;
-  } catch {
-    return null;
+function fetchAudio(word) {
+  if (!word) return Promise.resolve(null);
+  if (audioCache.has(word)) return Promise.resolve(audioCache.get(word));
+  if (audioFetching.has(word)) return audioFetching.get(word);
+
+  const promise = fetch('/api/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ word }),
+  })
+    .then(res => (res.ok ? res.blob() : null))
+    .then(blob => {
+      if (!blob) return null;
+      const url = URL.createObjectURL(blob);
+      audioCache.set(word, url);
+      return url;
+    })
+    .catch(() => null)
+    .finally(() => audioFetching.delete(word));
+
+  audioFetching.set(word, promise);
+  return promise;
+}
+
+// ─── Question formatter — correct grammar for every word class ────────────────
+const _CONS = new Set('bcdfghjklmnpqrstvwxyz');
+function _gerund(verb) {
+  const c = verb.at(-1), v = verb.at(-2), c2 = verb.at(-3);
+  if (verb.length >= 3 && _CONS.has(c2) && 'aeiou'.includes(v) && _CONS.has(c) && c !== 'w' && c !== 'x') {
+    return verb + c + 'ing'; // run→running, hop→hopping
+  }
+  if (verb.endsWith('e') && !verb.endsWith('ee') && verb.length > 2) {
+    return verb.slice(0, -1) + 'ing'; // dance→dancing
+  }
+  return verb + 'ing';
+}
+
+function formatQuestion(word, wordClass) {
+  switch (wordClass) {
+    case 'function':  return `Which card matches the word "${word}"?`;
+    case 'verb':      return `Which picture shows someone ${_gerund(word)}?`;
+    case 'adjective': return `Which picture shows something ${word.toUpperCase()}?`;
+    default: {
+      const art = 'aeiou'.includes(word[0]) ? 'an' : 'a';
+      return `Which picture shows ${art} ${word}?`;
+    }
   }
 }
 
@@ -254,27 +285,36 @@ function ConfettiBurst({ active }) {
   );
 }
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
+// ─── Progress bar — chunky segmented bar ─────────────────────────────────────
 function SessionProgress({ current, total, correctCount }) {
-  const pct = Math.round((current / total) * 100);
   return (
     <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-        <span style={{ fontFamily: 'Fredoka One', color: T.teal, fontSize: '0.95rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+        <span style={{ fontFamily: 'Fredoka One', color: T.teal, fontSize: '0.9rem' }}>
           Word {current} of {total}
         </span>
-        <span style={{ fontFamily: 'Nunito', color: T.gold, fontSize: '0.95rem', fontWeight: 700 }}>
+        <span style={{ fontFamily: 'Fredoka One', color: T.gold, fontSize: '1.125rem' }}>
           ⭐ {correctCount} correct
         </span>
       </div>
-      <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '100px' }}>
-        <div style={{
-          height: '100%',
-          width: pct + '%',
-          background: `linear-gradient(90deg, ${T.teal}, ${T.gold})`,
-          borderRadius: '100px',
-          transition: 'width 0.5s ease',
-        }} />
+      <div style={{ display: 'flex', gap: '4px' }}>
+        {Array.from({ length: total }, (_, i) => {
+          const done   = i < current - 1;
+          const active = i === current - 1;
+          return (
+            <div key={i} style={{
+              flex: 1,
+              height: '10px',
+              borderRadius: '6px',
+              background: (done || active) ? T.teal : 'rgba(255,255,255,0.1)',
+              boxShadow: done   ? `0 0 8px ${T.teal}99`
+                       : active ? `0 0 14px ${T.teal}`
+                       : 'none',
+              animation: active ? 'mw-pulse-glow 1.2s ease-in-out infinite' : 'none',
+              transition: 'background 0.4s, box-shadow 0.4s',
+            }} />
+          );
+        })}
       </div>
     </div>
   );
@@ -319,25 +359,31 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
   const [audioLoading, setAudioLoading] = useState(false);
   const startRef = useRef(Date.now());
 
+  // Reset game state immediately — never wait for audio
   useEffect(() => {
     setSelected(null);
     setAnswered(false);
     setShowOverlay(false);
     setOverlayData(null);
     startRef.current = Date.now();
+  }, [quiz?.word]);
 
+  // Fetch audio separately — UI is never blocked if audio is slow or fails
+  useEffect(() => {
     if (!quiz?.word) return;
     let cancelled = false;
     setAudioUrl(null);
     setAudioLoading(true);
-    fetchAudio(quiz.word).then(url => {
-      if (cancelled) return;
-      setAudioLoading(false);
-      if (url) {
-        setAudioUrl(url);
-        new Audio(url).play().catch(() => {});
-      }
-    });
+    fetchAudio(quiz.word)
+      .then(url => {
+        if (cancelled) return;
+        setAudioLoading(false);
+        if (url) {
+          setAudioUrl(url);
+          new Audio(url).play().catch(() => {});
+        }
+      })
+      .catch(() => { if (!cancelled) setAudioLoading(false); });
     return () => { cancelled = true; };
   }, [quiz?.word]);
 
@@ -419,7 +465,7 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
             color: T.muted,
             marginTop: '0.25rem',
           }}>
-            {quiz.question}
+            {formatQuestion(quiz.word, quiz.wordClass ?? 'noun')}
           </div>
         </div>
 
@@ -443,10 +489,7 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
                 disabled={answered}
                 style={{ animationDelay: (idx * 0.07) + 's' }}
               >
-                <span style={{ fontSize: '3rem', lineHeight: 1 }}>{opt.emoji}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: T.muted }}>
-                  {opt.word}
-                </span>
+                <span style={{ fontSize: '3.5rem', lineHeight: 1 }}>{opt.emoji}</span>
               </button>
             );
           })}

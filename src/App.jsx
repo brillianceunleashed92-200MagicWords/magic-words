@@ -110,28 +110,53 @@ export default function App() {
     setScoresLoaded(false);
     supabase
       .from("word_progress")
-      .select("word, mastery")
+      .select("word, mastery, correct_count, attempt_count, last_seen")
       .eq("user_id", user?.id)
       .then(({ data, error }) => {
         if (error) { console.error("Failed to load word_progress", error); }
-        const byWord = new Map((data ?? []).map(r => [r.word, r.mastery]));
-        setWords(prev => prev.map(w =>
-          byWord.has(w.word)
-            ? { ...w, mastery: Math.max(0, Math.min(100, byWord.get(w.word))) }
-            : w
-        ));
+        const byWord = new Map((data ?? []).map(r => [r.word, r]));
+        setWords(prev => prev.map(w => {
+          const r = byWord.get(w.word);
+          if (!r) return w;
+          return { ...w, mastery: Math.max(0, Math.min(100, r.mastery ?? 0)) };
+        }));
         setScoresLoaded(true);
       });
   }, [user?.id]);
 
-  // ── Save a single word's progress to Supabase ──
-  const saveWordProgress = useCallback(async (word, mastery) => {
+  // ── Save a word's progress — tracks cumulative correct/attempt counts ──
+  const saveWordProgress = useCallback(async (word, correct) => {
     if (!user) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(mastery)));
-    const { error } = await supabase
-      .from("word_progress")
-      .upsert({ user_id: user?.id, word, mastery: clamped }, { onConflict: "user_id,word" });
-    if (error) console.error("Failed to save word_progress", error);
+    try {
+      // Fetch existing counts so we can compute cumulative totals
+      const { data: existing } = await supabase
+        .from("word_progress")
+        .select("correct_count, attempt_count")
+        .eq("user_id", user.id)
+        .eq("word", word)
+        .maybeSingle();
+
+      const correctCount  = (existing?.correct_count  ?? 0) + (correct ? 1 : 0);
+      const attemptCount  = (existing?.attempt_count  ?? 0) + 1;
+      const masteryScore  = Math.round((correctCount / attemptCount) * 100);
+
+      const { error } = await supabase
+        .from("word_progress")
+        .upsert({
+          user_id:       user.id,
+          word,
+          correct_count: correctCount,
+          attempt_count: attemptCount,
+          last_seen:     new Date().toISOString(),
+          mastery_score: masteryScore,
+          mastery:       masteryScore, // keep old column in sync
+        }, { onConflict: "user_id,word" });
+
+      if (error) console.error("Failed to save word_progress", error);
+      return masteryScore;
+    } catch (err) {
+      console.error("saveWordProgress error", err);
+    }
   }, [user]);
 
   // ── Celebration particles ──
@@ -149,28 +174,25 @@ export default function App() {
 
   // ── Handle a game answer (called by GameEngine after each tap) ──
   const handleProgress = useCallback(async ({ word, correct, responseTimeMs, gameType }) => {
+    // Optimistic local update: +5 correct, -2 wrong (instant UI feedback)
     const current = words.find(w => w.word === word);
     const currentMastery = current?.mastery ?? 0;
-    const newMastery = Math.min(100, Math.max(0,
+    const optimisticMastery = Math.min(100, Math.max(0,
       correct ? currentMastery + 5 : currentMastery - 2
     ));
-
-    // Update local state immediately (instant UI feedback)
     setWords(prev => prev.map(w =>
-      w.word === word ? { ...w, mastery: newMastery } : w
+      w.word === word ? { ...w, mastery: optimisticMastery } : w
     ));
 
-    // Persist to Supabase in background
-    await saveWordProgress(word, newMastery);
-
-    // Spawn particles on correct answer
     if (correct) spawnParticles(window.innerWidth / 2, window.innerHeight / 2);
 
-    // TODO: log to learning_events table once you've added that Supabase table
-    // await supabase.from("learning_events").insert({
-    //   user_id: user?.id, word, game_type: gameType,
-    //   correct, response_time_ms: responseTimeMs, attempt_number: 1,
-    // });
+    // Persist to Supabase with accurate cumulative counts; reconcile UI with server result
+    const serverMastery = await saveWordProgress(word, correct);
+    if (serverMastery != null && serverMastery !== optimisticMastery) {
+      setWords(prev => prev.map(w =>
+        w.word === word ? { ...w, mastery: serverMastery } : w
+      ));
+    }
   }, [words, saveWordProgress]);
 
   const handleSessionEnd = useCallback(({ wordsCorrect, totalWords }) => {

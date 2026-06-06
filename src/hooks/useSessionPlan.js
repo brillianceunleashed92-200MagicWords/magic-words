@@ -59,11 +59,13 @@ export function useSessionPlan(user, wordProgress) {
     setPlanError(null);
 
     try {
-      // Build the prompt context from real word progress data
+      // Build the prompt context — include cumulative counts for adaptive AI
       const progressSummary = (wordProgress || []).map(wp => ({
-        word:    wp.word,
-        mastery: wp.mastery,
-        lastPracticed: wp.last_practiced,
+        word:          wp.word,
+        mastery:       wp.mastery,
+        correct_count: wp.correct_count  ?? 0,
+        attempt_count: wp.attempt_count  ?? 0,
+        last_seen:     wp.last_seen      ?? wp.last_practiced ?? null,
       }));
 
       const response = await fetch('/api/session-generator', {

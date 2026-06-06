@@ -15,24 +15,24 @@ const client = new Anthropic({
 
 // Full word list with emojis (single source of truth in backend)
 const ALL_WORDS = [
-  { word: 'cat',  type: 'content',  unit: 2,  emoji: '🐱', isAction: false },
-  { word: 'dog',  type: 'content',  unit: 9,  emoji: '🐶', isAction: false },
-  { word: 'bird', type: 'content',  unit: 2,  emoji: '🐦', isAction: false },
-  { word: 'frog', type: 'content',  unit: 8,  emoji: '🐸', isAction: false },
-  { word: 'eat',  type: 'content',  unit: 3,  emoji: '🍎', isAction: true  },
-  { word: 'fly',  type: 'content',  unit: 3,  emoji: '✈️', isAction: true  },
-  { word: 'jump', type: 'content',  unit: 4,  emoji: '🦘', isAction: true  },
-  { word: 'run',  type: 'content',  unit: 9,  emoji: '🏃', isAction: true  },
-  { word: 'big',  type: 'content',  unit: 7,  emoji: '🐘', isAction: false },
-  { word: 'sad',  type: 'content',  unit: 13, emoji: '😢', isAction: false },
-  { word: 'the',  type: 'function', unit: 3,  emoji: '📖', isAction: false },
-  { word: 'can',  type: 'function', unit: 3,  emoji: '✅', isAction: false },
-  { word: 'is',   type: 'function', unit: 5,  emoji: '🔗', isAction: false },
-  { word: 'they', type: 'function', unit: 6,  emoji: '👥', isAction: false },
-  { word: 'not',  type: 'function', unit: 3,  emoji: '🚫', isAction: false },
-  { word: 'and',  type: 'function', unit: 12, emoji: '➕', isAction: false },
-  { word: 'with', type: 'function', unit: 18, emoji: '🤝', isAction: false },
-  { word: 'do',   type: 'function', unit: 7,  emoji: '⚡', isAction: false },
+  { word: 'cat',  type: 'content',  unit: 2,  emoji: '🐱', isAction: false, wordClass: 'noun'      },
+  { word: 'dog',  type: 'content',  unit: 9,  emoji: '🐶', isAction: false, wordClass: 'noun'      },
+  { word: 'bird', type: 'content',  unit: 2,  emoji: '🐦', isAction: false, wordClass: 'noun'      },
+  { word: 'frog', type: 'content',  unit: 8,  emoji: '🐸', isAction: false, wordClass: 'noun'      },
+  { word: 'eat',  type: 'content',  unit: 3,  emoji: '🍎', isAction: true,  wordClass: 'verb'      },
+  { word: 'fly',  type: 'content',  unit: 3,  emoji: '✈️', isAction: true,  wordClass: 'verb'      },
+  { word: 'jump', type: 'content',  unit: 4,  emoji: '🦘', isAction: true,  wordClass: 'verb'      },
+  { word: 'run',  type: 'content',  unit: 9,  emoji: '🏃', isAction: true,  wordClass: 'verb'      },
+  { word: 'big',  type: 'content',  unit: 7,  emoji: '🐘', isAction: false, wordClass: 'adjective' },
+  { word: 'sad',  type: 'content',  unit: 13, emoji: '😢', isAction: false, wordClass: 'adjective' },
+  { word: 'the',  type: 'function', unit: 3,  emoji: '📖', isAction: false, wordClass: 'function'  },
+  { word: 'can',  type: 'function', unit: 3,  emoji: '✅', isAction: false, wordClass: 'function'  },
+  { word: 'is',   type: 'function', unit: 5,  emoji: '🔗', isAction: false, wordClass: 'function'  },
+  { word: 'they', type: 'function', unit: 6,  emoji: '👥', isAction: false, wordClass: 'function'  },
+  { word: 'not',  type: 'function', unit: 3,  emoji: '🚫', isAction: false, wordClass: 'function'  },
+  { word: 'and',  type: 'function', unit: 12, emoji: '➕', isAction: false, wordClass: 'function'  },
+  { word: 'with', type: 'function', unit: 18, emoji: '🤝', isAction: false, wordClass: 'function'  },
+  { word: 'do',   type: 'function', unit: 7,  emoji: '⚡', isAction: false, wordClass: 'function'  },
 ];
 
 // Story templates for Story Builder game
@@ -68,14 +68,10 @@ function buildQuiz(targetWord, allWords) {
   const options = [...distractors, target].sort(() => Math.random() - 0.5);
   const correctIndex = options.findIndex(o => o.word === target.word);
 
-  const question = target.isAction
-    ? `Which picture shows someone ${target.word}ing?`
-    : `Which picture shows a ${target.word}?`;
-
   return {
     word:         target.word,
     emoji:        target.emoji,
-    question,
+    wordClass:    target.wordClass ?? 'noun', // used by client formatQuestion()
     sentence:     STORY_TEMPLATES[target.word] || `I know the word ___.`,
     options:      options.map(o => ({ word: o.word, emoji: o.emoji })),
     correctIndex,
@@ -93,23 +89,32 @@ function getDifficultyLevel(progress) {
   return 'proficient';
 }
 
-// Select which words to practice this session (without AI, as fast fallback)
+// Adaptive word selection: prioritize struggling, sprinkle mastered, cap new words at 2
 function selectSessionWords(progress) {
   const progressMap = Object.fromEntries(progress.map(w => [w.word, w]));
 
-  return ALL_WORDS
-    .map(w => ({
-      ...w,
-      mastery:       progressMap[w.word]?.mastery ?? 0,
-      lastPracticed: progressMap[w.word]?.lastPracticed ?? null,
-    }))
-    .sort((a, b) => {
-      // Prioritize: unstarted → low mastery → stale words
-      const aScore = a.mastery + (a.lastPracticed ? 0 : -50);
-      const bScore = b.mastery + (b.lastPracticed ? 0 : -50);
-      return aScore - bScore;
-    })
-    .slice(0, 8); // 8 words per session
+  const withProgress = ALL_WORDS.map(w => ({
+    ...w,
+    mastery:      progressMap[w.word]?.mastery       ?? 0,
+    attemptCount: progressMap[w.word]?.attempt_count ?? 0,
+    lastSeen:     progressMap[w.word]?.last_seen     ?? null,
+  }));
+
+  const unseen     = withProgress.filter(w => w.attemptCount === 0);
+  const struggling = withProgress.filter(w => w.attemptCount > 0 && w.mastery < 60).sort((a, b) => a.mastery - b.mastery);
+  const developing = withProgress.filter(w => w.attemptCount > 0 && w.mastery >= 60 && w.mastery < 80).sort((a, b) => a.mastery - b.mastery);
+  const mastered   = withProgress.filter(w => w.mastery >= 80).sort(() => Math.random() - 0.5);
+
+  const session = [
+    ...unseen.slice(0, 2),      // max 2 brand-new words
+    ...struggling,               // all struggling words first
+    ...developing,               // then developing
+    ...mastered.slice(0, 2),     // 1-2 mastered for confidence
+  ];
+
+  // Deduplicate and cap at 8
+  const seen = new Set();
+  return session.filter(w => { if (seen.has(w.word)) return false; seen.add(w.word); return true; }).slice(0, 8);
 }
 
 module.exports = async function handler(req, res) {
@@ -129,20 +134,33 @@ module.exports = async function handler(req, res) {
   const difficultyLevel = getDifficultyLevel(progress);
 
   try {
-    // Single AI call — generates encouragements, session goal, and validates/enriches the plan
+    // Build word history summary for adaptive AI context
+    const wordHistory = progress.map(p => ({
+      word:        p.word,
+      mastery:     p.mastery,
+      attempts:    p.attempt_count ?? 0,
+      correctRate: p.attempt_count ? Math.round((p.correct_count ?? 0) / p.attempt_count * 100) : null,
+      lastSeen:    p.last_seen ?? null,
+    }));
+
     const prompt = `You are a warm, encouraging reading teacher for children ages 4-8.
 
-A child is starting a new learning session. Here is their progress data:
+A child is starting a new learning session.
 - Difficulty level: ${difficultyLevel}
-- Words they'll practice: ${sessionWords.map(w => `${w.word} (mastery: ${w.mastery}%)`).join(', ')}
-- Total words in program: ${ALL_WORDS.length}
+- Words selected for this session: ${sessionWords.map(w => `${w.word} (mastery: ${w.mastery}%, attempts: ${w.attemptCount})`).join(', ')}
+- Word history (all words): ${JSON.stringify(wordHistory)}
+
+Adaptive learning rules already applied to word selection:
+- Struggling words (mastery < 60%) are prioritized
+- 1-2 mastered words included for confidence
+- Max 2 brand-new words introduced
 
 Generate a JSON session plan with exactly these fields:
 {
   "sessionGoal": "One short, exciting sentence about what we'll learn today (max 8 words, use 'we')",
   "encouragements": ["5 short encouraging phrases for when a child answers correctly. Age 4-8. Enthusiastic! Use emojis. Max 6 words each."],
   "wrongAnswerMessages": ["3 gentle, encouraging messages for wrong answers. Never say 'wrong'. Max 8 words each."],
-  "coachingTip": "One teaching tip for this child based on their level (for the parent dashboard, not the child)"
+  "coachingTip": "One teaching tip for this child based on their mastery data (for the parent dashboard, not the child)"
 }
 
 Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
