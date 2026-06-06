@@ -109,7 +109,7 @@ function buildFallbackPlan(wordProgress = []) {
     { word: 'eat',  emoji: '🍎', mastery: 0 },
     { word: 'jump', emoji: '🦘', mastery: 0 },
     { word: 'the',  emoji: '📖', mastery: 0 },
-    { word: 'can',  emoji: '✅', mastery: 0 },
+    { word: 'can',  emoji: '🥫', mastery: 0 },
     { word: 'big',  emoji: '🐘', mastery: 0 },
     { word: 'run',  emoji: '🏃', mastery: 0 },
     { word: 'fly',  emoji: '✈️', mastery: 0 },
