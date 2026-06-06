@@ -18,7 +18,7 @@ const WORDS = [
   { id: 9,  word: "big",  type: "content",  unit: 7,  mastery: 0, emoji: "🐘" },
   { id: 10, word: "sad",  type: "content",  unit: 13, mastery: 0, emoji: "😢" },
   { id: 11, word: "the",  type: "function", unit: 3,  mastery: 0, emoji: "📖" },
-  { id: 12, word: "can",  type: "function", unit: 3,  mastery: 0, emoji: "✅" },
+  { id: 12, word: "can",  type: "function", unit: 3,  mastery: 0, emoji: "🥫" },
   { id: 13, word: "is",   type: "function", unit: 5,  mastery: 0, emoji: "🔗" },
   { id: 14, word: "they", type: "function", unit: 6,  mastery: 0, emoji: "👥" },
   { id: 15, word: "not",  type: "function", unit: 3,  mastery: 0, emoji: "🚫" },
@@ -506,7 +506,7 @@ export default function App() {
                   </div>
 
                   {/* Daily magic word */}
-                  <div style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+                  <div onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
                     <div style={{ fontSize: 40, animation: "float 3s ease-in-out infinite", flexShrink: 0 }}>✨</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Daily Magic Word</div>

@@ -260,7 +260,7 @@ function SessionProgress({ current, total, correctCount }) {
 function FeedbackOverlay({ correct, message, emoji }) {
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 100,
+      position: 'fixed', inset: 0, zIndex: 9999,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       background: correct
@@ -1031,20 +1031,21 @@ export function GameEngine({
 
       {/* Render the correct game component */}
       {gameType === 'word_match' && (
-        <WordMatch quiz={currentQuiz} onAnswer={handleAnswer} />
+        <WordMatch key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'sound_match' && (
         <SoundMatch
+          key={currentIdx}
           quiz={currentQuiz}
           onAnswer={handleAnswer}
           audioUrl={currentQuiz.audioUrl ?? null}
         />
       )}
       {gameType === 'story_builder' && (
-        <StoryBuilder quiz={currentQuiz} onAnswer={handleAnswer} />
+        <StoryBuilder key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'spell_it_out' && (
-        <SpellItOut quiz={currentQuiz} onAnswer={handleAnswer} />
+        <SpellItOut key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
     </div>
   );
