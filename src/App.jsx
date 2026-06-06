@@ -4,7 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthGuard, GalaxyLoader } from "./components/AuthGuard";
 import { useAuth } from "./hooks/useAuth";
 import { useSessionPlan } from "./hooks/useSessionPlan";
-import { GameEngine, GameTypeSelector } from "./games/GameEngine";
+import { GameEngine, GameTypeSelector, SessionComplete } from "./games/GameEngine";
 
 const WORDS = [
   { id: 1,  word: "cat",  type: "content",  unit: 2,  mastery: 0, emoji: "🐱" },
@@ -95,6 +95,7 @@ export default function App() {
   // ── Game state ──
   const [gameActive,     setGameActive]     = useState(false);
   const [activeGameType, setActiveGameType] = useState("word_match");
+  const [sessionResult,  setSessionResult]  = useState(null); // set on session end
 
   // ── Streak ──
   const [streak,      setStreak]      = useState(0);
@@ -326,17 +327,23 @@ export default function App() {
     }
 
     // Insert learning event (fire-and-forget, table may not exist yet)
-    void supabase.from('learning_events').insert({
-      user_id:          user?.id,
-      word,
-      correct,
-      game_type:        gameType,
-      response_time_ms: responseTimeMs,
-    }).catch(() => {});
+    ;(async () => {
+      try {
+        await supabase.from('learning_events').insert({
+          user_id:          user?.id,
+          word,
+          correct,
+          game_type:        gameType,
+          response_time_ms: responseTimeMs,
+        });
+      } catch {}
+    })();
   }, [words, saveWordProgress, user]);
 
-  const handleSessionEnd = useCallback(({ wordsCorrect, totalWords }) => {
+  const handleSessionEnd = useCallback(({ wordsCorrect, totalWords, wordsPlayed }) => {
+    setSessionResult({ wordsCorrect, totalWords, wordsPlayed: wordsPlayed ?? [] });
     setGameActive(false);
+    setScreen("sessionComplete");
     updateStreak().catch(() => {});
   }, [updateStreak]);
 
@@ -747,6 +754,25 @@ export default function App() {
               {/* ═══ LEARN ═══ */}
               {screen === "learn" && renderLearnTab()}
 
+              {/* ═══ SESSION COMPLETE ═══ */}
+              {screen === "sessionComplete" && sessionResult && (
+                <SessionComplete
+                  correctCount={sessionResult.wordsCorrect}
+                  total={sessionResult.totalWords}
+                  wordsPlayed={sessionResult.wordsPlayed}
+                  encouragement={sessionPlan?.encouragements?.[0] ?? "Amazing work today! 🌟"}
+                  childName={getChildName(user)}
+                  onPlayAgain={() => {
+                    setSessionResult(null);
+                    setScreen("learn");
+                  }}
+                  onHome={() => {
+                    setSessionResult(null);
+                    setScreen("home");
+                  }}
+                />
+              )}
+
               {/* ═══ MY WORDS ═══ */}
               {screen === "words" && (
                 <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
@@ -1007,11 +1033,11 @@ export default function App() {
                           disabled={!newClassName.trim()}
                           onClick={async () => {
                             if (!newClassName.trim() || !user) return;
-                            const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                            const classCode = Math.random().toString(36).substring(2, 8).toUpperCase();
                             const { data, error } = await supabase.from('teacher_classes').insert({
                               teacher_id: user.id,
                               class_name: newClassName.trim(),
-                              join_code: joinCode,
+                              class_code: classCode,
                             }).select().maybeSingle();
                             if (!error && data) { setTeacherClass(data); setShowCreateClass(false); setNewClassName(''); }
                           }}
@@ -1040,11 +1066,11 @@ export default function App() {
                       <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(168,230,207,0.1))", border: "2px solid #4ECDC4", borderRadius: 20, padding: 20, marginBottom: 20, textAlign: "center" }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Student Join Code</div>
                         <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", letterSpacing: 6, textShadow: "0 0 20px #FFE66D44" }}>
-                          {teacherClass.join_code}
+                          {teacherClass.class_code}
                         </div>
                         <div
                           className="btn-primary"
-                          onClick={() => navigator.clipboard?.writeText(teacherClass.join_code)}
+                          onClick={() => navigator.clipboard?.writeText(teacherClass.class_code)}
                           style={{ marginTop: 8, display: "inline-block", background: "rgba(78,205,196,0.15)", border: "1px solid #4ECDC4", borderRadius: 10, padding: "6px 16px", fontSize: 12, fontWeight: 800, color: "#4ECDC4", cursor: "pointer" }}
                         >
                           Copy code 📋

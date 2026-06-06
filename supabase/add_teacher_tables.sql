@@ -4,7 +4,7 @@ create table if not exists teacher_classes (
   id           bigserial   primary key,
   teacher_id   uuid        not null references auth.users(id) on delete cascade,
   class_name   text        not null,
-  join_code    text        not null unique,
+  class_code   text        not null unique,
   created_at   timestamptz not null default now()
 );
 

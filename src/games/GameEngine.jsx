@@ -382,7 +382,7 @@ function WordTile({ word, emoji, wordClass }) {
         }} />
       )}
       <img
-        src={`https://source.unsplash.com/200x200/?${encodeURIComponent(word)},illustration`}
+        src={`https://picsum.photos/seed/${encodeURIComponent(word)}/160/160`}
         alt={word}
         style={{ width: '80px', height: '80px', objectFit: 'cover', display: imgLoaded ? 'block' : 'none' }}
         onLoad={() => setImgLoaded(true)}
@@ -938,7 +938,7 @@ function SpellItOut({ quiz, onAnswer }) {
 }
 
 // ─── Session Complete screen ───────────────────────────────────────────────────
-function SessionComplete({ correctCount, total, encouragement, childName, wordsPlayed = [], onPlayAgain, onHome }) {
+export function SessionComplete({ correctCount, total, encouragement, childName, wordsPlayed = [], onPlayAgain, onHome }) {
   const [confettiActive, setConfettiActive] = useState(true);
   const pct   = Math.round((correctCount / total) * 100);
   const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
