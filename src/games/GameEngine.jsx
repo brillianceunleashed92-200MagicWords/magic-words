@@ -18,6 +18,7 @@
 //   childName      — for personalized encouragement
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
 const T = {
@@ -213,7 +214,7 @@ function ConfettiBurst({ active }) {
     size: 6 + (i % 4) * 2,
   }));
 
-  return (
+  return createPortal(
     <div style={{ position: 'fixed', top: '40%', left: '50%', pointerEvents: 'none', zIndex: 999 }}>
       {pieces.map((p, i) => (
         <div key={i} style={{
@@ -226,7 +227,8 @@ function ConfettiBurst({ active }) {
           animation: `mw-confetti 0.9s ease-out ${p.delay}s forwards`,
         }} />
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -258,7 +260,7 @@ function SessionProgress({ current, total, correctCount }) {
 
 // ─── Feedback overlay (shows after answer) ────────────────────────────────────
 function FeedbackOverlay({ correct, message, emoji }) {
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       display: 'flex', flexDirection: 'column',
@@ -279,7 +281,8 @@ function FeedbackOverlay({ correct, message, emoji }) {
         textAlign: 'center',
         padding: '0 1rem',
       }}>{message}</div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
