@@ -5,26 +5,236 @@ import { AuthGuard, GalaxyLoader } from "./components/AuthGuard";
 import { useAuth } from "./hooks/useAuth";
 import { useSessionPlan } from "./hooks/useSessionPlan";
 import { GameEngine, GameTypeSelector, SessionComplete, UpgradeModal } from "./games/GameEngine";
+import QRCode from "qrcode";
+
+const UNIT_NAMES = {
+  1:'My World', 2:'Animals', 3:'Actions', 4:'More Actions',
+  5:'Describing', 6:'Family', 7:'Food & Drink', 8:'Colors',
+  9:'Home & Travel', 10:'Numbers', 11:'Function Words', 12:'Pronouns',
+  13:'Prepositions', 14:'More Describing', 15:'School & Learning',
+  16:'Nature', 17:'Body Parts', 18:'Advanced Words',
+};
 
 const WORDS = [
-  { id: 1,  word: "cat",  type: "content",  unit: 2,  mastery: 0, emoji: "🐱" },
-  { id: 2,  word: "dog",  type: "content",  unit: 9,  mastery: 0, emoji: "🐶" },
-  { id: 3,  word: "bird", type: "content",  unit: 2,  mastery: 0, emoji: "🐦" },
-  { id: 4,  word: "frog", type: "content",  unit: 8,  mastery: 0, emoji: "🐸" },
-  { id: 5,  word: "eat",  type: "content",  unit: 3,  mastery: 0, emoji: "🍎" },
-  { id: 6,  word: "fly",  type: "content",  unit: 3,  mastery: 0, emoji: "✈️" },
-  { id: 7,  word: "jump", type: "content",  unit: 4,  mastery: 0, emoji: "🦘" },
-  { id: 8,  word: "run",  type: "content",  unit: 9,  mastery: 0, emoji: "🏃" },
-  { id: 9,  word: "big",  type: "content",  unit: 7,  mastery: 0, emoji: "🐘" },
-  { id: 10, word: "sad",  type: "content",  unit: 13, mastery: 0, emoji: "😢" },
-  { id: 11, word: "the",  type: "function", unit: 3,  mastery: 0, emoji: "📖" },
-  { id: 12, word: "can",  type: "function", unit: 3,  mastery: 0, emoji: "🥫" },
-  { id: 13, word: "is",   type: "function", unit: 5,  mastery: 0, emoji: "🔗" },
-  { id: 14, word: "they", type: "function", unit: 6,  mastery: 0, emoji: "👥" },
-  { id: 15, word: "not",  type: "function", unit: 3,  mastery: 0, emoji: "🚫" },
-  { id: 16, word: "and",  type: "function", unit: 12, mastery: 0, emoji: "➕" },
-  { id: 17, word: "with", type: "function", unit: 18, mastery: 0, emoji: "🤝" },
-  { id: 18, word: "do",   type: "function", unit: 7,  mastery: 0, emoji: "⚡" },
+  // Unit 1: My World
+  { id:1,   word:"cat",     type:"content",  unit:1,  mastery:0, emoji:"🐱" },
+  { id:2,   word:"dog",     type:"content",  unit:1,  mastery:0, emoji:"🐶" },
+  { id:3,   word:"bird",    type:"content",  unit:1,  mastery:0, emoji:"🐦" },
+  { id:4,   word:"fish",    type:"content",  unit:1,  mastery:0, emoji:"🐟" },
+  { id:5,   word:"bear",    type:"content",  unit:1,  mastery:0, emoji:"🐻" },
+  { id:6,   word:"ball",    type:"content",  unit:1,  mastery:0, emoji:"⚽" },
+  { id:7,   word:"book",    type:"content",  unit:1,  mastery:0, emoji:"📚" },
+  { id:8,   word:"cup",     type:"content",  unit:1,  mastery:0, emoji:"🥤" },
+  // Unit 2: Animals
+  { id:9,   word:"frog",    type:"content",  unit:2,  mastery:0, emoji:"🐸" },
+  { id:10,  word:"horse",   type:"content",  unit:2,  mastery:0, emoji:"🐴" },
+  { id:11,  word:"lion",    type:"content",  unit:2,  mastery:0, emoji:"🦁" },
+  { id:12,  word:"rabbit",  type:"content",  unit:2,  mastery:0, emoji:"🐰" },
+  { id:13,  word:"duck",    type:"content",  unit:2,  mastery:0, emoji:"🦆" },
+  { id:14,  word:"cow",     type:"content",  unit:2,  mastery:0, emoji:"🐄" },
+  { id:15,  word:"pig",     type:"content",  unit:2,  mastery:0, emoji:"🐷" },
+  { id:16,  word:"turtle",  type:"content",  unit:2,  mastery:0, emoji:"🐢" },
+  // Unit 3: Actions
+  { id:17,  word:"eat",     type:"content",  unit:3,  mastery:0, emoji:"🍎" },
+  { id:18,  word:"jump",    type:"content",  unit:3,  mastery:0, emoji:"🦘" },
+  { id:19,  word:"run",     type:"content",  unit:3,  mastery:0, emoji:"🏃" },
+  { id:20,  word:"swim",    type:"content",  unit:3,  mastery:0, emoji:"🏊" },
+  { id:21,  word:"fly",     type:"content",  unit:3,  mastery:0, emoji:"✈️" },
+  { id:22,  word:"dance",   type:"content",  unit:3,  mastery:0, emoji:"💃" },
+  { id:23,  word:"sing",    type:"content",  unit:3,  mastery:0, emoji:"🎤" },
+  { id:24,  word:"play",    type:"content",  unit:3,  mastery:0, emoji:"🎮" },
+  // Unit 4: More Actions
+  { id:25,  word:"stop",    type:"content",  unit:4,  mastery:0, emoji:"🛑" },
+  { id:26,  word:"go",      type:"content",  unit:4,  mastery:0, emoji:"🚦" },
+  { id:27,  word:"look",    type:"content",  unit:4,  mastery:0, emoji:"👀" },
+  { id:28,  word:"see",     type:"content",  unit:4,  mastery:0, emoji:"👁️" },
+  { id:29,  word:"help",    type:"content",  unit:4,  mastery:0, emoji:"🆘" },
+  { id:30,  word:"sleep",   type:"content",  unit:4,  mastery:0, emoji:"😴" },
+  { id:31,  word:"open",    type:"content",  unit:4,  mastery:0, emoji:"🚪" },
+  { id:32,  word:"sit",     type:"content",  unit:4,  mastery:0, emoji:"🪑" },
+  // Unit 5: Describing
+  { id:33,  word:"big",     type:"content",  unit:5,  mastery:0, emoji:"🐘" },
+  { id:34,  word:"small",   type:"content",  unit:5,  mastery:0, emoji:"🐭" },
+  { id:35,  word:"hot",     type:"content",  unit:5,  mastery:0, emoji:"🌶️" },
+  { id:36,  word:"cold",    type:"content",  unit:5,  mastery:0, emoji:"🧊" },
+  { id:37,  word:"happy",   type:"content",  unit:5,  mastery:0, emoji:"😊" },
+  { id:38,  word:"sad",     type:"content",  unit:5,  mastery:0, emoji:"😢" },
+  { id:39,  word:"fast",    type:"content",  unit:5,  mastery:0, emoji:"⚡" },
+  { id:40,  word:"slow",    type:"content",  unit:5,  mastery:0, emoji:"🐌" },
+  // Unit 6: Family
+  { id:41,  word:"mom",     type:"content",  unit:6,  mastery:0, emoji:"👩" },
+  { id:42,  word:"dad",     type:"content",  unit:6,  mastery:0, emoji:"👨" },
+  { id:43,  word:"baby",    type:"content",  unit:6,  mastery:0, emoji:"👶" },
+  { id:44,  word:"boy",     type:"content",  unit:6,  mastery:0, emoji:"👦" },
+  { id:45,  word:"girl",    type:"content",  unit:6,  mastery:0, emoji:"👧" },
+  { id:46,  word:"friend",  type:"content",  unit:6,  mastery:0, emoji:"🤝" },
+  { id:47,  word:"man",     type:"content",  unit:6,  mastery:0, emoji:"🧔" },
+  { id:48,  word:"woman",   type:"content",  unit:6,  mastery:0, emoji:"👩‍🦰" },
+  // Unit 7: Food & Drink
+  { id:49,  word:"apple",   type:"content",  unit:7,  mastery:0, emoji:"🍎" },
+  { id:50,  word:"milk",    type:"content",  unit:7,  mastery:0, emoji:"🥛" },
+  { id:51,  word:"cookie",  type:"content",  unit:7,  mastery:0, emoji:"🍪" },
+  { id:52,  word:"cake",    type:"content",  unit:7,  mastery:0, emoji:"🎂" },
+  { id:53,  word:"pizza",   type:"content",  unit:7,  mastery:0, emoji:"🍕" },
+  { id:54,  word:"bread",   type:"content",  unit:7,  mastery:0, emoji:"🍞" },
+  { id:55,  word:"egg",     type:"content",  unit:7,  mastery:0, emoji:"🥚" },
+  { id:56,  word:"water",   type:"content",  unit:7,  mastery:0, emoji:"💧" },
+  // Unit 8: Colors
+  { id:57,  word:"red",     type:"content",  unit:8,  mastery:0, emoji:"🔴" },
+  { id:58,  word:"blue",    type:"content",  unit:8,  mastery:0, emoji:"🔵" },
+  { id:59,  word:"green",   type:"content",  unit:8,  mastery:0, emoji:"🟢" },
+  { id:60,  word:"yellow",  type:"content",  unit:8,  mastery:0, emoji:"🟡" },
+  { id:61,  word:"orange",  type:"content",  unit:8,  mastery:0, emoji:"🟠" },
+  { id:62,  word:"purple",  type:"content",  unit:8,  mastery:0, emoji:"🟣" },
+  { id:63,  word:"pink",    type:"content",  unit:8,  mastery:0, emoji:"🩷" },
+  { id:64,  word:"black",   type:"content",  unit:8,  mastery:0, emoji:"⬛" },
+  // Unit 9: Home & Travel
+  { id:65,  word:"bed",     type:"content",  unit:9,  mastery:0, emoji:"🛏️" },
+  { id:66,  word:"chair",   type:"content",  unit:9,  mastery:0, emoji:"🪑" },
+  { id:67,  word:"door",    type:"content",  unit:9,  mastery:0, emoji:"🚪" },
+  { id:68,  word:"house",   type:"content",  unit:9,  mastery:0, emoji:"🏠" },
+  { id:69,  word:"car",     type:"content",  unit:9,  mastery:0, emoji:"🚗" },
+  { id:70,  word:"bus",     type:"content",  unit:9,  mastery:0, emoji:"🚌" },
+  { id:71,  word:"hat",     type:"content",  unit:9,  mastery:0, emoji:"🎩" },
+  { id:72,  word:"shoe",    type:"content",  unit:9,  mastery:0, emoji:"👟" },
+  // Unit 10: Numbers
+  { id:73,  word:"one",     type:"content",  unit:10, mastery:0, emoji:"1️⃣" },
+  { id:74,  word:"two",     type:"content",  unit:10, mastery:0, emoji:"2️⃣" },
+  { id:75,  word:"three",   type:"content",  unit:10, mastery:0, emoji:"3️⃣" },
+  { id:76,  word:"four",    type:"content",  unit:10, mastery:0, emoji:"4️⃣" },
+  { id:77,  word:"five",    type:"content",  unit:10, mastery:0, emoji:"5️⃣" },
+  { id:78,  word:"six",     type:"content",  unit:10, mastery:0, emoji:"6️⃣" },
+  { id:79,  word:"seven",   type:"content",  unit:10, mastery:0, emoji:"7️⃣" },
+  { id:80,  word:"ten",     type:"content",  unit:10, mastery:0, emoji:"🔟" },
+  // Unit 11: Function Words
+  { id:81,  word:"the",     type:"function", unit:11, mastery:0, emoji:"📖" },
+  { id:82,  word:"a",       type:"function", unit:11, mastery:0, emoji:"🅰️" },
+  { id:83,  word:"is",      type:"function", unit:11, mastery:0, emoji:"🔗" },
+  { id:84,  word:"not",     type:"function", unit:11, mastery:0, emoji:"🚫" },
+  { id:85,  word:"can",     type:"function", unit:11, mastery:0, emoji:"✅" },
+  { id:86,  word:"and",     type:"function", unit:11, mastery:0, emoji:"➕" },
+  { id:87,  word:"or",      type:"function", unit:11, mastery:0, emoji:"🔀" },
+  { id:88,  word:"but",     type:"function", unit:11, mastery:0, emoji:"↔️" },
+  // Unit 12: Pronouns
+  { id:89,  word:"I",       type:"function", unit:12, mastery:0, emoji:"👆" },
+  { id:90,  word:"you",     type:"function", unit:12, mastery:0, emoji:"👉" },
+  { id:91,  word:"he",      type:"function", unit:12, mastery:0, emoji:"🧔" },
+  { id:92,  word:"she",     type:"function", unit:12, mastery:0, emoji:"👩" },
+  { id:93,  word:"we",      type:"function", unit:12, mastery:0, emoji:"👫" },
+  { id:94,  word:"they",    type:"function", unit:12, mastery:0, emoji:"👥" },
+  { id:95,  word:"me",      type:"function", unit:12, mastery:0, emoji:"🫵" },
+  { id:96,  word:"my",      type:"function", unit:12, mastery:0, emoji:"💭" },
+  // Unit 13: Prepositions
+  { id:97,  word:"in",      type:"function", unit:13, mastery:0, emoji:"📦" },
+  { id:98,  word:"on",      type:"function", unit:13, mastery:0, emoji:"⬆️" },
+  { id:99,  word:"up",      type:"function", unit:13, mastery:0, emoji:"☝️" },
+  { id:100, word:"down",    type:"function", unit:13, mastery:0, emoji:"👇" },
+  { id:101, word:"to",      type:"function", unit:13, mastery:0, emoji:"➡️" },
+  { id:102, word:"at",      type:"function", unit:13, mastery:0, emoji:"📍" },
+  { id:103, word:"for",     type:"function", unit:13, mastery:0, emoji:"🎁" },
+  { id:104, word:"with",    type:"function", unit:13, mastery:0, emoji:"🤝" },
+  // Unit 14: More Describing
+  { id:105, word:"good",    type:"content",  unit:14, mastery:0, emoji:"👍" },
+  { id:106, word:"bad",     type:"content",  unit:14, mastery:0, emoji:"👎" },
+  { id:107, word:"pretty",  type:"content",  unit:14, mastery:0, emoji:"🌸" },
+  { id:108, word:"funny",   type:"content",  unit:14, mastery:0, emoji:"😂" },
+  { id:109, word:"new",     type:"content",  unit:14, mastery:0, emoji:"✨" },
+  { id:110, word:"old",     type:"content",  unit:14, mastery:0, emoji:"👴" },
+  { id:111, word:"loud",    type:"content",  unit:14, mastery:0, emoji:"📢" },
+  { id:112, word:"quiet",   type:"content",  unit:14, mastery:0, emoji:"🤫" },
+  // Unit 15: School & Learning
+  { id:113, word:"read",    type:"content",  unit:15, mastery:0, emoji:"📖" },
+  { id:114, word:"write",   type:"content",  unit:15, mastery:0, emoji:"✏️" },
+  { id:115, word:"draw",    type:"content",  unit:15, mastery:0, emoji:"🎨" },
+  { id:116, word:"learn",   type:"content",  unit:15, mastery:0, emoji:"🎓" },
+  { id:117, word:"count",   type:"content",  unit:15, mastery:0, emoji:"🔢" },
+  { id:118, word:"share",   type:"content",  unit:15, mastery:0, emoji:"🤲" },
+  { id:119, word:"color",   type:"content",  unit:15, mastery:0, emoji:"🖍️" },
+  { id:120, word:"cut",     type:"content",  unit:15, mastery:0, emoji:"✂️" },
+  // Unit 16: Nature
+  { id:121, word:"sun",     type:"content",  unit:16, mastery:0, emoji:"☀️" },
+  { id:122, word:"moon",    type:"content",  unit:16, mastery:0, emoji:"🌙" },
+  { id:123, word:"star",    type:"content",  unit:16, mastery:0, emoji:"⭐" },
+  { id:124, word:"rain",    type:"content",  unit:16, mastery:0, emoji:"🌧️" },
+  { id:125, word:"snow",    type:"content",  unit:16, mastery:0, emoji:"❄️" },
+  { id:126, word:"wind",    type:"content",  unit:16, mastery:0, emoji:"💨" },
+  { id:127, word:"tree",    type:"content",  unit:16, mastery:0, emoji:"🌳" },
+  { id:128, word:"flower",  type:"content",  unit:16, mastery:0, emoji:"🌸" },
+  // Unit 17: Body Parts
+  { id:129, word:"hand",    type:"content",  unit:17, mastery:0, emoji:"✋" },
+  { id:130, word:"foot",    type:"content",  unit:17, mastery:0, emoji:"🦶" },
+  { id:131, word:"eye",     type:"content",  unit:17, mastery:0, emoji:"👁️" },
+  { id:132, word:"ear",     type:"content",  unit:17, mastery:0, emoji:"👂" },
+  { id:133, word:"nose",    type:"content",  unit:17, mastery:0, emoji:"👃" },
+  { id:134, word:"mouth",   type:"content",  unit:17, mastery:0, emoji:"👄" },
+  { id:135, word:"head",    type:"content",  unit:17, mastery:0, emoji:"🗣️" },
+  { id:136, word:"heart",   type:"content",  unit:17, mastery:0, emoji:"❤️" },
+  // Unit 18: Advanced Words
+  { id:137, word:"do",      type:"function", unit:18, mastery:0, emoji:"⚡" },
+  { id:138, word:"it",      type:"function", unit:18, mastery:0, emoji:"👈" },
+  { id:139, word:"that",    type:"function", unit:18, mastery:0, emoji:"🎯" },
+  { id:140, word:"all",     type:"function", unit:18, mastery:0, emoji:"🌐" },
+  { id:141, word:"more",    type:"function", unit:18, mastery:0, emoji:"➕" },
+  { id:142, word:"no",      type:"function", unit:18, mastery:0, emoji:"❌" },
+  { id:143, word:"yes",     type:"function", unit:18, mastery:0, emoji:"✅" },
+  { id:144, word:"now",     type:"function", unit:18, mastery:0, emoji:"⏰" },
+  // Bonus words (spread across units)
+  { id:145, word:"monkey",  type:"content",  unit:2,  mastery:0, emoji:"🐒" },
+  { id:146, word:"shark",   type:"content",  unit:2,  mastery:0, emoji:"🦈" },
+  { id:147, word:"ant",     type:"content",  unit:2,  mastery:0, emoji:"🐜" },
+  { id:148, word:"bee",     type:"content",  unit:2,  mastery:0, emoji:"🐝" },
+  { id:149, word:"soup",    type:"content",  unit:7,  mastery:0, emoji:"🍲" },
+  { id:150, word:"juice",   type:"content",  unit:7,  mastery:0, emoji:"🧃" },
+  { id:151, word:"banana",  type:"content",  unit:7,  mastery:0, emoji:"🍌" },
+  { id:152, word:"grapes",  type:"content",  unit:7,  mastery:0, emoji:"🍇" },
+  { id:153, word:"white",   type:"content",  unit:8,  mastery:0, emoji:"⬜" },
+  { id:154, word:"brown",   type:"content",  unit:8,  mastery:0, emoji:"🟫" },
+  { id:155, word:"gray",    type:"content",  unit:8,  mastery:0, emoji:"🩶" },
+  { id:156, word:"gold",    type:"content",  unit:8,  mastery:0, emoji:"🥇" },
+  { id:157, word:"nine",    type:"content",  unit:10, mastery:0, emoji:"9️⃣" },
+  { id:158, word:"eight",   type:"content",  unit:10, mastery:0, emoji:"8️⃣" },
+  { id:159, word:"zero",    type:"content",  unit:10, mastery:0, emoji:"0️⃣" },
+  { id:160, word:"many",    type:"function", unit:18, mastery:0, emoji:"🔢" },
+  { id:161, word:"push",    type:"content",  unit:4,  mastery:0, emoji:"👊" },
+  { id:162, word:"pull",    type:"content",  unit:4,  mastery:0, emoji:"🪝" },
+  { id:163, word:"throw",   type:"content",  unit:4,  mastery:0, emoji:"🎯" },
+  { id:164, word:"catch",   type:"content",  unit:4,  mastery:0, emoji:"🧤" },
+  { id:165, word:"stand",   type:"content",  unit:4,  mastery:0, emoji:"🧍" },
+  { id:166, word:"hop",     type:"content",  unit:4,  mastery:0, emoji:"🐇" },
+  { id:167, word:"clean",   type:"content",  unit:14, mastery:0, emoji:"🧹" },
+  { id:168, word:"dirty",   type:"content",  unit:14, mastery:0, emoji:"🗑️" },
+  { id:169, word:"wet",     type:"content",  unit:14, mastery:0, emoji:"💦" },
+  { id:170, word:"dry",     type:"content",  unit:14, mastery:0, emoji:"🌵" },
+  { id:171, word:"full",    type:"content",  unit:14, mastery:0, emoji:"🍱" },
+  { id:172, word:"empty",   type:"content",  unit:14, mastery:0, emoji:"🪣" },
+  { id:173, word:"phone",   type:"content",  unit:9,  mastery:0, emoji:"📱" },
+  { id:174, word:"light",   type:"content",  unit:9,  mastery:0, emoji:"💡" },
+  { id:175, word:"clock",   type:"content",  unit:9,  mastery:0, emoji:"🕐" },
+  { id:176, word:"table",   type:"content",  unit:9,  mastery:0, emoji:"🪜" },
+  { id:177, word:"pencil",  type:"content",  unit:15, mastery:0, emoji:"✏️" },
+  { id:178, word:"paper",   type:"content",  unit:15, mastery:0, emoji:"📄" },
+  { id:179, word:"box",     type:"content",  unit:15, mastery:0, emoji:"📦" },
+  { id:180, word:"bag",     type:"content",  unit:15, mastery:0, emoji:"👜" },
+  { id:181, word:"sky",     type:"content",  unit:16, mastery:0, emoji:"🌤️" },
+  { id:182, word:"cloud",   type:"content",  unit:16, mastery:0, emoji:"☁️" },
+  { id:183, word:"fire",    type:"content",  unit:16, mastery:0, emoji:"🔥" },
+  { id:184, word:"ice",     type:"content",  unit:16, mastery:0, emoji:"🧊" },
+  { id:185, word:"hair",    type:"content",  unit:17, mastery:0, emoji:"💇" },
+  { id:186, word:"arm",     type:"content",  unit:17, mastery:0, emoji:"💪" },
+  { id:187, word:"leg",     type:"content",  unit:17, mastery:0, emoji:"🦵" },
+  { id:188, word:"teeth",   type:"content",  unit:17, mastery:0, emoji:"🦷" },
+  { id:189, word:"this",    type:"function", unit:11, mastery:0, emoji:"👇" },
+  { id:190, word:"here",    type:"function", unit:13, mastery:0, emoji:"📍" },
+  { id:191, word:"there",   type:"function", unit:13, mastery:0, emoji:"🗺️" },
+  { id:192, word:"then",    type:"function", unit:18, mastery:0, emoji:"⏭️" },
+  { id:193, word:"after",   type:"function", unit:18, mastery:0, emoji:"➡️" },
+  { id:194, word:"before",  type:"function", unit:18, mastery:0, emoji:"⬅️" },
+  { id:195, word:"so",      type:"function", unit:18, mastery:0, emoji:"⤴️" },
+  { id:196, word:"because", type:"function", unit:18, mastery:0, emoji:"❓" },
+  { id:197, word:"when",    type:"function", unit:18, mastery:0, emoji:"📅" },
+  { id:198, word:"where",   type:"function", unit:18, mastery:0, emoji:"🗺️" },
+  { id:199, word:"what",    type:"function", unit:18, mastery:0, emoji:"❔" },
+  { id:200, word:"how",     type:"function", unit:18, mastery:0, emoji:"🤔" },
 ];
 
 const STUDENTS = [
@@ -107,13 +317,13 @@ function getChildName(user) {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-// ─── TTS helper — fire-and-forget, no cache needed for occasional garden taps ─
-async function speakWord(word) {
+// ─── TTS helper — fire-and-forget, used for garden taps and Nova greeting ─────
+async function speakWord(text) {
   try {
     const res = await fetch('/api/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word }),
+      body: JSON.stringify({ text }),
     });
     if (!res.ok) return;
     const blob = await res.blob();
@@ -144,9 +354,10 @@ export default function App() {
   const [sessionResult,  setSessionResult]  = useState(null); // set on session end
 
   // ── Streak ──
-  const [streak,      setStreak]      = useState(0);
-  const [freezesLeft, setFreezesLeft] = useState(0);
-  const [freezeUsed,  setFreezeUsed]  = useState(false);
+  const [streak,       setStreak]       = useState(null); // null = loading, prevents flash of 0
+  const [freezesLeft,  setFreezesLeft]  = useState(0);
+  const [freezeUsed,   setFreezeUsed]   = useState(false);
+  const [streakLoaded, setStreakLoaded] = useState(false);
 
   // ── Parent dashboard real data ──
   const [weeklyActivity, setWeeklyActivity] = useState(null); // null = not loaded yet
@@ -164,6 +375,8 @@ export default function App() {
   const [teacherClass,     setTeacherClass]     = useState(null);
   const [showCreateClass,  setShowCreateClass]  = useState(false);
   const [newClassName,     setNewClassName]     = useState('');
+  const [classMembers,     setClassMembers]     = useState([]);
+  const [qrDataUrl,        setQrDataUrl]        = useState(null);
 
   // ── Session plan (1 AI call at login, replaces per-tap AI) ──
   const wordProgressForPlan = useMemo(() =>
@@ -206,14 +419,22 @@ export default function App() {
 
   // ── Load streak on login ──
   useEffect(() => {
-    if (!user) { setStreak(0); setFreezesLeft(0); setFreezeUsed(false); return; }
+    if (!user) {
+      setStreak(null);
+      setFreezesLeft(0);
+      setFreezeUsed(false);
+      setStreakLoaded(false);
+      return;
+    }
     supabase
       .from('user_streaks')
       .select('current_streak, streak_freeze_count')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) { setStreak(data.current_streak ?? 0); setFreezesLeft(data.streak_freeze_count ?? 0); }
+        setStreak(data?.current_streak ?? 0);
+        setFreezesLeft(data?.streak_freeze_count ?? 0);
+        setStreakLoaded(true);
       });
   }, [user?.id]); // eslint-disable-line
 
@@ -265,7 +486,7 @@ export default function App() {
 
   // ── Load teacher class ──
   useEffect(() => {
-    if (!user) { setTeacherClass(null); return; }
+    if (!user) { setTeacherClass(null); setClassMembers([]); return; }
     supabase
       .from('teacher_classes')
       .select('*')
@@ -273,6 +494,26 @@ export default function App() {
       .maybeSingle()
       .then(({ data }) => { if (data) setTeacherClass(data); });
   }, [user?.id]); // eslint-disable-line
+
+  // ── Load class members when a class exists ──
+  useEffect(() => {
+    if (!teacherClass?.id) { setClassMembers([]); return; }
+    supabase
+      .from('class_members')
+      .select('user_id, joined_at')
+      .eq('class_id', teacherClass.id)
+      .then(({ data }) => setClassMembers(data ?? []));
+  }, [teacherClass?.id]); // eslint-disable-line
+
+  // ── Generate QR code for teacher class join link ──
+  useEffect(() => {
+    if (!teacherClass?.class_code) { setQrDataUrl(null); return; }
+    const joinUrl = `https://200magicwordsapp.com/join/${teacherClass.class_code}`;
+    QRCode.toDataURL(joinUrl, {
+      width: 180, margin: 1,
+      color: { dark: '#4ECDC4', light: '#0F0A1E' },
+    }).then(url => setQrDataUrl(url)).catch(() => {});
+  }, [teacherClass?.class_code]); // eslint-disable-line
 
   // ── Update streak after a completed session ──
   const updateStreak = useCallback(async () => {
@@ -468,7 +709,7 @@ export default function App() {
         .select('current_streak')
         .eq('user_id', user?.id)
         .maybeSingle();
-      if (data) setStreak(data.current_streak ?? 0);
+      if (data) { setStreak(data.current_streak ?? 0); setStreakLoaded(true); }
     } catch {}
   }, [updateStreak, user]);
 
@@ -515,7 +756,7 @@ export default function App() {
               setActiveGameType(gameType);
               setGameActive(true);
             }}
-            unlockedGames={["word_match"]}
+            unlockedGames={["word_match", "sound_match", "word_hunt", "rhyme_time", "flash_cards"]}
           />
         </div>
       );
@@ -856,15 +1097,17 @@ export default function App() {
                         <div style={{ marginTop: 4, fontSize: 12, color: "#FFE66D", fontWeight: 700, opacity: 0.9 }}>⭐ {totalXP} XP</div>
                         {/* Daily contextual message */}
                         <div style={{ marginTop: 4, fontSize: 13, color: "#4ECDC4", opacity: 0.8, lineHeight: 1.4 }}>
-                          {getDailyMessage(streak, words)}
+                          {getDailyMessage(streak ?? 0, words)}
                         </div>
                         {!scoresLoaded && (
                           <div style={{ marginTop: 4, fontSize: 11, opacity: 0.6 }}>Syncing…</div>
                         )}
                       </div>
                       {/* Streak badge */}
-                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44", flexShrink: 0 }}>
-                        <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 {streak}</div>
+                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44", flexShrink: 0, minWidth: 72 }}>
+                        <div style={{ fontSize: 22, fontWeight: 900 }}>
+                          {streakLoaded ? `🔥 ${streak}` : <span style={{ opacity: 0.4, fontSize: 16 }}>🔥 —</span>}
+                        </div>
                         <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
                         {freezeUsed && <div style={{ fontSize: 9, color: '#A8E6CF', marginTop: 2 }}>❄️ Streak saved!</div>}
                         {!freezeUsed && freezesLeft > 0 && <div style={{ fontSize: 9, opacity: 0.8, marginTop: 2 }}>🧊 ×{freezesLeft}</div>}
@@ -965,7 +1208,9 @@ export default function App() {
                           {w.word}
                         </div>
                       ))}
-                      <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: "1px dashed rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.4)" }}>+182</div>
+                      <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: "1px dashed rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.4)" }}>
+                        +{Math.max(0, words.length - 9)} more
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1016,55 +1261,56 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#4ECDC4" }}>Content Words</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                    {words.filter(w => w.type === "content").map(w => {
-                      const locked = w.unit > 5;
-                      return (
-                        <div key={w.id} className="word-orb"
-                          onClick={() => locked ? null : setActiveWord(w)}
-                          style={{
-                            background: locked ? "rgba(255,255,255,0.05)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
-                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.7)"),
-                            borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
-                            boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
-                            border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
-                            cursor: locked ? "default" : "pointer",
-                            filter: locked ? "blur(0)" : "none",
-                            position: "relative",
-                          }}>
-                          {locked ? "🔒" : w.emoji} {locked ? "???" : w.word}
-                          {locked && <span style={{ position: "absolute", top: -6, right: -6, background: "#FFE66D", color: "#0F0A1E", fontSize: 8, fontWeight: 900, borderRadius: 8, padding: "2px 5px" }}>PRO</span>}
+                  {/* Words grouped by unit */}
+                  {Array.from({ length: 18 }, (_, i) => i + 1).map(unit => {
+                    const unitWords = words.filter(w => w.unit === unit);
+                    if (!unitWords.length) return null;
+                    const locked = unit > 5;
+                    const mastered = unitWords.filter(w => w.mastery >= 80).length;
+                    const progress = unitWords.length > 0 ? mastered / unitWords.length : 0;
+                    return (
+                      <div key={unit} style={{ marginBottom: 20 }}>
+                        {/* Unit header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 15,
+                            color: locked ? "rgba(255,255,255,0.3)" : "#4ECDC4" }}>
+                            {locked ? "🔒 " : ""}Unit {unit}: {UNIT_NAMES[unit]}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 700,
+                            color: locked ? "rgba(255,255,255,0.2)" : "#FFE66D" }}>
+                            {locked ? "PRO" : `${mastered}/${unitWords.length}`}
+                          </div>
                         </div>
-                      );
-                    })}
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.08)", borderRadius: 22, padding: "8px 16px", fontSize: 15, color: "rgba(255,255,255,0.12)", fontWeight: 800 }}>🔒 ???</div>
-                    ))}
-                  </div>
-
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#FF8B94" }}>Magic Words</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                    {words.filter(w => w.type === "function").map(w => {
-                      const locked = w.unit > 5;
-                      return (
-                        <div key={w.id} className="word-orb"
-                          onClick={() => locked ? null : setActiveWord(w)}
-                          style={{
-                            background: locked ? "rgba(255,255,255,0.05)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
-                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.7)"),
-                            borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
-                            boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
-                            border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
-                            cursor: locked ? "default" : "pointer",
-                            position: "relative",
-                          }}>
-                          {locked ? "🔒 ???" : w.word}
-                          {locked && <span style={{ position: "absolute", top: -6, right: -6, background: "#FFE66D", color: "#0F0A1E", fontSize: 8, fontWeight: 900, borderRadius: 8, padding: "2px 5px" }}>PRO</span>}
+                        {/* Mini progress bar */}
+                        {!locked && (
+                          <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 4, marginBottom: 8, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${progress * 100}%`,
+                              background: "linear-gradient(90deg, #4ECDC4, #FFE66D)",
+                              borderRadius: 4, transition: "width 0.5s ease" }} />
+                          </div>
+                        )}
+                        {/* Word pills */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {unitWords.map(w => (
+                            <div key={w.id} className="word-orb"
+                              onClick={() => locked ? null : setActiveWord(w)}
+                              style={{
+                                background: locked ? "rgba(255,255,255,0.04)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
+                                color: locked ? "rgba(255,255,255,0.2)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.75)"),
+                                borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 800,
+                                boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
+                                border: locked ? "2px dashed rgba(255,255,255,0.08)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
+                                cursor: locked ? "default" : "pointer",
+                                position: "relative",
+                              }}>
+                              {locked ? "🔒 ???" : `${w.emoji} ${w.word}`}
+                              {locked && <span style={{ position: "absolute", top: -5, right: -5, background: "#FFE66D", color: "#0F0A1E", fontSize: 7, fontWeight: 900, borderRadius: 6, padding: "1px 4px" }}>PRO</span>}
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
 
                   {/* Word detail modal */}
                   {activeWord && (
@@ -1124,7 +1370,24 @@ export default function App() {
                   <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 4 }}>
                     {getChildName(user)}'s Progress 👧
                   </div>
-                  <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 20 }}>{user?.email}</div>
+                  <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>{user?.email}</div>
+
+                  {/* Child share code — parent gives this to another account to link */}
+                  {user && (
+                    <div style={{ background: "rgba(78,205,196,0.07)", border: "1px solid rgba(78,205,196,0.2)", borderRadius: 14, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, color: "#4ECDC4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Child Share Code</div>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, color: "#FFE66D", letterSpacing: 4 }}>
+                          {user.id.substring(0, 6).toUpperCase()}
+                        </div>
+                        <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>Give this code to a parent account to link their dashboard to this child</div>
+                      </div>
+                      <div className="btn-primary" onClick={() => navigator.clipboard?.writeText(user.id.substring(0, 6).toUpperCase())}
+                        style={{ background: "rgba(78,205,196,0.12)", border: "1px solid rgba(78,205,196,0.3)", borderRadius: 10, padding: "8px 12px", fontSize: 11, fontWeight: 800, color: "#4ECDC4", cursor: "pointer", flexShrink: 0 }}>
+                        Copy 📋
+                      </div>
+                    </div>
+                  )}
 
                   {(() => {
                     const masteredCount = words.filter(w => w.mastery >= 80).length;
@@ -1134,7 +1397,7 @@ export default function App() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
                         {[
                           { val: masteredCount.toString(), sub: "Words mastered", color: "#4ECDC4" },
-                          { val: `${streak}🔥`,           sub: "Day streak",     color: "#FF6B6B" },
+                          { val: streak !== null ? `${streak}🔥` : '—🔥', sub: "Day streak", color: "#FF6B6B" },
                           { val: weekStr,                  sub: "This week",      color: "#FFE66D" },
                         ].map((s, i) => (
                           <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
@@ -1209,14 +1472,16 @@ export default function App() {
                   <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
                     <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {words.map(w => (
+                      {words.slice(0, 40).map(w => (
                         <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{ width: 28, height: 28, borderRadius: 6, background: getMasteryColor(w.mastery), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.2)" }}>
                           {w.word.slice(0, 2)}
                         </div>
                       ))}
-                      {Array.from({ length: 22 }).map((_, i) => (
-                        <div key={i} style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.1)" }} />
-                      ))}
+                      {words.length > 40 && (
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,230,109,0.08)", border: "1px dashed rgba(255,230,109,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: "rgba(255,230,109,0.6)" }}>
+                          +{words.length - 40}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1283,28 +1548,62 @@ export default function App() {
                     </div>
                   ) : (
                     <>
-                      {/* Join code */}
+                      {/* Join code + QR code */}
                       <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(168,230,207,0.1))", border: "2px solid #4ECDC4", borderRadius: 20, padding: 20, marginBottom: 20, textAlign: "center" }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Student Join Code</div>
                         <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", letterSpacing: 6, textShadow: "0 0 20px #FFE66D44" }}>
                           {teacherClass.class_code}
                         </div>
-                        <div
-                          className="btn-primary"
-                          onClick={() => navigator.clipboard?.writeText(teacherClass.class_code)}
-                          style={{ marginTop: 8, display: "inline-block", background: "rgba(78,205,196,0.15)", border: "1px solid #4ECDC4", borderRadius: 10, padding: "6px 16px", fontSize: 12, fontWeight: 800, color: "#4ECDC4", cursor: "pointer" }}
-                        >
-                          Copy code 📋
+                        {/* QR Code */}
+                        {qrDataUrl && (
+                          <div style={{ margin: "12px auto 8px", display: "inline-block", borderRadius: 12, overflow: "hidden", border: "2px solid rgba(78,205,196,0.3)", background: "#0F0A1E", padding: 4 }}>
+                            <img src={qrDataUrl} alt="QR code to join class" width={140} height={140} style={{ display: "block", borderRadius: 8 }} />
+                          </div>
+                        )}
+                        {/* Shareable link */}
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4, wordBreak: "break-all", padding: "0 8px" }}>
+                          200magicwordsapp.com/join/{teacherClass.class_code}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
+                          <div className="btn-primary"
+                            onClick={() => navigator.clipboard?.writeText(teacherClass.class_code)}
+                            style={{ display: "inline-block", background: "rgba(78,205,196,0.15)", border: "1px solid #4ECDC4", borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: "#4ECDC4", cursor: "pointer" }}>
+                            Copy code 📋
+                          </div>
+                          <div className="btn-primary"
+                            onClick={() => navigator.clipboard?.writeText(`https://200magicwordsapp.com/join/${teacherClass.class_code}`)}
+                            style={{ display: "inline-block", background: "rgba(255,230,109,0.1)", border: "1px solid #FFE66D55", borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: "#FFE66D", cursor: "pointer" }}>
+                            Copy link 🔗
+                          </div>
                         </div>
                       </div>
 
-                      {/* Empty state for students */}
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Student Progress 📋</div>
-                      <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "24px 16px", textAlign: "center", marginBottom: 20 }}>
-                        <div style={{ fontSize: 40, marginBottom: 8 }}>👋</div>
-                        <div style={{ fontWeight: 700, marginBottom: 4 }}>No students yet</div>
-                        <div style={{ fontSize: 13, opacity: 0.6 }}>Share the join code above. Students enter it on the home screen to join your class.</div>
+                      {/* Student list */}
+                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>
+                        Students 📋
+                        <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, color: "#4ECDC4", marginLeft: 8 }}>
+                          {classMembers.length} joined
+                        </span>
                       </div>
+                      {classMembers.length === 0 ? (
+                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "24px 16px", textAlign: "center", marginBottom: 20 }}>
+                          <div style={{ fontSize: 40, marginBottom: 8 }}>👋</div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>No students yet</div>
+                          <div style={{ fontSize: 13, opacity: 0.6 }}>Share the join code or QR code above. Students scan or enter the code to join.</div>
+                        </div>
+                      ) : (
+                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "12px 16px", marginBottom: 20 }}>
+                          {classMembers.map((m, i) => (
+                            <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < classMembers.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(78,205,196,0.15)", border: "1px solid rgba(78,205,196,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🧑‍🎓</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700 }}>Student {i + 1}</div>
+                                <div style={{ fontSize: 10, opacity: 0.5 }}>Joined {new Date(m.joined_at).toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
                         {[

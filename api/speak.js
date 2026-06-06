@@ -6,9 +6,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { word } = req.body ?? {};
-  if (!word || typeof word !== 'string' || !word.trim()) {
-    return res.status(400).json({ error: 'word is required' });
+  const { word, text } = req.body ?? {};
+  const content = (text || word || '').trim();
+  if (!content) {
+    return res.status(400).json({ error: 'text is required' });
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -25,9 +26,9 @@ export default async function handler(req, res) {
           'Accept': 'audio/mpeg',
         },
         body: JSON.stringify({
-          text: word.trim().slice(0, 200),
+          text: content.slice(0, 500),
           model_id: 'eleven_turbo_v2',
-          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
         }),
       }
     );

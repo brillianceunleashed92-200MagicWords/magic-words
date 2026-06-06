@@ -20,31 +20,49 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
-// ─── Audio cache — word → blob URL, survives React re-renders ────────────────
-const audioCache    = new Map(); // word → blob URL string
-const audioFetching = new Map(); // word → Promise (in-flight dedup)
+// ─── Audio cache — text → blob URL, survives React re-renders ────────────────
+const audioCache    = new Map(); // text → blob URL string
+const audioFetching = new Map(); // text → Promise (in-flight dedup)
 
-function fetchAudio(word) {
-  if (!word) return Promise.resolve(null);
-  if (audioCache.has(word)) return Promise.resolve(audioCache.get(word));
-  if (audioFetching.has(word)) return audioFetching.get(word);
+// Module-level current audio — ensures only one clip plays at a time
+// and audio stops cleanly when the game unmounts.
+let currentAudio = null;
+
+function playAudio(url) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if (!url) return null;
+  const audio = new Audio(url);
+  currentAudio = audio;
+  audio.play().catch(() => {});
+  audio.onended = () => { if (currentAudio === audio) currentAudio = null; };
+  return audio;
+}
+
+function fetchAudio(text) {
+  if (!text) return Promise.resolve(null);
+  if (audioCache.has(text)) return Promise.resolve(audioCache.get(text));
+  if (audioFetching.has(text)) return audioFetching.get(text);
 
   const promise = fetch('/api/speak', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ word }),
+    body: JSON.stringify({ text }),
   })
     .then(res => (res.ok ? res.blob() : null))
     .then(blob => {
       if (!blob) return null;
       const url = URL.createObjectURL(blob);
-      audioCache.set(word, url);
+      audioCache.set(text, url);
       return url;
     })
     .catch(() => null)
-    .finally(() => audioFetching.delete(word));
+    .finally(() => audioFetching.delete(text));
 
-  audioFetching.set(word, promise);
+  audioFetching.set(text, promise);
   return promise;
 }
 
@@ -86,6 +104,25 @@ function formatQuestion(word, wordClass) {
     }
   }
 }
+
+// ─── Rhyme map for RhymeTime game ────────────────────────────────────────────
+const RHYME_MAP = {
+  cat:'bat', dog:'log', run:'sun', big:'pig', sad:'bad', fly:'sky', eat:'beat',
+  can:'pan', jump:'bump', hot:'pot', cold:'gold', fast:'last', slow:'glow',
+  ball:'fall', book:'cook', cup:'pup', bed:'red', boy:'toy', girl:'curl',
+  red:'bed', blue:'true', green:'seen', sun:'fun', moon:'soon', star:'car',
+  rain:'train', tree:'free', hand:'sand', eye:'sky', ear:'near', head:'led',
+  sit:'bit', hop:'top', swim:'dim', sing:'ring', play:'day', stop:'pop',
+  help:'yelp', sleep:'deep', good:'wood', old:'gold', fish:'dish', bird:'heard',
+  frog:'log', bear:'care', duck:'luck', cow:'now', pig:'dig', bee:'see',
+  fox:'box', hen:'ten', bat:'cat', rat:'mat', hat:'sat', map:'tap',
+  zip:'tip', mud:'bud', wig:'fig', pin:'win', fun:'sun',
+};
+
+const RHYME_DECOYS = [
+  'orange','purple','banana','chicken','umbrella','elephant',
+  'window','butter','bottle','garden','pencil','monkey',
+];
 
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
 const T = {
@@ -390,19 +427,20 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     startRef.current = Date.now();
   }, [quiz?.word]);
 
-  // Fetch audio separately — UI is never blocked if audio is slow or fails
+  // Fetch audio for the full question — UI is never blocked if audio is slow
   useEffect(() => {
-    if (!quiz?.word) return;
+    const audioText = quiz?.question ?? quiz?.word;
+    if (!audioText) return;
     let cancelled = false;
     setAudioUrl(null);
     setAudioLoading(true);
-    fetchAudio(quiz.word)
+    fetchAudio(audioText)
       .then(url => {
         if (cancelled) return;
         setAudioLoading(false);
         if (url) {
           setAudioUrl(url);
-          new Audio(url).play().catch(() => {});
+          playAudio(url);
         }
       })
       .catch(() => { if (!cancelled) setAudioLoading(false); });
@@ -410,7 +448,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   }, [quiz?.word]);
 
   const replayAudio = useCallback(() => {
-    if (audioUrl) new Audio(audioUrl).play().catch(() => {});
+    if (audioUrl) playAudio(audioUrl);
   }, [audioUrl]);
 
   const handleTap = useCallback((idx) => {
@@ -432,9 +470,9 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
       setShowOverlay(false);
       setNovaState('idle');
       if (!correct) {
-        // Replay word audio so child hears it again, then hold on the correct tile for 600ms
-        const url = audioCache.get(quiz.word);
-        if (url) new Audio(url).play().catch(() => {});
+        // Replay question audio so child hears it again, then advance after 600ms
+        const url = audioCache.get(quiz.question ?? quiz.word);
+        if (url) playAudio(url);
         setTimeout(() => onAnswer({ correct, responseTimeMs, firstTry: true }), 600);
       } else {
         onAnswer({ correct, responseTimeMs, firstTry: true });
@@ -578,15 +616,21 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
       startRef.current = Date.now();
       return;
     }
-    const audio = new Audio(audioUrl);
-    audio.play().then(() => {
+    const audio = playAudio(audioUrl);
+    if (audio) {
+      audio.onplay = () => {
+        setAudioPlayed(true);
+        startRef.current = Date.now();
+      };
+      audio.onerror = () => {
+        setAudioError(true);
+        setAudioPlayed(true);
+        startRef.current = Date.now();
+      };
+    } else {
       setAudioPlayed(true);
       startRef.current = Date.now();
-    }).catch(() => {
-      setAudioError(true);
-      setAudioPlayed(true);
-      startRef.current = Date.now();
-    });
+    }
   };
 
   const handleTap = (idx) => {
@@ -666,6 +710,253 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── GAME NEW-A: Word Hunt ────────────────────────────────────────────────────
+// Show the emoji at the top — find the correct WORD from 4 options.
+// Inverse of WordMatch: emoji-first instead of word-first.
+function WordHunt({ quiz, onAnswer, encouragement }) {
+  const [selected,    setSelected]    = useState(null);
+  const [answered,    setAnswered]    = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayData, setOverlayData] = useState(null);
+  const [novaState,   setNovaState]   = useState('idle');
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    setSelected(null);
+    setAnswered(false);
+    setShowOverlay(false);
+    setOverlayData(null);
+    setNovaState('idle');
+    startRef.current = Date.now();
+  }, [quiz?.word]);
+
+  const handleTap = (idx) => {
+    if (answered) return;
+    const correct = idx === quiz.correctIndex;
+    const responseTimeMs = Date.now() - startRef.current;
+    setSelected(idx);
+    setAnswered(true);
+    setNovaState(correct ? 'correct' : 'wrong');
+    setOverlayData({
+      correct,
+      message: correct ? (encouragement ?? 'Found it! ⭐') : `It's "${quiz.word}"!`,
+      emoji: correct ? quiz.emoji : '💪',
+    });
+    setShowOverlay(true);
+    setTimeout(() => {
+      setShowOverlay(false);
+      setNovaState('idle');
+      onAnswer({ correct, responseTimeMs, firstTry: true });
+    }, 1400);
+  };
+
+  if (!quiz) return null;
+
+  return (
+    <>
+      {showOverlay && overlayData && (
+        <FeedbackOverlay correct={overlayData.correct} message={overlayData.message} emoji={overlayData.emoji} />
+      )}
+      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, fontSize: 40,
+        animation: novaState === 'idle' ? 'nova-float 3s ease-in-out infinite' : novaState === 'correct' ? 'nova-bounce 0.6s ease' : 'nova-shake 0.4s ease',
+        pointerEvents: 'none' }}>👨‍🚀</div>
+      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
+        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
+          <div style={{ fontSize: '80px', animation: 'mw-bounce 2s ease-in-out infinite', lineHeight: 1 }}>
+            {quiz.emoji}
+          </div>
+          <div style={{ fontFamily: 'Nunito', fontSize: '1rem', color: T.muted, marginTop: '0.75rem' }}>
+            Which word matches this picture? 🔍
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
+          {quiz.options.map((opt, idx) => {
+            let className = 'mw-option-btn';
+            if (answered) {
+              if (idx === quiz.correctIndex) className += ' correct revealed';
+              else if (idx === selected)     className += ' wrong';
+            }
+            return (
+              <button key={idx} className={className} onClick={() => handleTap(idx)} disabled={answered}
+                style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 90 }}>
+                <span style={{ fontFamily: 'Fredoka One', fontSize: '1.7rem', color: T.white }}>{opt.word}</span>
+                {answered && idx === quiz.correctIndex && (
+                  <span style={{ fontSize: '1.2rem', marginTop: 4 }}>{opt.emoji}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── GAME NEW-B: Rhyme Time ───────────────────────────────────────────────────
+// Show a word at the top — tap the word that RHYMES with it.
+function RhymeTime({ quiz, onAnswer, encouragement }) {
+  const [answered,    setAnswered]    = useState(false);
+  const [selected,    setSelected]    = useState(null);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayData, setOverlayData] = useState(null);
+  const startRef = useRef(Date.now());
+
+  const rhymeAnswer = RHYME_MAP[quiz?.word] ?? null;
+
+  // Build 4 options: 1 rhyme + 3 non-rhyming decoys, shuffled once per quiz
+  const [options] = useState(() => {
+    if (!rhymeAnswer) return null;
+    const decoys = RHYME_DECOYS.slice(0, 3);
+    return [
+      { word: rhymeAnswer, correct: true },
+      ...decoys.map(d => ({ word: d, correct: false })),
+    ].sort(() => Math.random() - 0.5);
+  });
+
+  const correctIdx = options ? options.findIndex(o => o.correct) : quiz?.correctIndex ?? 0;
+
+  useEffect(() => {
+    setAnswered(false);
+    setSelected(null);
+    setShowOverlay(false);
+    setOverlayData(null);
+    startRef.current = Date.now();
+  }, [quiz?.word]);
+
+  const handleTap = (idx) => {
+    if (answered) return;
+    const isCorrect = idx === correctIdx;
+    const responseTimeMs = Date.now() - startRef.current;
+    setSelected(idx);
+    setAnswered(true);
+    setOverlayData({
+      correct: isCorrect,
+      message: isCorrect ? (encouragement ?? '🎵 You found the rhyme!') : `"${quiz.word}" rhymes with "${rhymeAnswer ?? options?.[correctIdx]?.word}"`,
+      emoji: isCorrect ? '🎵' : '💪',
+    });
+    setShowOverlay(true);
+    setTimeout(() => {
+      setShowOverlay(false);
+      onAnswer({ correct: isCorrect, responseTimeMs, firstTry: true });
+    }, 1400);
+  };
+
+  if (!quiz) return null;
+
+  const displayOptions = options ?? quiz.options.map((o, i) => ({ word: o.word, correct: i === quiz.correctIndex }));
+
+  return (
+    <>
+      {showOverlay && overlayData && (
+        <FeedbackOverlay correct={overlayData.correct} message={overlayData.message} emoji={overlayData.emoji} />
+      )}
+      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
+        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
+          <div style={{ fontFamily: 'Fredoka One', fontSize: 'clamp(2.5rem, 10vw, 4rem)', color: T.gold,
+            textShadow: `0 0 30px ${T.gold}88`, animation: 'mw-word-glow 3s ease-in-out infinite' }}>
+            {quiz.word}
+          </div>
+          <div style={{ fontFamily: 'Nunito', fontSize: '0.95rem', color: T.muted, marginTop: '0.5rem' }}>
+            🎵 Which word rhymes with this?
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
+          {displayOptions.map((opt, idx) => {
+            let bg = T.card, border = T.border;
+            if (answered) {
+              if (idx === correctIdx)    { bg = 'rgba(78,205,196,0.2)'; border = T.teal; }
+              else if (idx === selected) { bg = 'rgba(255,107,107,0.2)'; border = T.coral; }
+            }
+            return (
+              <button key={idx} onClick={() => handleTap(idx)} disabled={answered}
+                className={`mw-option-btn${answered && idx === correctIdx ? ' correct revealed' : ''}${answered && idx === selected && idx !== correctIdx ? ' wrong' : ''}`}
+                style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 80 }}>
+                <span style={{ fontFamily: 'Fredoka One', fontSize: '1.6rem', color: T.white }}>{opt.word}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── GAME NEW-C: Flash Card Challenge ────────────────────────────────────────
+// Show emoji face-up — tap to reveal the word, then self-rate: know it or need practice.
+function FlashCardChallenge({ quiz, onAnswer }) {
+  const [revealed, setRevealed] = useState(false);
+  const [answered, setAnswered] = useState(false);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    setRevealed(false);
+    setAnswered(false);
+    startRef.current = Date.now();
+  }, [quiz?.word]);
+
+  const handleReveal = () => { if (!revealed) setRevealed(true); };
+
+  const handleKnow = (know) => {
+    if (answered) return;
+    setAnswered(true);
+    const responseTimeMs = Date.now() - startRef.current;
+    if (know) playAudio(audioCache.get(quiz?.question ?? quiz?.word) ?? null);
+    setTimeout(() => onAnswer({ correct: know, responseTimeMs, firstTry: true }), 300);
+  };
+
+  if (!quiz) return null;
+
+  return (
+    <div style={{ padding: '0 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
+      minHeight: '60vh', justifyContent: 'center', animation: 'mw-slide-up 0.35s ease' }}>
+      <div style={{ fontFamily: 'Nunito', color: T.muted, fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+        Flash Card Challenge ⚡
+      </div>
+      {/* The flash card */}
+      <div onClick={handleReveal} style={{
+        width: '100%', maxWidth: 320, minHeight: 200,
+        background: revealed
+          ? 'linear-gradient(135deg, rgba(78,205,196,0.2), rgba(168,230,207,0.1))'
+          : 'linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))',
+        border: `2px solid ${revealed ? T.teal : T.gold}`,
+        borderRadius: 24, padding: '2rem',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        cursor: revealed ? 'default' : 'pointer',
+        transition: 'all 0.3s',
+        boxShadow: `0 8px 30px ${revealed ? 'rgba(78,205,196,0.2)' : 'rgba(255,230,109,0.2)'}`,
+        animation: 'mw-pop 0.3s ease',
+      }}>
+        <div style={{ fontSize: '80px', marginBottom: '0.75rem' }}>{quiz.emoji}</div>
+        {revealed ? (
+          <div style={{ fontFamily: 'Fredoka One', fontSize: '2.5rem', color: T.teal,
+            textShadow: `0 0 20px ${T.teal}55`, animation: 'mw-pop 0.25s ease' }}>
+            {quiz.word}
+          </div>
+        ) : (
+          <div style={{ fontFamily: 'Nunito', color: T.gold, fontSize: '1rem', fontWeight: 700 }}>
+            Tap to reveal! 👆
+          </div>
+        )}
+      </div>
+      {/* Self-rating buttons appear after reveal */}
+      {revealed && !answered && (
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', animation: 'mw-slide-up 0.3s ease' }}>
+          <button onClick={() => handleKnow(false)} style={{
+            fontFamily: 'Fredoka One', fontSize: '1rem',
+            background: 'rgba(255,107,107,0.15)', border: `2px solid ${T.coral}`,
+            color: T.coral, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
+          }}>Need practice 💪</button>
+          <button onClick={() => handleKnow(true)} style={{
+            fontFamily: 'Fredoka One', fontSize: '1rem',
+            background: 'rgba(78,205,196,0.15)', border: `2px solid ${T.teal}`,
+            color: T.teal, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
+          }}>I know it! ⭐</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1060,10 +1351,13 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
 
 // ─── Game type selector (shown before a game starts) ─────────────────────────
 const GAME_TYPES = [
-  { id: 'word_match',    label: 'Word Match',    emoji: '👀', desc: 'See the word, tap the picture',   color: T.teal,   available: true  },
-  { id: 'sound_match',  label: 'Sound Match',   emoji: '🔊', desc: 'Hear the word, tap the picture',  color: T.purple, available: false },
-  { id: 'story_builder',label: 'Story Builder', emoji: '📖', desc: 'Complete the sentence',           color: T.gold,   available: false },
-  { id: 'spell_it_out', label: 'Spell It Out',  emoji: '🔤', desc: 'Tap the letters to spell it',    color: T.pink,   available: false },
+  { id: 'word_match',   label: 'Word Match',   emoji: '👀', desc: 'See the word, tap the picture',  color: T.teal,   gradient: `linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.04))`,   available: true  },
+  { id: 'sound_match',  label: 'Sound Match',  emoji: '🔊', desc: 'Hear the word, tap the picture', color: T.purple, gradient: `linear-gradient(135deg, rgba(123,104,238,0.2), rgba(123,104,238,0.04))`, available: true  },
+  { id: 'word_hunt',    label: 'Word Hunt',    emoji: '🔍', desc: 'Find the matching word',         color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,230,109,0.2), rgba(255,230,109,0.04))`, available: true  },
+  { id: 'rhyme_time',   label: 'Rhyme Time',   emoji: '🎵', desc: 'Find the rhyming word',          color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.2), rgba(255,139,148,0.04))`, available: true  },
+  { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,107,107,0.04))`, available: true  },
+  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,179,71,0.12), rgba(255,179,71,0.02))`,  available: false },
+  { id: 'spell_it_out', label: 'Spell It Out', emoji: '🔤', desc: 'Tap the letters to spell it',   color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.12), rgba(255,139,148,0.02))`,available: false },
 ];
 
 const PREMIUM_FEATURES = [
@@ -1149,7 +1443,7 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
       </h2>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
-        {GAME_TYPES.map(game => {
+        {GAME_TYPES.map((game, idx) => {
           const isUnlocked = unlockedGames.includes(game.id);
           return (
             <button
@@ -1157,28 +1451,31 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
               className="mw-option-btn"
               onClick={() => isUnlocked ? onSelect(game.id) : setShowUpgrade(true)}
               style={{
-                minHeight: '120px',
-                opacity: isUnlocked ? 1 : 0.6,
+                minHeight: '130px',
+                opacity: isUnlocked ? 1 : 0.55,
                 borderColor: isUnlocked ? game.color : T.border,
+                background: isUnlocked ? game.gradient : T.card,
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: isUnlocked ? `0 4px 24px ${game.color}22, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none',
                 position: 'relative',
                 cursor: 'pointer',
+                animation: `mw-slide-up 0.35s ease ${idx * 0.06}s both`,
+                transition: 'transform 0.2s, box-shadow 0.2s',
               }}
+              onMouseEnter={e => { if (isUnlocked) e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'; e.currentTarget.style.boxShadow = `0 8px 32px ${game.color}44, inset 0 1px 0 rgba(255,255,255,0.1)`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = isUnlocked ? `0 4px 24px ${game.color}22, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none'; }}
             >
               {!isUnlocked && (
                 <div style={{
                   position: 'absolute', top: '8px', right: '8px',
-                  background: `${T.gold}22`,
-                  border: `1px solid ${T.gold}88`,
-                  borderRadius: '20px',
-                  padding: '2px 8px',
-                  fontSize: '0.65rem',
-                  color: T.gold,
-                  fontFamily: 'Nunito',
-                  fontWeight: 700,
+                  background: `${T.gold}22`, border: `1px solid ${T.gold}88`,
+                  borderRadius: '20px', padding: '2px 8px',
+                  fontSize: '0.65rem', color: T.gold, fontFamily: 'Nunito', fontWeight: 700,
                 }}>🔒 Premium</div>
               )}
-              <span style={{ fontSize: '2.25rem' }}>{game.emoji}</span>
-              <span style={{ fontFamily: 'Fredoka One', fontSize: '0.95rem', color: isUnlocked ? T.white : T.muted }}>
+              <span style={{ fontSize: '2.5rem' }}>{game.emoji}</span>
+              <span style={{ fontFamily: 'Fredoka One', fontSize: '1rem', color: isUnlocked ? T.white : T.muted }}>
                 {game.label}
               </span>
               <span style={{ fontFamily: 'Nunito', fontSize: '0.75rem', color: T.muted, textAlign: 'center', lineHeight: 1.3 }}>
@@ -1204,6 +1501,16 @@ export function GameEngine({
 }) {
   useEffect(() => { injectCSS(); }, []);
 
+  // Stop any audio playing when the game is unmounted (session ends / user goes home)
+  useEffect(() => {
+    return () => {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+    };
+  }, []);
+
   const quizzes        = sessionPlan?.quizzes ?? [];
   const encouragements = sessionPlan?.encouragements ?? ['Great job! ⭐'];
 
@@ -1222,9 +1529,12 @@ export function GameEngine({
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
 
-  // Pre-fetch ALL session words' audio in parallel at session start
+  // Pre-fetch ALL session question audio in parallel at session start
   useEffect(() => {
-    quizzes.forEach(q => { if (q?.word) fetchAudio(q.word); });
+    quizzes.forEach(q => {
+      const audioText = q?.question ?? q?.word;
+      if (audioText) fetchAudio(audioText);
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback(({ correct, responseTimeMs, firstTry = true }) => {
@@ -1357,7 +1667,30 @@ export function GameEngine({
           key={currentIdx}
           quiz={currentQuiz}
           onAnswer={handleAnswer}
-          audioUrl={currentQuiz.audioUrl ?? null}
+          audioUrl={audioCache.get(currentQuiz.question ?? currentQuiz.word) ?? null}
+        />
+      )}
+      {gameType === 'word_hunt' && (
+        <WordHunt
+          key={currentIdx}
+          quiz={currentQuiz}
+          onAnswer={handleAnswer}
+          encouragement={encouragements[encouragIdx % encouragements.length]}
+        />
+      )}
+      {gameType === 'rhyme_time' && (
+        <RhymeTime
+          key={currentIdx}
+          quiz={currentQuiz}
+          onAnswer={handleAnswer}
+          encouragement={encouragements[encouragIdx % encouragements.length]}
+        />
+      )}
+      {gameType === 'flash_cards' && (
+        <FlashCardChallenge
+          key={currentIdx}
+          quiz={currentQuiz}
+          onAnswer={handleAnswer}
         />
       )}
       {gameType === 'story_builder' && (
