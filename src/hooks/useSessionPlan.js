@@ -21,6 +21,7 @@ function getCachedPlan() {
     const { plan, generatedAt } = JSON.parse(raw);
     const ageMinutes = (Date.now() - generatedAt) / 1000 / 60;
     if (ageMinutes > PLAN_TTL_MINUTES) return null;
+    if (!plan?.quizzes || plan.quizzes.length < 4) return null;
     return plan;
   } catch {
     return null;
@@ -43,11 +44,11 @@ export function useSessionPlan(user, wordProgress) {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError]     = useState(null);
 
-  const generatePlan = useCallback(async (force = false) => {
+  const generatePlan = useCallback(async (force = false, focusWord = null) => {
     if (!user) return;
 
-    // Use cache if available and not forcing refresh
-    if (!force) {
+    // Use cache if available and not forcing refresh (skip cache if focusWord given)
+    if (!force && !focusWord) {
       const cached = getCachedPlan();
       if (cached) {
         setSessionPlan(cached);
@@ -72,8 +73,9 @@ export function useSessionPlan(user, wordProgress) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId:   user.id,
-          progress: progressSummary,
+          userId:    user.id,
+          progress:  progressSummary,
+          focusWord: focusWord ?? undefined,
         }),
       });
 
@@ -99,7 +101,13 @@ export function useSessionPlan(user, wordProgress) {
     }
   }, [user?.id, wordProgress !== null]); // eslint-disable-line
 
-  return { sessionPlan, planLoading, planError, regeneratePlan: () => generatePlan(true) };
+  return {
+    sessionPlan,
+    planLoading,
+    planError,
+    regeneratePlan:        () => generatePlan(true),
+    generatePlanForWord:   (word) => generatePlan(true, word),
+  };
 }
 
 // Fallback plan when AI is unavailable — uses local logic only, zero API calls

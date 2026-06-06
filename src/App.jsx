@@ -96,12 +96,25 @@ export default function App() {
   const [gameActive,     setGameActive]     = useState(false);
   const [activeGameType, setActiveGameType] = useState("word_match");
 
+  // ── Streak ──
+  const [streak,      setStreak]      = useState(0);
+  const [freezesLeft, setFreezesLeft] = useState(0);
+  const [freezeUsed,  setFreezeUsed]  = useState(false);
+
+  // ── Parent dashboard real data ──
+  const [weeklyActivity, setWeeklyActivity] = useState(null); // null = not loaded yet
+
+  // ── Teacher class ──
+  const [teacherClass,     setTeacherClass]     = useState(null);
+  const [showCreateClass,  setShowCreateClass]  = useState(false);
+  const [newClassName,     setNewClassName]     = useState('');
+
   // ── Session plan (1 AI call at login, replaces per-tap AI) ──
   const wordProgressForPlan = useMemo(() =>
     words.map(w => ({ word: w.word, mastery: w.mastery, last_practiced: null })),
     [words]
   );
-  const { sessionPlan, planLoading, planError, regeneratePlan } =
+  const { sessionPlan, planLoading, planError, regeneratePlan, generatePlanForWord } =
     useSessionPlan(user, scoresLoaded ? wordProgressForPlan : null);
 
   // ── Derived ──
@@ -134,6 +147,102 @@ export default function App() {
         setScoresLoaded(true);
       });
   }, [user?.id]);
+
+  // ── Load streak on login ──
+  useEffect(() => {
+    if (!user) { setStreak(0); setFreezesLeft(0); setFreezeUsed(false); return; }
+    supabase
+      .from('user_streaks')
+      .select('current_streak, streak_freeze_count')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) { setStreak(data.current_streak ?? 0); setFreezesLeft(data.streak_freeze_count ?? 0); }
+      });
+  }, [user?.id]); // eslint-disable-line
+
+  // ── Load weekly learning activity (last 7 days) ──
+  useEffect(() => {
+    if (!user) { setWeeklyActivity(null); return; }
+    const since = new Date();
+    since.setDate(since.getDate() - 6);
+    since.setHours(0, 0, 0, 0);
+    supabase
+      .from('learning_events')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .gte('created_at', since.toISOString())
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const counts = {};
+        data.forEach(ev => {
+          const d = new Date(ev.created_at);
+          const key = DAY_LABELS[d.getDay()];
+          counts[key] = (counts[key] ?? 0) + 1;
+        });
+        const today = new Date().getDay();
+        const result = Array.from({ length: 7 }, (_, i) => {
+          const dayIdx = (today - 6 + i + 7) % 7;
+          const day = DAY_LABELS[dayIdx];
+          return { day, mins: Math.min(60, Math.round((counts[day] ?? 0) * 15 / 60)) };
+        });
+        setWeeklyActivity(result);
+      });
+  }, [user?.id]); // eslint-disable-line
+
+  // ── Load teacher class ──
+  useEffect(() => {
+    if (!user) { setTeacherClass(null); return; }
+    supabase
+      .from('teacher_classes')
+      .select('*')
+      .eq('teacher_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setTeacherClass(data); });
+  }, [user?.id]); // eslint-disable-line
+
+  // ── Update streak after a completed session ──
+  const updateStreak = useCallback(async () => {
+    if (!user) return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+
+    const { data: existing } = await supabase
+      .from('user_streaks')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const today    = new Date(todayStr);
+    const lastDate = existing?.last_activity_date ? new Date(existing.last_activity_date) : null;
+    const daysDiff = lastDate ? Math.round((today - lastDate) / 86400000) : null;
+
+    if (daysDiff === 0) return; // already logged today
+
+    let newStreak  = existing?.current_streak      ?? 0;
+    let newFreezes = existing?.streak_freeze_count ?? 0;
+    let usedFreeze = false;
+
+    if (daysDiff === 1)                        { newStreak++; }
+    else if (daysDiff === 2 && newFreezes > 0) { newStreak++; newFreezes--; usedFreeze = true; }
+    else                                       { newStreak = 1; }
+
+    const newLongest = Math.max(existing?.longest_streak ?? 0, newStreak);
+
+    await supabase.from('user_streaks').upsert({
+      user_id:             user.id,
+      current_streak:      newStreak,
+      longest_streak:      newLongest,
+      last_activity_date:  todayStr,
+      streak_freeze_count: newFreezes,
+      updated_at:          new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+
+    setStreak(newStreak);
+    setFreezesLeft(newFreezes);
+    if (usedFreeze) setFreezeUsed(true);
+  }, [user]); // eslint-disable-line
 
   // ── Save a word's progress — tracks cumulative correct/attempt counts ──
   const saveWordProgress = useCallback(async (word, correct) => {
@@ -183,6 +292,17 @@ export default function App() {
     setTimeout(() => setParticles(p => p.filter(x => !newP.find(n => n.id === x.id))), 1000);
   }
 
+  // ── Direct mastery override (used by slider in word detail modal) ──
+  const setWordMastery = useCallback(async (word, masteryValue) => {
+    if (!user) return;
+    await supabase.from('word_progress').upsert({
+      user_id:       user.id,
+      word,
+      mastery:       masteryValue,
+      mastery_score: masteryValue,
+    }, { onConflict: 'user_id,word' });
+  }, [user]);
+
   // ── Handle a game answer (called by GameEngine after each tap) ──
   const handleProgress = useCallback(async ({ word, correct, responseTimeMs, gameType }) => {
     // Optimistic local update: +5 correct, -2 wrong (instant UI feedback)
@@ -204,12 +324,21 @@ export default function App() {
         w.word === word ? { ...w, mastery: serverMastery } : w
       ));
     }
-  }, [words, saveWordProgress]);
+
+    // Insert learning event (fire-and-forget, table may not exist yet)
+    void supabase.from('learning_events').insert({
+      user_id:          user?.id,
+      word,
+      correct,
+      game_type:        gameType,
+      response_time_ms: responseTimeMs,
+    }).catch(() => {});
+  }, [words, saveWordProgress, user]);
 
   const handleSessionEnd = useCallback(({ wordsCorrect, totalWords }) => {
-    console.log(`Session complete: ${wordsCorrect}/${totalWords}`);
     setGameActive(false);
-  }, []);
+    updateStreak().catch(() => {});
+  }, [updateStreak]);
 
   // ── Learn tab renderer ──
   const renderLearnTab = () => {
@@ -265,7 +394,7 @@ export default function App() {
         <GameEngine
           sessionPlan={sessionPlan}
           gameType={activeGameType}
-          childName={profile?.name}
+          childName={getChildName(user)}
           onProgress={handleProgress}
           onSessionEnd={handleSessionEnd}
           onHome={() => setGameActive(false)}
@@ -508,8 +637,10 @@ export default function App() {
                         )}
                       </div>
                       <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44" }}>
-                        <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 12</div>
+                        <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 {streak}</div>
                         <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
+                        {freezeUsed && <div style={{ fontSize: 9, color: '#A8E6CF', marginTop: 2 }}>❄️ Streak saved!</div>}
+                        {!freezeUsed && freezesLeft > 0 && <div style={{ fontSize: 9, opacity: 0.8, marginTop: 2 }}>🧊 ×{freezesLeft}</div>}
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
@@ -599,7 +730,11 @@ export default function App() {
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {words.slice(0, 9).map(w => (
-                        <div key={w.id} className="word-orb" onClick={() => speakWord(w.word)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
+                        <div key={w.id} className="word-orb" onClick={() => {
+                          speakWord(w.word);
+                          generatePlanForWord(w.word);
+                          setScreen('learn');
+                        }} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
                           {w.word}
                         </div>
                       ))}
@@ -637,23 +772,52 @@ export default function App() {
 
                   <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#4ECDC4" }}>Content Words</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                    {words.filter(w => w.type === "content").map(w => (
-                      <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>
-                        {w.emoji} {w.word}
-                      </div>
-                    ))}
+                    {words.filter(w => w.type === "content").map(w => {
+                      const locked = w.unit > 5;
+                      return (
+                        <div key={w.id} className="word-orb"
+                          onClick={() => locked ? null : setActiveWord(w)}
+                          style={{
+                            background: locked ? "rgba(255,255,255,0.05)" : getMasteryColor(w.mastery),
+                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)"),
+                            borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
+                            boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
+                            border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
+                            cursor: locked ? "default" : "pointer",
+                            filter: locked ? "blur(0)" : "none",
+                            position: "relative",
+                          }}>
+                          {locked ? "🔒" : w.emoji} {locked ? "???" : w.word}
+                          {locked && <span style={{ position: "absolute", top: -6, right: -6, background: "#FFE66D", color: "#0F0A1E", fontSize: 8, fontWeight: 900, borderRadius: 8, padding: "2px 5px" }}>PRO</span>}
+                        </div>
+                      );
+                    })}
                     {Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.08)", borderRadius: 22, padding: "8px 16px", fontSize: 15, color: "rgba(255,255,255,0.15)", fontWeight: 800 }}>🔒 ???</div>
+                      <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.08)", borderRadius: 22, padding: "8px 16px", fontSize: 15, color: "rgba(255,255,255,0.12)", fontWeight: 800 }}>🔒 ???</div>
                     ))}
                   </div>
 
                   <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12, color: "#FF8B94" }}>Magic Words</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                    {words.filter(w => w.type === "function").map(w => (
-                      <div key={w.id} className="word-orb" onClick={() => setActiveWord(w)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)", borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), border: w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none" }}>
-                        {w.word}
-                      </div>
-                    ))}
+                    {words.filter(w => w.type === "function").map(w => {
+                      const locked = w.unit > 5;
+                      return (
+                        <div key={w.id} className="word-orb"
+                          onClick={() => locked ? null : setActiveWord(w)}
+                          style={{
+                            background: locked ? "rgba(255,255,255,0.05)" : getMasteryColor(w.mastery),
+                            color: locked ? "rgba(255,255,255,0.25)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.3)"),
+                            borderRadius: 22, padding: "8px 16px", fontSize: 15, fontWeight: 800,
+                            boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
+                            border: locked ? "2px dashed rgba(255,255,255,0.1)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
+                            cursor: locked ? "default" : "pointer",
+                            position: "relative",
+                          }}>
+                          {locked ? "🔒 ???" : w.word}
+                          {locked && <span style={{ position: "absolute", top: -6, right: -6, background: "#FFE66D", color: "#0F0A1E", fontSize: 8, fontWeight: 900, borderRadius: 8, padding: "2px 5px" }}>PRO</span>}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Word detail modal */}
@@ -691,7 +855,7 @@ export default function App() {
                                 const next = Number(e.target.value);
                                 setWords(prev => prev.map(w => w.id === activeWord.id ? { ...w, mastery: next } : w));
                                 setActiveWord(prev => prev ? { ...prev, mastery: next } : prev);
-                                void saveWordProgress(activeWord.word, next);
+                                void setWordMastery(activeWord.word, next);
                               }}
                               style={{ width: "100%" }}
                             />
@@ -716,18 +880,25 @@ export default function App() {
                   </div>
                   <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 20 }}>{user?.email}</div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
-                    {[
-                      { val: words.filter(w => w.mastery >= 80).length.toString(), sub: "Words mastered", color: "#4ECDC4" },
-                      { val: "12🔥", sub: "Day streak",  color: "#FF6B6B" },
-                      { val: "4.2h", sub: "This week",   color: "#FFE66D" },
-                    ].map((s, i) => (
-                      <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, color: s.color }}>{s.val}</div>
-                        <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>
+                  {(() => {
+                    const masteredCount = words.filter(w => w.mastery >= 80).length;
+                    const weekMins = weeklyActivity ? weeklyActivity.reduce((s, d) => s + d.mins, 0) : null;
+                    const weekStr  = weekMins !== null ? (weekMins < 60 ? `${weekMins}m` : `${(weekMins/60).toFixed(1)}h`) : '—';
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+                        {[
+                          { val: masteredCount.toString(), sub: "Words mastered", color: "#4ECDC4" },
+                          { val: `${streak}🔥`,           sub: "Day streak",     color: "#FF6B6B" },
+                          { val: weekStr,                  sub: "This week",      color: "#FFE66D" },
+                        ].map((s, i) => (
+                          <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
+                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, color: s.color }}>{s.val}</div>
+                            <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   {/* AI coaching tip from session plan */}
                   <div style={{ background: "linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))", border: "1px solid rgba(255,230,109,0.4)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
@@ -744,22 +915,48 @@ export default function App() {
 
                   {/* Weekly activity chart */}
                   <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 16 }}>Weekly Activity ⏱️</div>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 16 }}>
+                      Weekly Activity ⏱️
+                      {weeklyActivity === null && <span style={{ fontSize: 11, fontFamily: "'Nunito'", opacity: 0.5, marginLeft: 8 }}>loading…</span>}
+                    </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
-                      {[
-                        { day: "Mon", mins: 22 }, { day: "Tue", mins: 35 },
-                        { day: "Wed", mins: 18 }, { day: "Thu", mins: 45 },
-                        { day: "Fri", mins: 30 }, { day: "Sat", mins: 55 },
-                        { day: "Sun", mins: 20 },
-                      ].map((d, i) => (
-                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                          <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>
-                          <div style={{ width: "100%", height: d.mins * 1.2 + "px", background: i === 5 ? "#FF6B6B" : i === 3 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0" }} />
-                          <div style={{ fontSize: 9, opacity: 0.6 }}>{d.day}</div>
-                        </div>
-                      ))}
+                      {(weeklyActivity ?? [
+                        { day: "Mon", mins: 0 }, { day: "Tue", mins: 0 },
+                        { day: "Wed", mins: 0 }, { day: "Thu", mins: 0 },
+                        { day: "Fri", mins: 0 }, { day: "Sat", mins: 0 },
+                        { day: "Sun", mins: 0 },
+                      ]).map((d, i, arr) => {
+                        const maxMins = Math.max(...arr.map(x => x.mins), 1);
+                        const barH = Math.round((d.mins / maxMins) * 60) + 4;
+                        const isToday = i === arr.length - 1;
+                        return (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            {d.mins > 0 && <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>}
+                            <div style={{ width: "100%", height: barH + "px", background: isToday ? "#FF6B6B" : d.mins > 30 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0", opacity: d.mins === 0 ? 0.2 : 1 }} />
+                            <div style={{ fontSize: 9, opacity: isToday ? 1 : 0.6, color: isToday ? "#FF8B94" : undefined }}>{d.day}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+
+                  {/* Needs attention section */}
+                  {(() => {
+                    const struggling = words.filter(w => w.mastery > 0 && w.mastery < 50);
+                    if (!struggling.length) return null;
+                    return (
+                      <div style={{ background: "rgba(255,107,107,0.07)", border: "1px solid rgba(255,107,107,0.25)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#FF8B94", marginBottom: 10 }}>⚠️ Needs Attention</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {struggling.map(w => (
+                            <div key={w.id} style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.3)", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, color: "#FF8B94" }}>
+                              {w.emoji} {w.word} <span style={{ opacity: 0.7 }}>{w.mastery}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Mastery heatmap — live data */}
                   <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
@@ -791,78 +988,90 @@ export default function App() {
               {screen === "teacher" && (
                 <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
                   <div style={{ fontSize: 13, color: "#A8E6CF", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Teacher Dashboard</div>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, marginBottom: 4 }}>Ms. Johnson's Class 🏫</div>
-                  <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 20 }}>Kindergarten · Room 12 · 6 students</div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                    {[
-                      { val: "67%", sub: "Avg mastery",       color: "#4ECDC4" },
-                      { val: "5/6", sub: "Active today",      color: "#A8E6CF" },
-                      { val: "8.2", sub: "Avg streak days",   color: "#FFE66D" },
-                      { val: "2",   sub: "⚠️ Need attention", color: "#FF8B94" },
-                    ].map((s, i) => (
-                      <div key={i} style={{ background: `${s.color}12`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: 16 }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, color: s.color }}>{s.val}</div>
-                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{s.sub}</div>
-                      </div>
-                    ))}
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, marginBottom: 16 }}>
+                    {teacherClass ? `${teacherClass.class_name} 🏫` : 'My Classroom 🏫'}
                   </div>
 
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Student Progress 📋</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-                    {STUDENTS.map((s, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.progress < 40 ? "#FF8B9444" : "rgba(255,255,255,0.1)"}`, borderRadius: 18, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 28, width: 44, height: 44, background: "rgba(255,255,255,0.08)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{s.avatar}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                            <div style={{ fontWeight: 800, fontSize: 15 }}>{s.name}</div>
-                            <div style={{ fontSize: 11, opacity: 0.6 }}>Unit {s.unit}</div>
-                          </div>
-                          <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${s.progress}%`, borderRadius: 6, background: s.progress > 70 ? "linear-gradient(90deg, #4ECDC4, #A8E6CF)" : s.progress > 40 ? "linear-gradient(90deg, #FFE66D, #FFB347)" : "linear-gradient(90deg, #FF8B94, #FF6B6B)" }} />
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                            <div style={{ fontSize: 11, opacity: 0.6 }}>{s.progress}% mastery</div>
-                            <div style={{ fontSize: 11, color: s.streak > 7 ? "#FFE66D" : "rgba(255,255,255,0.5)" }}>🔥 {s.streak} days</div>
-                          </div>
+                  {/* Create class modal */}
+                  {showCreateClass && (
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCreateClass(false)}>
+                      <div onClick={e => e.stopPropagation()} style={{ background: "#1A1030", border: "2px solid #4ECDC4", borderRadius: 24, padding: 28, width: "100%", maxWidth: 340, animation: "bounceIn 0.3s ease" }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, color: "#4ECDC4", marginBottom: 16 }}>Create a Class</div>
+                        <input
+                          value={newClassName}
+                          onChange={e => setNewClassName(e.target.value)}
+                          placeholder="e.g. Ms. Kim's Kindergarten"
+                          style={{ width: "100%", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(15,10,30,0.7)", color: "#fff", boxSizing: "border-box", marginBottom: 16 }}
+                        />
+                        <button
+                          disabled={!newClassName.trim()}
+                          onClick={async () => {
+                            if (!newClassName.trim() || !user) return;
+                            const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                            const { data, error } = await supabase.from('teacher_classes').insert({
+                              teacher_id: user.id,
+                              class_name: newClassName.trim(),
+                              join_code: joinCode,
+                            }).select().maybeSingle();
+                            if (!error && data) { setTeacherClass(data); setShowCreateClass(false); setNewClassName(''); }
+                          }}
+                          style={{ width: "100%", padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", fontWeight: 900, fontSize: 15, cursor: !newClassName.trim() ? "not-allowed" : "pointer", opacity: !newClassName.trim() ? 0.6 : 1 }}
+                        >
+                          Create Class ✨
+                        </button>
+                        <div style={{ textAlign: "center", marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => setShowCreateClass(false)}>Cancel</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!teacherClass ? (
+                    /* No class yet */
+                    <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
+                      <div style={{ fontSize: 64, marginBottom: 16 }}>🏫</div>
+                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, marginBottom: 8 }}>Create your first class</div>
+                      <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 24 }}>Students join with a 6-character code. Track their progress in real time.</div>
+                      <div className="btn-primary" onClick={() => setShowCreateClass(true)} style={{ display: "inline-block", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", borderRadius: 14, padding: "12px 28px", fontWeight: 900, fontSize: 15 }}>
+                        Create Class ✨
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Join code */}
+                      <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(168,230,207,0.1))", border: "2px solid #4ECDC4", borderRadius: 20, padding: 20, marginBottom: 20, textAlign: "center" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Student Join Code</div>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", letterSpacing: 6, textShadow: "0 0 20px #FFE66D44" }}>
+                          {teacherClass.join_code}
+                        </div>
+                        <div
+                          className="btn-primary"
+                          onClick={() => navigator.clipboard?.writeText(teacherClass.join_code)}
+                          style={{ marginTop: 8, display: "inline-block", background: "rgba(78,205,196,0.15)", border: "1px solid #4ECDC4", borderRadius: 10, padding: "6px 16px", fontSize: 12, fontWeight: 800, color: "#4ECDC4", cursor: "pointer" }}
+                        >
+                          Copy code 📋
                         </div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Quick Actions ⚡</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                    {[
-                      { icon: "📤", label: "Assign Unit",      color: "#4ECDC4" },
-                      { icon: "📊", label: "Export Report",    color: "#FFE66D" },
-                      { icon: "📺", label: "Classroom Mode",   color: "#FF8B94" },
-                      { icon: "💬", label: "Message Parents",  color: "#A8E6CF" },
-                    ].map((a, i) => (
-                      <div key={i} className="activity-card" style={{ background: `${a.color}12`, border: `1px solid ${a.color}33`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 24 }}>{a.icon}</div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: a.color }}>{a.label}</div>
+                      {/* Empty state for students */}
+                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Student Progress 📋</div>
+                      <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "24px 16px", textAlign: "center", marginBottom: 20 }}>
+                        <div style={{ fontSize: 40, marginBottom: 8 }}>👋</div>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>No students yet</div>
+                        <div style={{ fontSize: 13, opacity: 0.6 }}>Share the join code above. Students enter it on the home screen to join your class.</div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Standards Alignment 📐</div>
-                    {[
-                      { std: "RF.K.3c", desc: "High-frequency words", complete: 82 },
-                      { std: "RF.1.3g", desc: "Irregular words",       complete: 55 },
-                      { std: "L.K.5d",  desc: "Word relationships",    complete: 67 },
-                    ].map((s, i) => (
-                      <div key={i} style={{ marginBottom: 14 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#4ECDC4" }}>{s.std}</span> — {s.desc}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#FFE66D" }}>{s.complete}%</div>
-                        </div>
-                        <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 6, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${s.complete}%`, borderRadius: 6, background: "linear-gradient(90deg, #4ECDC4, #A8E6CF)" }} />
-                        </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                        {[
+                          { icon: "📤", label: "Assign Unit",    color: "#4ECDC4" },
+                          { icon: "📊", label: "Export Report",  color: "#FFE66D" },
+                        ].map((a, i) => (
+                          <div key={i} className="activity-card" style={{ background: `${a.color}12`, border: `1px solid ${a.color}33`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10, cursor: "not-allowed", opacity: 0.5 }}>
+                            <div style={{ fontSize: 24 }}>{a.icon}</div>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: a.color }}>{a.label}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </>
+                  )}
                 </div>
               )}
 

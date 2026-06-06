@@ -362,9 +362,39 @@ function FeedbackOverlay({ correct, message, emoji }) {
   );
 }
 
+// ─── Word tile: Unsplash image for content words, emoji fallback ──────────────
+function WordTile({ word, emoji, wordClass }) {
+  const [imgError,  setImgError]  = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const isContent = wordClass !== 'function' && !(_WORD_CLASS_MAP[word] === 'function');
+
+  if (!isContent || imgError) {
+    return <span style={{ fontSize: '3.5rem', lineHeight: 1 }}>{emoji}</span>;
+  }
+  return (
+    <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '14px', overflow: 'hidden', flexShrink: 0 }}>
+      {!imgLoaded && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(255,255,255,0.08)',
+          borderRadius: '14px',
+          animation: 'mw-pulse-glow 1s ease-in-out infinite',
+        }} />
+      )}
+      <img
+        src={`https://source.unsplash.com/200x200/?${encodeURIComponent(word)},illustration`}
+        alt={word}
+        style={{ width: '80px', height: '80px', objectFit: 'cover', display: imgLoaded ? 'block' : 'none' }}
+        onLoad={() => setImgLoaded(true)}
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
+
 // ─── GAME 1: Word Match ────────────────────────────────────────────────────────
 // See word → tap the correct emoji. Classic MVP game, polished.
-function WordMatch({ quiz, onAnswer, encouragement }) {
+function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   const [selected,    setSelected]    = useState(null);
   const [answered,    setAnswered]    = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -497,19 +527,28 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
         }}>
           {quiz.options.map((opt, idx) => {
             let className = 'mw-option-btn';
+            const isCorrectTile = idx === quiz.correctIndex;
             if (answered) {
-              if (idx === quiz.correctIndex) className += ' correct revealed';
-              else if (idx === selected)     className += ' wrong';
+              if (isCorrectTile)         className += ' correct revealed';
+              else if (idx === selected) className += ' wrong';
             }
+            // FIX 7: hint — pulse on correct tile after 2 consecutive wrong
+            const hintStyle = showHint && !answered && isCorrectTile
+              ? { animation: 'mw-pulse-glow 0.8s ease-in-out infinite', borderColor: 'rgba(78,205,196,0.5)' }
+              : {};
             return (
               <button
                 key={idx}
                 className={className}
                 onClick={() => handleTap(idx)}
                 disabled={answered}
-                style={{ animationDelay: (idx * 0.07) + 's' }}
+                style={{
+                  animationDelay: (idx * 0.07) + 's',
+                  cursor: answered ? 'default' : 'pointer',
+                  ...hintStyle,
+                }}
               >
-                <span style={{ fontSize: '3.5rem', lineHeight: 1 }}>{opt.emoji}</span>
+                <WordTile word={opt.word} emoji={opt.emoji} wordClass={quiz.wordClass} />
               </button>
             );
           })}
@@ -899,9 +938,15 @@ function SpellItOut({ quiz, onAnswer }) {
 }
 
 // ─── Session Complete screen ───────────────────────────────────────────────────
-function SessionComplete({ correctCount, total, encouragement, childName, onPlayAgain, onHome }) {
-  const pct = Math.round((correctCount / total) * 100);
+function SessionComplete({ correctCount, total, encouragement, childName, wordsPlayed = [], onPlayAgain, onHome }) {
+  const [confettiActive, setConfettiActive] = useState(true);
+  const pct   = Math.round((correctCount / total) * 100);
   const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
+
+  useEffect(() => {
+    const t = setTimeout(() => setConfettiActive(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div style={{
@@ -914,47 +959,76 @@ function SessionComplete({ correctCount, total, encouragement, childName, onPlay
       padding: '2rem',
       textAlign: 'center',
       animation: 'mw-slide-up 0.4s ease',
+      overflowY: 'auto',
     }}>
-      <div style={{ fontSize: '80px', animation: 'mw-celebrate 1s ease 0.2s both' }}>
-        {pct === 100 ? '🏆' : pct >= 70 ? '🌟' : '⭐'}
-      </div>
+      <ConfettiBurst active={confettiActive} />
+
+      {/* Rocket bounce */}
+      <div style={{ fontSize: '72px', animation: 'mw-bounce 1s ease 0.2s both' }}>🚀</div>
 
       <h2 style={{
         fontFamily: 'Fredoka One',
-        fontSize: 'clamp(2rem, 6vw, 3rem)',
-        color: T.teal,
-        margin: '1rem 0 0.5rem',
+        fontSize: 'clamp(2rem, 6vw, 2.75rem)',
+        color: T.gold,
+        margin: '0.75rem 0 0.25rem',
+        textShadow: `0 0 30px ${T.gold}88`,
       }}>
-        {pct === 100 ? 'Perfect!' : pct >= 70 ? 'Amazing!' : 'Great try!'}
-        {childName ? ` ${childName}!` : ''}
+        Session Complete!
       </h2>
 
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '1rem 0' }}>
+      {childName && (
+        <p style={{ fontFamily: 'Nunito', fontSize: '1rem', color: T.muted, margin: '0 0 0.75rem' }}>
+          Great work, {childName}! 🌟
+        </p>
+      )}
+
+      {/* Stars */}
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.75rem 0' }}>
         {[1, 2, 3].map(s => (
           <span key={s} style={{
             fontSize: '2.5rem',
-            opacity: s <= stars ? 1 : 0.2,
+            opacity: s <= stars ? 1 : 0.15,
             animation: s <= stars ? `mw-pop 0.4s ease ${s * 0.15}s both` : 'none',
           }}>⭐</span>
         ))}
       </div>
 
-      <p style={{
-        fontFamily: 'Nunito',
-        fontSize: '1.2rem',
-        color: T.white,
-        margin: '0.5rem 0 0.25rem',
-      }}>
-        {correctCount} out of {total} words correct!
+      <p style={{ fontFamily: 'Fredoka One', fontSize: '1.3rem', color: T.white, margin: '0.25rem 0 1.25rem' }}>
+        {correctCount} / {total} correct!
       </p>
 
-      <p style={{
-        fontFamily: 'Nunito',
-        fontSize: '1rem',
-        color: T.muted,
-        margin: '0 0 2rem',
-        maxWidth: '280px',
-      }}>
+      {/* Words practiced pills */}
+      {wordsPlayed.length > 0 && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          justifyContent: 'center',
+          maxWidth: '320px',
+          marginBottom: '1.5rem',
+        }}>
+          {wordsPlayed.map((wp, i) => (
+            <div key={i} style={{
+              background: wp.correct ? 'rgba(78,205,196,0.15)' : 'rgba(255,107,107,0.1)',
+              border: `1.5px solid ${wp.correct ? T.teal : T.coral}`,
+              borderRadius: '50px',
+              padding: '0.25rem 0.75rem',
+              fontFamily: 'Nunito',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              color: wp.correct ? T.teal : T.coral,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}>
+              <span>{wp.emoji}</span>
+              <span>{wp.word}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ fontFamily: 'Nunito', fontSize: '0.95rem', color: T.muted, margin: '0 0 2rem', maxWidth: '260px' }}>
         {encouragement}
       </p>
 
@@ -972,7 +1046,7 @@ function SessionComplete({ correctCount, total, encouragement, childName, onPlay
             cursor: 'pointer',
           }}
         >
-          Play Again ✨
+          Keep Going! 🚀
         </button>
         <button
           onClick={onHome}
@@ -997,14 +1071,83 @@ function SessionComplete({ correctCount, total, encouragement, childName, onPlay
 // ─── Game type selector (shown before a game starts) ─────────────────────────
 const GAME_TYPES = [
   { id: 'word_match',    label: 'Word Match',    emoji: '👀', desc: 'See the word, tap the picture',   color: T.teal,   available: true  },
-  { id: 'sound_match',  label: 'Sound Match',   emoji: '🔊', desc: 'Hear the word, tap the picture',  color: T.purple, available: false }, // Phase 2
-  { id: 'story_builder',label: 'Story Builder', emoji: '📖', desc: 'Complete the sentence',           color: T.gold,   available: false }, // Phase 3
-  { id: 'spell_it_out', label: 'Spell It Out',  emoji: '🔤', desc: 'Tap the letters to spell it',    color: T.pink,   available: false }, // Phase 3
+  { id: 'sound_match',  label: 'Sound Match',   emoji: '🔊', desc: 'Hear the word, tap the picture',  color: T.purple, available: false },
+  { id: 'story_builder',label: 'Story Builder', emoji: '📖', desc: 'Complete the sentence',           color: T.gold,   available: false },
+  { id: 'spell_it_out', label: 'Spell It Out',  emoji: '🔤', desc: 'Tap the letters to spell it',    color: T.pink,   available: false },
 ];
 
+const PREMIUM_FEATURES = [
+  '🔊 Sound Match — hear and tap',
+  '📖 Story Builder — fill the blank',
+  '🔤 Spell It Out — letter tiles',
+  '📚 Units 6–18 unlocked',
+  '📊 Advanced parent analytics',
+];
+
+function UpgradeModal({ onClose }) {
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1.5rem',
+    }} onClick={onClose}>
+      <div style={{
+        background: '#1A1030',
+        border: `2px solid ${T.gold}`,
+        borderRadius: '24px',
+        padding: '2rem 1.75rem',
+        maxWidth: '340px',
+        width: '100%',
+        textAlign: 'center',
+        animation: 'mw-pop 0.3s ease',
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: '48px', marginBottom: '0.5rem' }}>🌟</div>
+        <h3 style={{ fontFamily: 'Fredoka One', fontSize: '1.5rem', color: T.gold, margin: '0 0 0.25rem' }}>
+          Go Premium
+        </h3>
+        <p style={{ fontFamily: 'Nunito', fontSize: '0.875rem', color: T.muted, margin: '0 0 1.25rem' }}>
+          Unlock all games and every word unit:
+        </p>
+        <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+          {PREMIUM_FEATURES.map((f, i) => (
+            <div key={i} style={{
+              fontFamily: 'Nunito', fontSize: '0.9rem', color: T.white,
+              padding: '0.35rem 0', borderBottom: i < PREMIUM_FEATURES.length - 1 ? `1px solid ${T.border}` : 'none',
+            }}>{f}</div>
+          ))}
+        </div>
+        <button style={{
+          width: '100%',
+          fontFamily: 'Fredoka One', fontSize: '1rem',
+          background: `linear-gradient(135deg, ${T.gold}, #FFB300)`,
+          color: '#1A0A00', border: 'none', borderRadius: '50px',
+          padding: '0.875rem 1rem', cursor: 'not-allowed', opacity: 0.7,
+        }}>
+          Start Free Trial — $9.99/mo
+        </button>
+        <p style={{ fontFamily: 'Nunito', fontSize: '0.75rem', color: T.muted, margin: '0.75rem 0 0' }}>
+          Coming soon — we'll let you know!
+        </p>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', color: T.muted,
+          fontFamily: 'Nunito', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.75rem',
+        }}>
+          Maybe later
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
   return (
     <div style={{ padding: '1.5rem', animation: 'mw-slide-up 0.3s ease' }}>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+
       <h2 style={{
         fontFamily: 'Fredoka One',
         fontSize: '1.5rem',
@@ -1022,22 +1165,27 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
             <button
               key={game.id}
               className="mw-option-btn"
-              onClick={() => isUnlocked && onSelect(game.id)}
-              disabled={!isUnlocked}
+              onClick={() => isUnlocked ? onSelect(game.id) : setShowUpgrade(true)}
               style={{
                 minHeight: '120px',
-                opacity: isUnlocked ? 1 : 0.45,
+                opacity: isUnlocked ? 1 : 0.6,
                 borderColor: isUnlocked ? game.color : T.border,
                 position: 'relative',
-                cursor: isUnlocked ? 'pointer' : 'default',
+                cursor: 'pointer',
               }}
             >
               {!isUnlocked && (
                 <div style={{
-                  position: 'absolute', top: '8px', right: '10px',
-                  fontSize: '0.7rem', color: T.muted,
-                  fontFamily: 'Nunito', fontWeight: 700,
-                }}>🔒 Coming soon</div>
+                  position: 'absolute', top: '8px', right: '8px',
+                  background: `${T.gold}22`,
+                  border: `1px solid ${T.gold}88`,
+                  borderRadius: '20px',
+                  padding: '2px 8px',
+                  fontSize: '0.65rem',
+                  color: T.gold,
+                  fontFamily: 'Nunito',
+                  fontWeight: 700,
+                }}>🔒 Premium</div>
               )}
               <span style={{ fontSize: '2.25rem' }}>{game.emoji}</span>
               <span style={{ fontFamily: 'Fredoka One', fontSize: '0.95rem', color: isUnlocked ? T.white : T.muted }}>
@@ -1068,29 +1216,39 @@ export function GameEngine({
   const quizzes        = sessionPlan?.quizzes ?? [];
   const encouragements = sessionPlan?.encouragements ?? ['Great job! ⭐'];
 
-  const [currentIdx,   setCurrentIdx]   = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [sessionDone,  setSessionDone]  = useState(false);
-  const [encouragIdx,  setEncouragIdx]  = useState(0);
+  const [currentIdx,        setCurrentIdx]        = useState(0);
+  const [correctCount,      setCorrectCount]      = useState(0);
+  const [showConfetti,      setShowConfetti]      = useState(false);
+  const [sessionDone,       setSessionDone]       = useState(false);
+  const [encouragIdx,       setEncouragIdx]       = useState(0);
+  const [consecutiveCorrect, setConsecutiveCorrect] = useState(0);
+  const [consecutiveWrong,   setConsecutiveWrong]   = useState(0);
+  const [wordsPlayed,        setWordsPlayed]        = useState([]);
   const sessionStartRef = useRef(Date.now());
 
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
 
-  // Pre-fetch next word's audio into cache while current word is shown
+  // Pre-fetch ALL session words' audio in parallel at session start
   useEffect(() => {
-    const next = quizzes[currentIdx + 1];
-    if (next?.word) fetchAudio(next.word);
-  }, [currentIdx, quizzes]);
+    quizzes.forEach(q => { if (q?.word) fetchAudio(q.word); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback(({ correct, responseTimeMs }) => {
     const newCorrect = correctCount + (correct ? 1 : 0);
     if (correct) {
       setCorrectCount(newCorrect);
+      setConsecutiveCorrect(n => n + 1);
+      setConsecutiveWrong(0);
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 1000);
+    } else {
+      setConsecutiveWrong(n => n + 1);
+      setConsecutiveCorrect(0);
     }
+
+    const newWordsPlayed = [...wordsPlayed, { word: currentQuiz.word, emoji: currentQuiz.emoji, correct }];
+    setWordsPlayed(newWordsPlayed);
 
     // Report progress to parent (saves to Supabase)
     onProgress?.({
@@ -1110,16 +1268,20 @@ export function GameEngine({
         wordsCorrect: newCorrect,
         totalWords:   totalQuizzes,
         timeSpentMs:  Date.now() - sessionStartRef.current,
+        wordsPlayed:  newWordsPlayed,
       });
     } else {
       setCurrentIdx(i => i + 1);
     }
-  }, [correctCount, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd]);
+  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
     setCorrectCount(0);
     setSessionDone(false);
+    setConsecutiveCorrect(0);
+    setConsecutiveWrong(0);
+    setWordsPlayed([]);
     sessionStartRef.current = Date.now();
   };
 
@@ -1130,6 +1292,7 @@ export function GameEngine({
         total={totalQuizzes}
         encouragement={encouragements[0]}
         childName={childName}
+        wordsPlayed={wordsPlayed}
         onPlayAgain={handlePlayAgain}
         onHome={onHome}
       />
@@ -1167,6 +1330,7 @@ export function GameEngine({
           quiz={currentQuiz}
           onAnswer={handleAnswer}
           encouragement={encouragements[encouragIdx % encouragements.length]}
+          showHint={consecutiveWrong >= 2}
         />
       )}
       {gameType === 'sound_match' && (

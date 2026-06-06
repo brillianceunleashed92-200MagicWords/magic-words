@@ -90,7 +90,7 @@ function getDifficultyLevel(progress) {
 }
 
 // Adaptive word selection: prioritize struggling, sprinkle mastered, cap new words at 2
-function selectSessionWords(progress) {
+function selectSessionWords(progress, focusWord = null) {
   const progressMap = Object.fromEntries(progress.map(w => [w.word, w]));
 
   const withProgress = ALL_WORDS.map(w => ({
@@ -105,16 +105,47 @@ function selectSessionWords(progress) {
   const developing = withProgress.filter(w => w.attemptCount > 0 && w.mastery >= 60 && w.mastery < 80).sort((a, b) => a.mastery - b.mastery);
   const mastered   = withProgress.filter(w => w.mastery >= 80).sort(() => Math.random() - 0.5);
 
-  const session = [
-    ...unseen.slice(0, 2),      // max 2 brand-new words
-    ...struggling,               // all struggling words first
-    ...developing,               // then developing
-    ...mastered.slice(0, 2),     // 1-2 mastered for confidence
-  ];
+  const hasHistory = struggling.length + developing.length + mastered.length > 0;
 
-  // Deduplicate and cap at 8
+  let session;
+  if (!hasHistory) {
+    // New user: give 6–8 words all from unseen
+    session = unseen.slice(0, 8);
+  } else {
+    session = [
+      ...unseen.slice(0, 2),
+      ...struggling,
+      ...developing,
+      ...mastered.slice(0, 2),
+    ];
+  }
+
+  // Deduplicate
   const seen = new Set();
-  return session.filter(w => { if (seen.has(w.word)) return false; seen.add(w.word); return true; }).slice(0, 8);
+  const deduped = session.filter(w => { if (seen.has(w.word)) return false; seen.add(w.word); return true; });
+
+  // Fill to minimum 6 from remaining unseen if short
+  if (deduped.length < 6) {
+    const used = new Set(deduped.map(w => w.word));
+    const filler = unseen.filter(w => !used.has(w.word)).slice(0, 6 - deduped.length);
+    deduped.push(...filler);
+  }
+
+  let result = deduped.slice(0, 8);
+
+  // Promote focusWord to position 0 if specified
+  if (focusWord) {
+    const idx = result.findIndex(w => w.word === focusWord);
+    if (idx > 0) {
+      const [fw] = result.splice(idx, 1);
+      result.unshift(fw);
+    } else if (idx === -1) {
+      const fw = withProgress.find(w => w.word === focusWord);
+      if (fw) result = [fw, ...result.slice(0, 7)];
+    }
+  }
+
+  return result;
 }
 
 module.exports = async function handler(req, res) {
@@ -125,12 +156,12 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, progress = [] } = req.body || {};
+  const { userId, progress = [], focusWord = null } = req.body || {};
 
   if (!userId) return res.status(400).json({ error: 'userId required' });
 
   // Select session words (fast, no AI)
-  const sessionWords  = selectSessionWords(progress);
+  const sessionWords    = selectSessionWords(progress, focusWord);
   const difficultyLevel = getDifficultyLevel(progress);
 
   try {
@@ -158,10 +189,13 @@ Adaptive learning rules already applied to word selection:
 Generate a JSON session plan with exactly these fields:
 {
   "sessionGoal": "One short, exciting sentence about what we'll learn today (max 8 words, use 'we')",
+  "sessionLength": 6,
   "encouragements": ["5 short encouraging phrases for when a child answers correctly. Age 4-8. Enthusiastic! Use emojis. Max 6 words each."],
   "wrongAnswerMessages": ["3 gentle, encouraging messages for wrong answers. Never say 'wrong'. Max 8 words each."],
   "coachingTip": "One teaching tip for this child based on their mastery data (for the parent dashboard, not the child)"
 }
+
+For sessionLength: beginners (beginning difficulty) → 4-6, intermediate (emerging/developing) → 6-8, advanced (proficient) → 8-10. Pick based on difficultyLevel above. Must be a number.
 
 Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
 
@@ -180,19 +214,28 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
       // Non-fatal — use defaults
     }
 
+    // AI can specify session length; clamp to available words
+    const defaultLength = difficultyLevel === 'beginning' ? 6 : difficultyLevel === 'proficient' ? 8 : 7;
+    const sessionLength = Math.min(
+      Math.max(4, aiData.sessionLength ?? defaultLength),
+      sessionWords.length
+    );
+    const chosenWords = sessionWords.slice(0, sessionLength);
+
     // Build complete quizzes for each session word
-    const quizzes = sessionWords.map(w => buildQuiz(w, ALL_WORDS));
+    const quizzes = chosenWords.map(w => buildQuiz(w, ALL_WORDS));
 
     const plan = {
       difficultyLevel,
-      sessionGoal:        aiData.sessionGoal        ?? `Let's practice ${sessionWords.length} words today!`,
+      sessionLength,
+      sessionGoal:        aiData.sessionGoal        ?? `Let's practice ${chosenWords.length} words today!`,
       quizzes,
-      wordSequence:       sessionWords,
+      wordSequence:       chosenWords,
       encouragements:     aiData.encouragements     ?? ['Great job! ⭐', 'Amazing! 🌟', 'You did it! 🎉', "You're a star! ✨", "Wow! 🎈"],
       wrongAnswerMessages: aiData.wrongAnswerMessages ?? ["Let's try again! 💪", "Almost! Keep going! 🌟", "You're learning! ⭐"],
       coachingTip:        aiData.coachingTip        ?? '',
       generatedAt:        new Date().toISOString(),
-      wordCount:          sessionWords.length,
+      wordCount:          chosenWords.length,
     };
 
     return res.status(200).json({ plan });
@@ -201,19 +244,22 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
     console.error('[session-generator] AI call failed:', err.message);
 
     // Full fallback — no AI at all, still a complete working session
-    const quizzes = sessionWords.map(w => buildQuiz(w, ALL_WORDS));
+    const fallbackLength = Math.min(6, sessionWords.length);
+    const fallbackWords  = sessionWords.slice(0, fallbackLength);
+    const quizzes = fallbackWords.map(w => buildQuiz(w, ALL_WORDS));
     return res.status(200).json({
       plan: {
         isFallback:          true,
         difficultyLevel,
+        sessionLength:       fallbackLength,
         sessionGoal:         "Let's learn some magic words!",
         quizzes,
-        wordSequence:        sessionWords,
+        wordSequence:        fallbackWords,
         encouragements:      ['Great job! ⭐', 'Amazing! 🌟', 'You did it! 🎉', "You're a star! ✨", "Wow! 🎈"],
         wrongAnswerMessages: ["Let's try again! 💪", "Almost! 🌟", "Keep going! ⭐"],
         coachingTip:         '',
         generatedAt:         new Date().toISOString(),
-        wordCount:           sessionWords.length,
+        wordCount:           fallbackLength,
       }
     });
   }
