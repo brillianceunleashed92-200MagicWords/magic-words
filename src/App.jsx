@@ -50,6 +50,20 @@ const getMasteryGlow = (m) => {
   return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
 };
 
+// ─── TTS helper — fire-and-forget, no cache needed for occasional garden taps ─
+async function speakWord(word) {
+  try {
+    const res = await fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    new Audio(URL.createObjectURL(blob)).play();
+  } catch {}
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -474,36 +488,42 @@ export default function App() {
                   </div>
 
                   {/* Unit progress ring */}
-                  <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(255,230,109,0.1))", borderRadius: 24, padding: 20, marginBottom: 20, border: "1px solid rgba(78,205,196,0.3)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                      <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
-                        <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
-                          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                          <circle cx="40" cy="40" r="32" fill="none" stroke="#4ECDC4" strokeWidth="8"
-                            strokeDasharray={`${2 * Math.PI * 32 * 0.43} ${2 * Math.PI * 32}`}
-                            strokeLinecap="round" />
-                        </svg>
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#4ECDC4" }}>
-                              {words.filter(w => w.mastery >= 80).length}
+                  {(() => {
+                    const masteredCount = words.filter(w => w.mastery >= 80).length;
+                    const masteredFraction = words.length > 0 ? masteredCount / words.length : 0;
+                    return (
+                      <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(255,230,109,0.1))", borderRadius: 24, padding: 20, marginBottom: 20, border: "1px solid rgba(78,205,196,0.3)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                          <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
+                            <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+                              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+                              <circle cx="40" cy="40" r="32" fill="none" stroke="#4ECDC4" strokeWidth="8"
+                                strokeDasharray={`${2 * Math.PI * 32 * masteredFraction} ${2 * Math.PI * 32}`}
+                                strokeLinecap="round" />
+                            </svg>
+                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ textAlign: "center" }}>
+                                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#4ECDC4" }}>
+                                  {masteredCount}
+                                </div>
+                                <div style={{ fontSize: 8, opacity: 0.7 }}>mastered</div>
+                              </div>
                             </div>
-                            <div style={{ fontSize: 8, opacity: 0.7 }}>mastered</div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Unit 9: On the Move!</div>
+                            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>run · dog · look · one · other</div>
+                            <div style={{ marginTop: 10 }}>
+                              <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${masteredFraction * 100}%`, borderRadius: 10, background: "linear-gradient(90deg, #4ECDC4, #FFE66D)", boxShadow: "0 0 10px #4ECDC4" }} />
+                              </div>
+                              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>{masteredCount} of {words.length} words mastered</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Unit 9: On the Move!</div>
-                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>run · dog · look · one · other</div>
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: "60%", borderRadius: 10, background: "linear-gradient(90deg, #4ECDC4, #FFE66D)", boxShadow: "0 0 10px #4ECDC4" }} />
-                          </div>
-                          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>3 of 5 words mastered</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Daily magic word */}
                   <div onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
@@ -547,7 +567,7 @@ export default function App() {
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {words.slice(0, 9).map(w => (
-                        <div key={w.id} className="word-orb" style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery) }}>
+                        <div key={w.id} className="word-orb" onClick={() => speakWord(w.word)} style={{ background: getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "#ffffff44", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
                           {w.word}
                         </div>
                       ))}

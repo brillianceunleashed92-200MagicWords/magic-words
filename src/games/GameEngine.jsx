@@ -20,6 +20,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
+// ─── Audio cache — word → blob URL, survives React re-renders ────────────────
+const audioCache = new Map();
+
+async function fetchAudio(word) {
+  if (!word) return null;
+  if (audioCache.has(word)) return audioCache.get(word);
+  try {
+    const res = await fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word }),
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    audioCache.set(word, url);
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
 const T = {
   bg:      '#0F0A1E',
@@ -293,6 +315,8 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
   const [answered,    setAnswered]    = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [overlayData, setOverlayData] = useState(null);
+  const [audioUrl,    setAudioUrl]    = useState(null);
+  const [audioLoading, setAudioLoading] = useState(false);
   const startRef = useRef(Date.now());
 
   useEffect(() => {
@@ -301,7 +325,25 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
     setShowOverlay(false);
     setOverlayData(null);
     startRef.current = Date.now();
+
+    if (!quiz?.word) return;
+    let cancelled = false;
+    setAudioUrl(null);
+    setAudioLoading(true);
+    fetchAudio(quiz.word).then(url => {
+      if (cancelled) return;
+      setAudioLoading(false);
+      if (url) {
+        setAudioUrl(url);
+        new Audio(url).play().catch(() => {});
+      }
+    });
+    return () => { cancelled = true; };
   }, [quiz?.word]);
+
+  const replayAudio = useCallback(() => {
+    if (audioUrl) new Audio(audioUrl).play().catch(() => {});
+  }, [audioUrl]);
 
   const handleTap = useCallback((idx) => {
     if (answered) return;
@@ -336,16 +378,40 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
         />
       )}
       <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-        {/* Target word */}
+        {/* Target word + replay button */}
         <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-          <div style={{
-            fontFamily: 'Fredoka One',
-            fontSize: 'clamp(2.5rem, 8vw, 4rem)',
-            color: T.white,
-            animation: 'mw-word-glow 3s ease-in-out infinite',
-            letterSpacing: '2px',
-          }}>
-            {quiz.word}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+            <div style={{
+              fontFamily: 'Fredoka One',
+              fontSize: 'clamp(2.5rem, 8vw, 4rem)',
+              color: T.white,
+              animation: 'mw-word-glow 3s ease-in-out infinite',
+              letterSpacing: '2px',
+            }}>
+              {quiz.word}
+            </div>
+            <button
+              onClick={replayAudio}
+              disabled={!audioUrl}
+              style={{
+                background: 'rgba(78,205,196,0.12)',
+                border: `2px solid ${T.teal}`,
+                borderRadius: '50%',
+                width: '44px',
+                height: '44px',
+                fontSize: '1.25rem',
+                cursor: audioUrl ? 'pointer' : 'default',
+                opacity: !audioUrl ? 0.45 : 1,
+                animation: audioLoading ? 'mw-pulse-glow 1s ease-in-out infinite' : 'none',
+                transition: 'opacity 0.3s',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              🔊
+            </button>
           </div>
           <div style={{
             fontFamily: 'Nunito',
@@ -949,6 +1015,12 @@ export function GameEngine({
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
 
+  // Pre-fetch next word's audio into cache while current word is shown
+  useEffect(() => {
+    const next = quizzes[currentIdx + 1];
+    if (next?.word) fetchAudio(next.word);
+  }, [currentIdx, quizzes]);
+
   const handleAnswer = useCallback(({ correct, responseTimeMs }) => {
     const newCorrect = correctCount + (correct ? 1 : 0);
     if (correct) {
@@ -968,27 +1040,23 @@ export function GameEngine({
 
     setEncouragIdx(i => i + 1);
 
-    // Auto-advance
-    setTimeout(() => {
-      setShowFeedback(false);
-      if (currentIdx + 1 >= totalQuizzes) {
-        setSessionDone(true);
-        onSessionEnd?.({
-          wordsCorrect: newCorrect,
-          totalWords:   totalQuizzes,
-          timeSpentMs:  Date.now() - sessionStartRef.current,
-        });
-      } else {
-        setCurrentIdx(i => i + 1);
-      }
-    }, 1400);
-  }, [correctCount, currentQuiz, encouragements, encouragIdx, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd]);
+    // WordMatch already waits 1400ms before calling onAnswer — advance immediately
+    if (currentIdx + 1 >= totalQuizzes) {
+      setSessionDone(true);
+      onSessionEnd?.({
+        wordsCorrect: newCorrect,
+        totalWords:   totalQuizzes,
+        timeSpentMs:  Date.now() - sessionStartRef.current,
+      });
+    } else {
+      setCurrentIdx(i => i + 1);
+    }
+  }, [correctCount, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
     setCorrectCount(0);
     setSessionDone(false);
-    setShowFeedback(false);
     sessionStartRef.current = Date.now();
   };
 
