@@ -49,6 +49,19 @@ function fetchAudio(word) {
 }
 
 // ─── Question formatter — correct grammar for every word class ────────────────
+// Client-side fallback for any plan that predates wordClass being added to quizzes
+const _WORD_CLASS_MAP = {
+  run: 'verb', jump: 'verb', fly: 'verb', eat: 'verb', swim: 'verb',
+  dance: 'verb', hop: 'verb', skip: 'verb', sit: 'verb', wave: 'verb',
+  clap: 'verb', spin: 'verb', dig: 'verb', do: 'function',
+  big: 'adjective', sad: 'adjective', happy: 'adjective', small: 'adjective',
+  fast: 'adjective', slow: 'adjective', hot: 'adjective', cold: 'adjective',
+  the: 'function', a: 'function', an: 'function', is: 'function',
+  are: 'function', can: 'function', not: 'function', and: 'function',
+  or: 'function', but: 'function', with: 'function', they: 'function',
+  does: 'function', it: 'function', one: 'function', that: 'function',
+};
+
 const _CONS = new Set('bcdfghjklmnpqrstvwxyz');
 function _gerund(verb) {
   const c = verb.at(-1), v = verb.at(-2), c2 = verb.at(-3);
@@ -62,7 +75,8 @@ function _gerund(verb) {
 }
 
 function formatQuestion(word, wordClass) {
-  switch (wordClass) {
+  const wc = wordClass ?? _WORD_CLASS_MAP[word] ?? 'noun';
+  switch (wc) {
     case 'function':  return `Which card matches the word "${word}"?`;
     case 'verb':      return `Which picture shows someone ${_gerund(word)}?`;
     case 'adjective': return `Which picture shows something ${word.toUpperCase()}?`;
@@ -397,18 +411,24 @@ function WordMatch({ quiz, onAnswer, encouragement }) {
     const responseTimeMs = Date.now() - startRef.current;
     setSelected(idx);
     setAnswered(true);
-    // Show portal overlay immediately — no tile-level inline feedback
     setOverlayData({
       correct,
       message: correct
         ? (encouragement ?? 'Great job! ⭐')
-        : `The answer was "${quiz.word}" ${quiz.emoji}`,
+        : `Oops! That's okay — the ${quiz.word} is ${quiz.emoji}`,
       emoji: correct ? quiz.emoji : '💪',
     });
     setShowOverlay(true);
     setTimeout(() => {
       setShowOverlay(false);
-      onAnswer({ correct, responseTimeMs });
+      if (!correct) {
+        // Replay word audio so child hears it again, then hold on the correct tile for 600ms
+        const url = audioCache.get(quiz.word);
+        if (url) new Audio(url).play().catch(() => {});
+        setTimeout(() => onAnswer({ correct, responseTimeMs }), 600);
+      } else {
+        onAnswer({ correct, responseTimeMs });
+      }
     }, 1400);
   }, [answered, quiz, onAnswer, encouragement]);
 

@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
-const PLAN_CACHE_KEY   = 'mw_session_plan';
+const PLAN_CACHE_KEY   = 'mw_session_plan_v2'; // bump to bust stale plans missing wordClass
 const PLAN_TTL_MINUTES = 60; // regenerate if older than 1 hour
 
 function getCachedPlan() {

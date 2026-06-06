@@ -50,6 +50,17 @@ const getMasteryGlow = (m) => {
   return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
 };
 
+// ─── Derive the child's display name from Supabase auth metadata ─────────────
+function getChildName(user) {
+  if (!user) return 'Star Learner';
+  const meta = user.user_metadata ?? {};
+  const fromMeta = (meta.full_name || meta.name || '').trim();
+  if (fromMeta) return fromMeta;
+  const prefix = (user.email ?? '').split('@')[0];
+  if (!prefix) return 'Star Learner';
+  return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+}
+
 // ─── TTS helper — fire-and-forget, no cache needed for occasional garden taps ─
 async function speakWord(word) {
   try {
@@ -490,12 +501,11 @@ export default function App() {
                       <div>
                         <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
                         <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
-                          {profile?.name ?? "Star Learner"} ⭐
+                          {getChildName(user)} ⭐
                         </div>
-                        <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
-                        Signed in as <span style={{ fontWeight: 800 }}>{user?.email}</span>
-                          {!scoresLoaded && <span style={{ opacity: 0.8 }}>· Syncing…</span>}
-                        </div>
+                        {!scoresLoaded && (
+                          <div style={{ marginTop: 4, fontSize: 11, opacity: 0.6 }}>Syncing…</div>
+                        )}
                       </div>
                       <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44" }}>
                         <div style={{ fontSize: 22, fontWeight: 900 }}>🔥 12</div>
@@ -701,9 +711,10 @@ export default function App() {
               {screen === "parent" && (
                 <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
                   <div style={{ fontSize: 13, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Parent Dashboard</div>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 20 }}>
-                    {profile?.name ? `${profile.name}'s Progress 👧` : "Progress Dashboard 👧"}
+                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 4 }}>
+                    {getChildName(user)}'s Progress 👧
                   </div>
+                  <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 20 }}>{user?.email}</div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
                     {[
