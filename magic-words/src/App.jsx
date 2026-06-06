@@ -12,7 +12,7 @@ const WORDS = [
   { id: 9, word: "big", type: "content", unit: 7, mastery: 100, emoji: "🐘" },
   { id: 10, word: "sad", type: "content", unit: 13, mastery: 0, emoji: "😢" },
   { id: 11, word: "the", type: "function", unit: 3, mastery: 100, emoji: "📖" },
-  { id: 12, word: "can", type: "function", unit: 3, mastery: 90, emoji: "✅" },
+  { id: 12, word: "can", type: "function", unit: 3, mastery: 90, emoji: "🥫" },
   { id: 13, word: "is", type: "function", unit: 5, mastery: 85, emoji: "🔗" },
   { id: 14, word: "they", type: "function", unit: 6, mastery: 55, emoji: "👥" },
   { id: 15, word: "not", type: "function", unit: 3, mastery: 78, emoji: "🚫" },
@@ -46,9 +46,9 @@ export default function App() {
   const [celebrateWord, setCelebrateWord] = useState(null);
 
   const QUIZ_WORDS = [
-    { word: "cat", options: ["🐶", "🐱", "🐦", "🐸"], correct: 1 },
-    { word: "fly", options: ["🏊", "🏃", "✈️", "🚗"], correct: 2 },
-    { word: "big", options: ["🐜", "🐭", "🐘", "🐇"], correct: 2 },
+    { word: "run", question: 'Which picture shows "run"?', options: ["🏊 swim", "🏃 run", "😴 sleep", "🍎 eat"], correct: 1 },
+    { word: "cat", question: 'Which picture shows "cat"?', options: ["🐶 dog", "🐱 cat", "🐦 bird", "🐸 frog"], correct: 1 },
+    { word: "fly", question: 'Which picture shows "fly"?', options: ["🏊 swim", "🏃 run", "✈️ fly", "🚗 drive"], correct: 2 },
   ];
 
   function spawnParticles(x, y) {
@@ -256,11 +256,12 @@ export default function App() {
             </div>
 
             {/* Daily Magic */}
-            <div style={{
+            <div className="btn-primary" onClick={() => setScreen("learn")} style={{
               background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)",
               border: "1px solid #FF6B6B44",
               borderRadius: 20, padding: 16, marginBottom: 20,
               display: "flex", alignItems: "center", gap: 16,
+              cursor: "pointer",
             }}>
               <div style={{ fontSize: 40, animation: "float 3s ease-in-out infinite" }}>✨</div>
               <div style={{ flex: 1 }}>
@@ -268,7 +269,7 @@ export default function App() {
                 <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 15px #FFE66D88" }}>look</div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>Tap to unlock today's lesson →</div>
               </div>
-              <div className="btn-primary" onClick={() => setScreen("learn")} style={{
+              <div style={{
                 background: "linear-gradient(135deg, #FF6B6B, #FF8B94)",
                 borderRadius: 14, padding: "10px 16px",
                 fontSize: 20, boxShadow: "0 4px 15px #FF6B6B44",
@@ -379,58 +380,75 @@ export default function App() {
               </div>
 
               {/* Quiz section */}
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, marginBottom: 16 }}>
-                Which picture shows "run"? 🎯
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-                {["🏊 swim", "🏃 run", "😴 sleep", "🍎 eat"].map((opt, i) => {
-                  const [emoji, word] = opt.split(" ");
-                  const isCorrect = i === 1;
-                  const isSelected = quizState.selected === i;
-                  return (
-                    <div key={i} className="activity-card" onClick={(e) => {
-                      if (quizState.selected !== null) return;
-                      setQuizState(q => ({ ...q, selected: i, correct: isCorrect, score: isCorrect ? q.score + 1 : q.score }));
-                      if (isCorrect) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
-                      }
-                    }} style={{
-                      background: isSelected
-                        ? (isCorrect ? "rgba(78,205,196,0.3)" : "rgba(255,107,107,0.3)")
-                        : "rgba(255,255,255,0.06)",
-                      border: `2px solid ${isSelected ? (isCorrect ? "#4ECDC4" : "#FF6B6B") : "rgba(255,255,255,0.1)"}`,
-                      borderRadius: 20, padding: 20, textAlign: "center",
-                      boxShadow: isSelected && isCorrect ? "0 0 20px #4ECDC455" : "none",
-                    }}>
-                      <div style={{ fontSize: 40 }}>{emoji}</div>
-                      <div style={{ fontWeight: 800, marginTop: 8, fontSize: 16 }}>{word}</div>
-                      {isSelected && <div style={{ marginTop: 8, fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</div>}
+              {(() => {
+                const currentQ = QUIZ_WORDS[quizState.step % QUIZ_WORDS.length];
+                return (
+                  <>
+                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, marginBottom: 16 }}>
+                      {currentQ.question} 🎯
                     </div>
-                  );
-                })}
-              </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+                      {currentQ.options.map((opt, i) => {
+                        const [emoji, word] = opt.split(" ");
+                        const isCorrect = i === currentQ.correct;
+                        const isSelected = quizState.selected === i;
+                        return (
+                          <div key={i} className="activity-card" onClick={(e) => {
+                            if (quizState.selected !== null) return;
+                            setQuizState(q => ({ ...q, selected: i, correct: isCorrect, score: isCorrect ? q.score + 1 : q.score }));
+                            if (isCorrect) {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                            }
+                          }} style={{
+                            background: isSelected
+                              ? (isCorrect ? "rgba(78,205,196,0.3)" : "rgba(255,107,107,0.3)")
+                              : "rgba(255,255,255,0.06)",
+                            border: `2px solid ${isSelected ? (isCorrect ? "#4ECDC4" : "#FF6B6B") : "rgba(255,255,255,0.1)"}`,
+                            borderRadius: 20, padding: 20, textAlign: "center",
+                            boxShadow: isSelected && isCorrect ? "0 0 20px #4ECDC455" : "none",
+                          }}>
+                            <div style={{ fontSize: 40 }}>{emoji}</div>
+                            <div style={{ fontWeight: 800, marginTop: 8, fontSize: 16 }}>{word}</div>
+                            {isSelected && <div style={{ marginTop: 8, fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
 
-              {quizState.selected !== null && (
-                <div style={{
-                  background: quizState.correct ? "rgba(78,205,196,0.15)" : "rgba(255,107,107,0.15)",
-                  border: `1px solid ${quizState.correct ? "#4ECDC4" : "#FF6B6B"}`,
-                  borderRadius: 20, padding: 16, marginBottom: 20,
-                  animation: "bounceIn 0.4s ease",
-                }}>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20 }}>
-                    {quizState.correct ? "🎉 Amazing! You got it!" : "💪 Almost! Run means to move fast on your feet!"}
-                  </div>
-                  <div className="btn-primary" onClick={() => {
-                    setQuizState({ step: 0, selected: null, correct: false, score: 0 });
-                  }} style={{
-                    display: "inline-block", marginTop: 12,
-                    background: "linear-gradient(135deg, #FFE66D, #FFB347)",
-                    color: "#0F0A1E", borderRadius: 14, padding: "10px 24px",
-                    fontWeight: 900, fontSize: 14,
-                  }}>Next Activity →</div>
-                </div>
-              )}
+                    {quizState.selected !== null && (
+                      <div style={{
+                        position: "fixed",
+                        top: "50%", left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        zIndex: 200,
+                        width: "calc(100% - 48px)", maxWidth: 340,
+                        background: quizState.correct
+                          ? "linear-gradient(135deg, rgba(30,16,64,0.97), rgba(22,13,53,0.97))"
+                          : "linear-gradient(135deg, rgba(30,16,64,0.97), rgba(22,13,53,0.97))",
+                        border: `2px solid ${quizState.correct ? "#4ECDC4" : "#FF6B6B"}`,
+                        borderRadius: 24, padding: 24,
+                        animation: "bounceIn 0.4s ease",
+                        backdropFilter: "blur(12px)",
+                        boxShadow: `0 12px 50px ${quizState.correct ? "#4ECDC455" : "#FF6B6B55"}`,
+                        textAlign: "center",
+                      }}>
+                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22 }}>
+                          {quizState.correct ? "🎉 Amazing! You got it!" : `💪 Almost! "${currentQ.word}" means to move fast on your feet!`}
+                        </div>
+                        <div className="btn-primary" onClick={() => {
+                          setQuizState(q => ({ step: (q.step + 1) % QUIZ_WORDS.length, selected: null, correct: false, score: q.score }));
+                        }} style={{
+                          display: "inline-block", marginTop: 16,
+                          background: "linear-gradient(135deg, #FFE66D, #FFB347)",
+                          color: "#0F0A1E", borderRadius: 14, padding: "10px 28px",
+                          fontWeight: 900, fontSize: 14,
+                        }}>Next Activity →</div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Activity strip */}
               <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>More Activities</div>
