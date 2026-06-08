@@ -191,11 +191,14 @@ const GLOBAL_CSS = `
   }
 
   .mw-option-btn {
-    background: ${T.card};
-    border: 2px solid ${T.border};
-    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
     cursor: pointer;
-    transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     padding: 1rem;
     display: flex;
     flex-direction: column;
@@ -208,21 +211,23 @@ const GLOBAL_CSS = `
     -webkit-tap-highlight-color: transparent;
   }
   .mw-option-btn:hover:not(:disabled) {
-    background: ${T.cardHov};
+    transform: scale(1.04);
     border-color: rgba(255,255,255,0.25);
-    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
   }
   .mw-option-btn:active:not(:disabled) {
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
   .mw-option-btn.correct {
-    background: rgba(78,205,196,0.2);
+    background: rgba(78,205,196,0.15);
     border-color: ${T.correct};
+    box-shadow: 0 0 30px rgba(78,205,196,0.5), 0 8px 32px rgba(0,0,0,0.3);
     animation: mw-bounce 0.5s ease;
   }
   .mw-option-btn.wrong {
-    background: rgba(255,107,107,0.2);
+    background: rgba(255,107,107,0.15);
     border-color: ${T.wrong};
+    box-shadow: 0 0 20px rgba(255,107,107,0.4), 0 8px 32px rgba(0,0,0,0.3);
     animation: mw-shake 0.4s ease;
   }
   .mw-option-btn.revealed {
@@ -402,7 +407,7 @@ function FeedbackOverlay({ correct, message, emoji }) {
 // ─── Word tile: large centered emoji ─────────────────────────────────────────
 function WordTile({ emoji }) {
   return (
-    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center' }}>{emoji}</span>
+    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))' }}>{emoji}</span>
   );
 }
 
@@ -1427,10 +1432,22 @@ export function UpgradeModal({ onClose }) {
 
 export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [recentlyDismissed, setRecentlyDismissed] = useState(false);
+  const dismissedRef = useRef(false);
+
+  const dismissUpgrade = useCallback(() => {
+    setShowUpgrade(false);
+    dismissedRef.current = true;
+    setRecentlyDismissed(true);
+    setTimeout(() => {
+      dismissedRef.current = false;
+      setRecentlyDismissed(false);
+    }, 2000);
+  }, []);
 
   return (
     <div style={{ padding: '1.5rem', animation: 'mw-slide-up 0.3s ease' }}>
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+      {showUpgrade && <UpgradeModal onClose={dismissUpgrade} />}
 
       <h2 style={{
         fontFamily: 'Fredoka One',
@@ -1449,10 +1466,13 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
             <button
               key={game.id}
               className="mw-option-btn"
-              onClick={() => isUnlocked ? onSelect(game.id) : setShowUpgrade(true)}
+              onClick={() => {
+                if (isUnlocked) { onSelect(game.id); }
+                else if (!dismissedRef.current) { setShowUpgrade(true); }
+              }}
               style={{
                 minHeight: '130px',
-                opacity: isUnlocked ? 1 : 0.55,
+                opacity: isUnlocked ? 1 : (recentlyDismissed ? 0.35 : 0.55),
                 borderColor: isUnlocked ? game.color : T.border,
                 background: isUnlocked ? game.gradient : T.card,
                 backdropFilter: 'blur(12px)',
@@ -1636,7 +1656,7 @@ export function GameEngine({
       <ConfettiBurst active={showConfetti} />
       {xpToast && (
         <div key={xpToast.id} style={{
-          position: 'fixed', top: '35%', left: '50%',
+          position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
           fontFamily: 'Fredoka One', fontSize: '1.5rem', color: '#FFE66D',
           zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
           pointerEvents: 'none', textShadow: '0 0 20px rgba(255,230,109,0.8)',

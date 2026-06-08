@@ -352,6 +352,7 @@ export default function App() {
   const [gameActive,     setGameActive]     = useState(false);
   const [activeGameType, setActiveGameType] = useState("word_match");
   const [sessionResult,  setSessionResult]  = useState(null); // set on session end
+  const [questsCompleted, setQuestsCompleted] = useState({ session: false, words: false });
 
   // ── Streak ──
   const [streak,       setStreak]       = useState(null); // null = loading, prevents flash of 0
@@ -455,7 +456,7 @@ export default function App() {
   }, [user?.id]); // eslint-disable-line
 
   // ── Load weekly learning activity (last 7 days) ──
-  useEffect(() => {
+  const loadWeeklyActivity = useCallback(() => {
     if (!user) { setWeeklyActivity(null); return; }
     const since = new Date();
     since.setDate(since.getDate() - 6);
@@ -483,6 +484,10 @@ export default function App() {
         setWeeklyActivity(result);
       });
   }, [user?.id]); // eslint-disable-line
+
+  useEffect(() => {
+    loadWeeklyActivity();
+  }, [loadWeeklyActivity]);
 
   // ── Load teacher class ──
   useEffect(() => {
@@ -701,6 +706,10 @@ export default function App() {
     setSessionResult({ wordsCorrect, totalWords, wordsPlayed: wordsPlayed ?? [] });
     setGameActive(false);
     setScreen("sessionComplete");
+    setQuestsCompleted(prev => ({ ...prev, session: true }));
+    if (words.filter(w => w.mastery >= 80).length >= 1) {
+      setQuestsCompleted(prev => ({ ...prev, words: true }));
+    }
     try {
       await updateStreak();
       // Force fresh read so home screen badge reflects the new streak immediately
@@ -711,7 +720,10 @@ export default function App() {
         .maybeSingle();
       if (data) { setStreak(data.current_streak ?? 0); setStreakLoaded(true); }
     } catch {}
-  }, [updateStreak, user]);
+    // Learning events from this session may not have committed yet — reload after a delay
+    setWeeklyActivity(null);
+    setTimeout(loadWeeklyActivity, 1500);
+  }, [updateStreak, user, words, loadWeeklyActivity]);
 
   // ── Learn tab renderer ──
   const renderLearnTab = () => {
@@ -1077,11 +1089,19 @@ export default function App() {
                         </div>
                         {/* Avatar + name + edit button */}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 26 }}>{avatar}</span>
+                          <span style={{ position: "relative", display: "inline-flex", fontSize: 26 }}>
+                            {avatar}
+                            <button onClick={() => setShowAvatarPicker(true)} style={{
+                              position: "absolute", bottom: -4, right: -4,
+                              minWidth: 44, minHeight: 44, width: 44, height: 44,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              background: "rgba(78,205,196,0.2)", border: "1px solid #4ECDC4",
+                              borderRadius: "50%", cursor: "pointer", fontSize: 18, lineHeight: 1,
+                            }} aria-label="Edit avatar">🖊️</button>
+                          </span>
                           <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
                             {getChildName(user)} ⭐
                           </div>
-                          <button onClick={() => setShowAvatarPicker(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, opacity: 0.6, padding: "0 2px", lineHeight: 1 }} aria-label="Edit avatar">🖊️</button>
                         </div>
                         {/* Level pill */}
                         {(() => {
@@ -1174,11 +1194,8 @@ export default function App() {
                     <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
                     <div style={{ display: "flex", gap: 8 }}>
                       {[
-                        { icon: "🎬", label: "Watch",  done: true  },
-                        { icon: "👂", label: "Listen", done: true  },
-                        { icon: "🔍", label: "Hunt",   done: false },
-                        { icon: "📝", label: "Story",  done: false },
-                        { icon: "⚔️", label: "Boss!",  done: false },
+                        { icon: "🎯", label: "Session", done: questsCompleted.session },
+                        { icon: "🌟", label: "Master",  done: questsCompleted.words || words.filter(w => w.mastery >= 80).length >= 1 },
                       ].map((a, i) => (
                         <div key={i} className="activity-card" onClick={() => setScreen("learn")} style={{
                           flex: 1, background: a.done ? "rgba(78,205,196,0.2)" : "rgba(255,255,255,0.07)",
