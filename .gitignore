@@ -30,3 +30,5 @@ dist-ssr
 .claude/
 .npm-cache/
 supabase/.temp/
+test-results/
+playwright-report/

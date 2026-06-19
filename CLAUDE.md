@@ -85,6 +85,15 @@ Emoji-only (👨‍🚀), no custom SVG/image asset. Two contexts: home screen
 512–520, state-driven: idle→float, correct→bounce, wrong→shake). Animations
 defined in `index.css` 1–31.
 
+### Auth flow — post-signup confirmation screen (added 2026-06-19)
+`LoginScreen` (`App.jsx` ~799+) now tracks `signedUpEmail` state: on a
+successful `supabase.auth.signUp()` call it shows a "Check your email"
+screen (Dawn Indigo page bg, Cloud card, Space Grotesk headline, Atkinson
+Hyperlegible body, Sunrise Coral button) instead of silently doing nothing.
+This was the first design-token usage outside the landing page — confirmed
+working via a real signup round-trip. Scoped to this one screen only; the
+rest of `LoginScreen`'s legacy inline styles are untouched pending Phase 5.
+
 ### Dashboards
 Parent dashboard (`App.jsx` 1389–1520): streak, weekly activity chart, mastery
 heatmap (first 40 words), "Needs Attention" (<50% mastery words), AI coaching
@@ -163,14 +172,69 @@ words," ties directly to the existing Word Galaxy/Nova mascot. Placeholder
 CSS/SVG during iteration; final version generated via Higgsfield once layout
 is locked.
 
+## Interaction Design addendum (pending sign-off, written 2026-06-19)
+
+Same status as the color/type brief: proposed, not yet approved. Do not start
+Phase 4 extraction until this is signed off, same gate as the original design
+brief.
+
+**Scope boundary**: CSS 3D transforms (`transform: perspective(...) rotateX/Y`)
+driven by `motion`, only. True WebGL/3D (Three.js, react-three-fiber) is
+explicitly out of scope for this redesign — not a future phase, just not part
+of this product's interaction vocabulary. Keeps every effect cheap enough to
+run on the low-end devices this audience is likely to have, and keeps the
+visual language consistent with the CSS-driven approach already used for Nova
+and gamification.
+
+**(a) Tilt-toward-cursor hover/depth convention.** A reusable pattern, not a
+site-wide default: on `pointermove` over an eligible card, compute cursor
+position relative to the card center and map it to a small `rotateX`/`rotateY`
+(±4–6deg max) plus a subtle `translateZ`/shadow-depth increase, using `motion`'s
+spring physics for the return-to-rest. Eligible surfaces: landing-page feature
+cards (`HowItWorks`, `Audience`), and — once built — Word Galaxy unit tiles and
+level-select tiles. Not applied to: dashboard stat cards, lesson-player UI, or
+any element a user interacts with rapidly/repeatedly (tilt-on-hover is a
+landing/exploration affordance, not a data-density one — matches the existing
+low-motion rule for daily-use screens).
+
+**(b) Word Galaxy as a parallax-tilt map (spec only — build is Phase 5).**
+Replaces the current flat scrollable word list with a spatial map: units laid
+out on a loose grid/path (CodeCombat-style world-map metaphor already called
+for in the original brief), each unit tile using the (a) tilt convention on
+hover/touch-drag, with a parallax offset between the tile's icon layer and its
+background layer (icon moves slightly more than background under the same
+tilt, ~1.4x factor) to sell depth without WebGL. Locked units (6–18 in the
+current freemium gate) get a flatter, desaturated tilt response (smaller max
+angle, no parallax) — depth as a reward for what's unlocked, not decoration on
+what isn't. Content/non-content word color convention (Comet Teal / Marigold)
+carries into this view unchanged.
+
+**(c) Level-up/level-complete gets a rare, bigger cinematic moment.**
+Direct consequence of the MLC "mastery is the reward, don't over-celebrate
+every correct answer" principle already documented above: if routine
+correct-answer feedback stays restrained, the few moments that *are* big
+(level-up, unit-complete) need to feel proportionally larger to register as
+genuinely rare, not just "the same confetti, slightly longer." Concretely:
+a full-screen takeover (not the current inline overlay), using the same
+dawn-gradient signature treatment from the landing page rather than a new
+effect — i.e. level-up briefly replays a compressed version of the WordRise
+moment scoped to that unit's words. Reserved for level-up and unit-complete
+only; per-question correct/wrong feedback stays exactly as restrained as it is
+today. This is the trade that keeps restraint everywhere else intentional
+instead of just "low-budget."
+
 ## Redesign execution order (do not skip ahead)
 1. Audit (done 2026-06-18, captured above).
 2. Design brief / token sign-off (done 2026-06-18, captured above).
-3. Landing page only, new route, isolated from authenticated app routes.
-4. Extract shared design system (tokens/primitives) out of the landing page.
+3. Landing page only, new route, isolated from authenticated app routes
+   (done 2026-06-18/19 — cinematic scroll-driven landing page, dawn-gradient
+   signature element, committed).
+4. Extract shared design system (tokens/primitives) out of the landing page —
+   blocked on Interaction Design addendum sign-off above.
 5. Propagate to dashboards/lesson player — lower-motion, denser variants,
    apply the open tasks flagged above (24-level mapping, Word Galaxy
-   visual map, MLC lesson-type binding, errorless-learning scaffolding).
+   visual map per addendum (b), MLC lesson-type binding, errorless-learning
+   scaffolding, level-up treatment per addendum (c)).
 6. Fix known bugs only if redesign work in that area surfaces them directly —
    not a standalone pass.
 

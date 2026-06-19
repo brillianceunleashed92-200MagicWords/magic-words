@@ -802,6 +802,7 @@ export default function App() {
     const [authPassword, setAuthPassword] = useState("");
     const [localError,   setLocalError]   = useState("");
     const [busy,         setBusy]         = useState(false);
+    const [signedUpEmail, setSignedUpEmail] = useState("");
 
     async function handleSubmit(e) {
       e.preventDefault();
@@ -815,9 +816,35 @@ export default function App() {
           ? await supabase.auth.signUp({ email, password })
           : await supabase.auth.signInWithPassword({ email, password });
         if (res.error) setLocalError(res.error.message);
+        else if (authMode === "sign_up") setSignedUpEmail(email);
       } finally {
         setBusy(false);
       }
+    }
+
+    if (signedUpEmail) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-dawn-indigo px-5">
+          <div className="w-full max-w-md bg-cloud rounded-3xl p-8 text-center">
+            <div className="text-4xl mb-4" aria-hidden="true">📬</div>
+            <h2 className="font-display text-dawn-indigo text-2xl font-semibold mb-3">
+              Check your email
+            </h2>
+            <p className="font-body text-dawn-indigo/80">We sent a confirmation link to</p>
+            <p className="font-body text-dawn-indigo font-bold mb-6 break-all">{signedUpEmail}</p>
+            <p className="font-body text-dawn-indigo/70 text-sm mb-8">
+              Click the link to verify your account, then come back here to sign in.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setSignedUpEmail(""); setAuthMode("sign_in"); setAuthPassword(""); }}
+              className="font-body font-bold px-6 py-3 rounded-2xl bg-sunrise-coral text-dawn-indigo hover:brightness-105 transition-all"
+            >
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      );
     }
 
     const err = localError || authError;
