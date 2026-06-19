@@ -740,14 +740,13 @@ export default function App() {
 
     if (!gameActive) {
       return (
-        <div style={{ minHeight: "100vh", background: "#0F0A1E", paddingBottom: 80 }}>
+        <div style={{ minHeight: "100vh", background: tokens.cloud, paddingBottom: 80 }}>
           {/* Session goal */}
           {sessionPlan?.sessionGoal && (
-            <div style={{
+            <div className="font-display" style={{
               padding: "1.5rem 1.5rem 0.5rem",
               textAlign: "center",
-              fontFamily: "'Fredoka One', cursive",
-              color: "#4ECDC4",
+              color: tokens.cometTealDeep,
               fontSize: "1.1rem",
             }}>
               {sessionPlan.sessionGoal}
@@ -756,15 +755,14 @@ export default function App() {
 
           {/* Offline mode warning (non-fatal) */}
           {planError && (
-            <div style={{
+            <div className="font-body" style={{
               margin: "0.5rem 1.5rem",
               padding: "0.75rem 1rem",
-              background: "rgba(255,107,107,0.1)",
-              border: "1px solid rgba(255,107,107,0.3)",
+              background: `${tokens.sunriseCoral}15`,
+              border: `1px solid ${tokens.sunriseCoral}40`,
               borderRadius: 12,
-              color: "#FF6B6B",
+              color: tokens.sunriseCoralDeep,
               fontSize: "0.85rem",
-              fontFamily: "'Nunito', sans-serif",
             }}>
               ⚠️ Using offline mode — your progress still saves normally.
             </div>
@@ -965,19 +963,18 @@ export default function App() {
           @media (min-width:600px) { .app-container { border-left:1px solid rgba(255,255,255,0.06); border-right:1px solid rgba(255,255,255,0.06); } }
         `}</style>
 
-        <div style={{
-          fontFamily: "'Nunito', system-ui, sans-serif",
-          background: "#0F0A1E", minHeight: "100vh",
-          color: "#fff", position: "relative", overflow: "hidden",
+        <div className="font-body" style={{
+          background: tokens.cloud, minHeight: "100vh",
+          color: tokens.dawnIndigo, position: "relative", overflow: "hidden",
         }}>
-          {/* ── Star field ── */}
+          {/* ── Star field (subtle stardust on light bg — keeps the space motif without a literal dark sky) ── */}
           <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
             {Array.from({ length: 40 }).map((_, i) => (
               <div key={i} style={{
-                position: "absolute", borderRadius: "50%", background: "#fff",
+                position: "absolute", borderRadius: "50%", background: tokens.dawnIndigo,
                 width:   (1 + (i * 7 % 3)) + "px",
                 height:  (1 + (i * 7 % 3)) + "px",
-                opacity: 0.2 + (i % 5) * 0.1,
+                opacity: 0.08 + (i % 5) * 0.04,
                 left:    ((i * 73) % 100) + "%",
                 top:     ((i * 47) % 100) + "%",
                 animation: `twinkle ${2 + (i % 3)}s ease-in-out infinite`,
@@ -1065,8 +1062,8 @@ export default function App() {
           {!gameActive && (
             <div style={{
               position: "fixed", bottom: 0, left: 0, right: 0,
-              background: "rgba(15,10,30,0.95)", backdropFilter: "blur(20px)",
-              borderTop: "1px solid rgba(255,255,255,0.1)",
+              background: `${tokens.cloud}f2`, backdropFilter: "blur(20px)",
+              borderTop: `1px solid ${tokens.dawnIndigo}1a`,
               display: "flex", justifyContent: "space-around",
               padding: "12px 0 max(16px, env(safe-area-inset-bottom))", zIndex: 100,
             }}>
@@ -1083,18 +1080,18 @@ export default function App() {
                   onClick={() => { setScreen(nav.id); setGameActive(false); }}
                   style={{
                     textAlign: "center",
-                    opacity: screen === nav.id ? 1 : 0.5,
+                    opacity: screen === nav.id ? 1 : 0.55,
                     minWidth: 44, minHeight: 44,
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                   }}
                 >
                   <div style={{ fontSize: 22 }}>{nav.icon}</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, color: screen === nav.id ? "#FFE66D" : "#fff" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, color: screen === nav.id ? tokens.sunriseCoralDeep : tokens.dawnIndigo }}>
                     {nav.label}
                   </div>
                   {screen === nav.id && (
-                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#FFE66D", margin: "2px auto 0", boxShadow: "0 0 8px #FFE66D" }} />
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: tokens.sunriseCoral, margin: "2px auto 0" }} />
                   )}
                 </div>
               ))}
@@ -1118,7 +1115,7 @@ export default function App() {
                             style={{ fontSize: 36, display: "inline-block", animation: "nova-wave 2s ease-in-out infinite", transformOrigin: "bottom center", cursor: "pointer" }}
                             onClick={() => speakWord(`Hi ${getChildName(user)}`)}
                           >👨‍🚀</span>
-                          <div style={{ fontSize: 13, color: "#4ECDC4", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
+                          <div style={{ fontSize: 13, color: tokens.cometTealDeep, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
                         </div>
                         {/* Avatar + name + edit button */}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -1128,11 +1125,11 @@ export default function App() {
                               position: "absolute", bottom: -4, right: -4,
                               minWidth: 44, minHeight: 44, width: 44, height: 44,
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              background: "rgba(78,205,196,0.2)", border: "1px solid #4ECDC4",
+                              background: `${tokens.cometTeal}30`, border: `1px solid ${tokens.cometTeal}`,
                               borderRadius: "50%", cursor: "pointer", fontSize: 18, lineHeight: 1,
                             }} aria-label="Edit avatar">🖊️</button>
                           </span>
-                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D88" }}>
+                          <div className="font-display" style={{ fontSize: 28, color: tokens.marigoldDeep }}>
                             {getChildName(user)} ⭐
                           </div>
                         </div>
@@ -1140,16 +1137,16 @@ export default function App() {
                         {(() => {
                           const lvl = getLevelInfo(totalXP);
                           return (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(78,205,196,0.1)", border: "1px solid rgba(78,205,196,0.3)", borderRadius: 20, padding: "3px 10px", marginTop: 6 }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${tokens.cometTeal}18`, border: `1px solid ${tokens.cometTeal}55`, borderRadius: 20, padding: "3px 10px", marginTop: 6 }}>
                               <span style={{ fontSize: 11 }}>{lvl.emoji}</span>
-                              <span style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700 }}>Level {lvl.level} · {lvl.title}</span>
+                              <span style={{ fontSize: 11, color: tokens.cometTealDeep, fontWeight: 700 }}>Level {lvl.level} · {lvl.title}</span>
                             </div>
                           );
                         })()}
                         {/* XP display */}
-                        <div style={{ marginTop: 4, fontSize: 12, color: "#FFE66D", fontWeight: 700, opacity: 0.9 }}>⭐ {totalXP} XP</div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: tokens.marigoldDeep, fontWeight: 700, opacity: 0.9 }}>⭐ {totalXP} XP</div>
                         {/* Daily contextual message */}
-                        <div style={{ marginTop: 4, fontSize: 13, color: "#4ECDC4", opacity: 0.8, lineHeight: 1.4 }}>
+                        <div style={{ marginTop: 4, fontSize: 13, color: tokens.cometTealDeep, opacity: 0.85, lineHeight: 1.4 }}>
                           {getDailyMessage(streak ?? 0, words)}
                         </div>
                         {!scoresLoaded && (
@@ -1157,17 +1154,17 @@ export default function App() {
                         )}
                       </div>
                       {/* Streak badge */}
-                      <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: "0 4px 20px #FF6B6B44", flexShrink: 0, minWidth: 72 }}>
-                        <div style={{ fontSize: 22, fontWeight: 900 }}>
-                          {streakLoaded ? `🔥 ${streak}` : <span style={{ opacity: 0.4, fontSize: 16 }}>🔥 —</span>}
+                      <div style={{ background: `linear-gradient(135deg, ${tokens.sunriseCoral}, ${tokens.marigold})`, borderRadius: 20, padding: "10px 16px", textAlign: "center", boxShadow: `0 4px 20px ${tokens.sunriseCoral}33`, flexShrink: 0, minWidth: 72 }}>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: tokens.dawnIndigo }}>
+                          {streakLoaded ? `🔥 ${streak}` : <span style={{ opacity: 0.5, fontSize: 16 }}>🔥 —</span>}
                         </div>
-                        <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9 }}>DAY STREAK</div>
-                        {freezeUsed && <div style={{ fontSize: 9, color: '#A8E6CF', marginTop: 2 }}>❄️ Streak saved!</div>}
-                        {!freezeUsed && freezesLeft > 0 && <div style={{ fontSize: 9, opacity: 0.8, marginTop: 2 }}>🧊 ×{freezesLeft}</div>}
+                        <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.85, color: tokens.dawnIndigo }}>DAY STREAK</div>
+                        {freezeUsed && <div style={{ fontSize: 9, color: tokens.dawnIndigo, opacity: 0.8, marginTop: 2 }}>❄️ Streak saved!</div>}
+                        {!freezeUsed && freezesLeft > 0 && <div style={{ fontSize: 9, color: tokens.dawnIndigo, opacity: 0.75, marginTop: 2 }}>🧊 ×{freezesLeft}</div>}
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                      <div className="btn-primary" onClick={signOut} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 14, padding: "8px 12px", fontSize: 12, fontWeight: 900, opacity: 0.85 }}>
+                      <div className="btn-primary" onClick={signOut} style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 14, padding: "8px 12px", fontSize: 12, fontWeight: 900, opacity: 0.85 }}>
                         Log out
                       </div>
                     </div>
@@ -1178,18 +1175,18 @@ export default function App() {
                     const masteredCount = words.filter(w => w.mastery >= 80).length;
                     const masteredFraction = words.length > 0 ? masteredCount / words.length : 0;
                     return (
-                      <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(255,230,109,0.1))", borderRadius: 24, padding: 20, marginBottom: 20, border: "1px solid rgba(78,205,196,0.3)" }}>
+                      <div style={{ background: `linear-gradient(135deg, ${tokens.cometTeal}22, ${tokens.marigold}18)`, borderRadius: 24, padding: 20, marginBottom: 20, border: `1px solid ${tokens.cometTeal}4d` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                           <div style={{ position: "relative", width: 80, height: 80, flexShrink: 0 }}>
                             <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
-                              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                              <circle cx="40" cy="40" r="32" fill="none" stroke="#4ECDC4" strokeWidth="8"
+                              <circle cx="40" cy="40" r="32" fill="none" stroke={`${tokens.dawnIndigo}1a`} strokeWidth="8" />
+                              <circle cx="40" cy="40" r="32" fill="none" stroke={tokens.cometTeal} strokeWidth="8"
                                 strokeDasharray={`${2 * Math.PI * 32 * masteredFraction} ${2 * Math.PI * 32}`}
                                 strokeLinecap="round" />
                             </svg>
                             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <div style={{ textAlign: "center" }}>
-                                <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#4ECDC4" }}>
+                                <div className="font-display" style={{ fontSize: 18, color: tokens.cometTealDeep }}>
                                   {masteredCount}
                                 </div>
                                 <div style={{ fontSize: 8, opacity: 0.7 }}>mastered</div>
@@ -1197,11 +1194,11 @@ export default function App() {
                             </div>
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Unit 9: On the Move!</div>
+                            <div className="font-display" style={{ fontSize: 18 }}>Unit 9: On the Move!</div>
                             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>run · dog · look · one · other</div>
                             <div style={{ marginTop: 10 }}>
-                              <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
-                                <div style={{ height: "100%", width: `${masteredFraction * 100}%`, borderRadius: 10, background: "linear-gradient(90deg, #4ECDC4, #FFE66D)", boxShadow: "0 0 10px #4ECDC4" }} />
+                              <div style={{ height: 8, background: `${tokens.dawnIndigo}14`, borderRadius: 10, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${masteredFraction * 100}%`, borderRadius: 10, background: `linear-gradient(90deg, ${tokens.cometTeal}, ${tokens.marigold})` }} />
                               </div>
                               <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>{masteredCount} of {words.length} words mastered</div>
                             </div>
@@ -1212,27 +1209,27 @@ export default function App() {
                   })()}
 
                   {/* Daily magic word */}
-                  <div onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B22, #FF8B9422)", border: "1px solid #FF6B6B44", borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
+                  <div onClick={() => setScreen("learn")} style={{ background: `linear-gradient(135deg, ${tokens.sunriseCoral}15, ${tokens.marigold}15)`, border: `1px solid ${tokens.sunriseCoral}33`, borderRadius: 20, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
                     <div style={{ fontSize: 40, animation: "float 3s ease-in-out infinite", flexShrink: 0 }}>✨</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Daily Magic Word</div>
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, color: "#FFE66D", textShadow: "0 0 15px #FFE66D88" }}>look</div>
+                      <div style={{ fontSize: 11, color: tokens.sunriseCoralDeep, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Daily Magic Word</div>
+                      <div className="font-display" style={{ fontSize: 26, color: tokens.marigoldDeep }}>look</div>
                       <div style={{ fontSize: 12, opacity: 0.7 }}>Tap to unlock today's lesson →</div>
                     </div>
-                    <div className="btn-primary" onClick={() => setScreen("learn")} style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 14, padding: "10px 16px", fontSize: 20, boxShadow: "0 4px 15px #FF6B6B44", animation: "pulse 2s ease-in-out infinite", flexShrink: 0 }}>▶</div>
+                    <div className="btn-primary" onClick={() => setScreen("learn")} style={{ background: `linear-gradient(135deg, ${tokens.sunriseCoral}, ${tokens.marigold})`, color: tokens.dawnIndigo, borderRadius: 14, padding: "10px 16px", fontSize: 20, animation: "pulse 2s ease-in-out infinite", flexShrink: 0 }}>▶</div>
                   </div>
 
                   {/* Today's quest */}
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
+                    <div className="font-display" style={{ fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
                     <div style={{ display: "flex", gap: 8 }}>
                       {[
                         { icon: "🎯", label: "Session", done: questsCompleted.session },
                         { icon: "🌟", label: "Master",  done: questsCompleted.words || words.filter(w => w.mastery >= 80).length >= 1 },
                       ].map((a, i) => (
                         <div key={i} className="activity-card" onClick={() => setScreen("learn")} style={{
-                          flex: 1, background: a.done ? "rgba(78,205,196,0.2)" : "rgba(255,255,255,0.07)",
-                          border: `1px solid ${a.done ? "#4ECDC4" : "rgba(255,255,255,0.1)"}`,
+                          flex: 1, background: a.done ? `${tokens.cometTeal}25` : `${tokens.dawnIndigo}0a`,
+                          border: `1px solid ${a.done ? tokens.cometTeal : `${tokens.dawnIndigo}1f`}`,
                           borderRadius: 14, padding: "10px 0", textAlign: "center", minHeight: 64,
                         }}>
                           <div style={{ fontSize: 18 }}>{a.done ? "✅" : a.icon}</div>
@@ -1243,10 +1240,10 @@ export default function App() {
                   </div>
 
                   {/* Word garden preview */}
-                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                  <div style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18 }}>Word Garden 🌱</div>
-                      <div className="btn-primary" onClick={() => setScreen("words")} style={{ fontSize: 11, color: "#4ECDC4", fontWeight: 700 }}>See all →</div>
+                      <div className="font-display" style={{ fontSize: 18 }}>Word Garden 🌱</div>
+                      <div className="btn-primary" onClick={() => setScreen("words")} style={{ fontSize: 11, color: tokens.cometTealDeep, fontWeight: 700 }}>See all →</div>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {words.slice(0, 9).map(w => (
@@ -1254,11 +1251,11 @@ export default function App() {
                           speakWord(w.word);
                           generatePlanForWord(w.word);
                           setScreen('learn');
-                        }} style={{ background: w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery), color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.8)", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, boxShadow: getMasteryGlow(w.mastery), cursor: "pointer" }}>
+                        }} style={{ background: w.mastery === 0 ? `${tokens.dawnIndigo}0d` : getMasteryColor(w.mastery), color: w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}99`, borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                           {w.word}
                         </div>
                       ))}
-                      <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: "1px dashed rgba(255,255,255,0.3)", color: "rgba(255,255,255,0.4)" }}>
+                      <div style={{ borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700, border: `1px dashed ${tokens.dawnIndigo}33`, color: `${tokens.dawnIndigo}66` }}>
                         +{Math.max(0, words.length - 9)} more
                       </div>
                     </div>
@@ -1291,7 +1288,7 @@ export default function App() {
               {/* ═══ MY WORDS ═══ */}
               {screen === "words" && (
                 <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 30, marginBottom: 4 }}>My Word Galaxy 🌌</div>
+                  <div className="font-display" style={{ fontSize: 30, marginBottom: 4 }}>My Word Galaxy 🌌</div>
                   <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 16 }}>
                     {words.filter(w => w.mastery > 0).length} of {words.length} words in your galaxy
                   </div>
@@ -1300,12 +1297,12 @@ export default function App() {
                   <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
                     {[
                       { color: "#e8e8f0", label: "Not started"  },
-                      { color: "#FFB347", label: "Learning"     },
-                      { color: "#4ECDC4", label: "Getting there"},
-                      { color: "#FFE66D", label: "Mastered ⭐"  },
+                      { color: tokens.marigold, label: "Learning"     },
+                      { color: tokens.cometTeal, label: "Getting there"},
+                      { color: tokens.sunriseCoral, label: "Mastered ⭐"  },
                     ].map(l => (
                       <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: l.color, flexShrink: 0 }} />
+                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: l.color, flexShrink: 0, border: `1px solid ${tokens.dawnIndigo}22` }} />
                         <div style={{ fontSize: 11, opacity: 0.8 }}>{l.label}</div>
                       </div>
                     ))}
@@ -1322,20 +1319,20 @@ export default function App() {
                       <div key={unit} style={{ marginBottom: 20 }}>
                         {/* Unit header */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 15,
-                            color: locked ? "rgba(255,255,255,0.3)" : "#4ECDC4" }}>
+                          <div className="font-display" style={{ fontSize: 15,
+                            color: locked ? `${tokens.dawnIndigo}4d` : tokens.cometTealDeep }}>
                             {locked ? "🔒 " : ""}Unit {unit}: {UNIT_NAMES[unit]}
                           </div>
                           <div style={{ fontSize: 11, fontWeight: 700,
-                            color: locked ? "rgba(255,255,255,0.2)" : "#FFE66D" }}>
+                            color: locked ? `${tokens.dawnIndigo}33` : tokens.marigoldDeep }}>
                             {locked ? "PRO" : `${mastered}/${unitWords.length}`}
                           </div>
                         </div>
                         {/* Mini progress bar */}
                         {!locked && (
-                          <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 4, marginBottom: 8, overflow: "hidden" }}>
+                          <div style={{ height: 4, background: `${tokens.dawnIndigo}14`, borderRadius: 4, marginBottom: 8, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${progress * 100}%`,
-                              background: "linear-gradient(90deg, #4ECDC4, #FFE66D)",
+                              background: `linear-gradient(90deg, ${tokens.cometTeal}, ${tokens.marigold})`,
                               borderRadius: 4, transition: "width 0.5s ease" }} />
                           </div>
                         )}
@@ -1345,16 +1342,17 @@ export default function App() {
                             <div key={w.id} className="word-orb"
                               onClick={() => locked ? null : setActiveWord(w)}
                               style={{
-                                background: locked ? "rgba(255,255,255,0.04)" : (w.mastery === 0 ? "rgba(255,255,255,0.07)" : getMasteryColor(w.mastery)),
-                                color: locked ? "rgba(255,255,255,0.2)" : (w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.75)"),
-                                borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 800,
-                                boxShadow: locked ? "none" : getMasteryGlow(w.mastery),
-                                border: locked ? "2px dashed rgba(255,255,255,0.08)" : (w.mastery === 0 ? "2px dashed rgba(255,255,255,0.15)" : "none"),
+                                background: locked ? `${tokens.dawnIndigo}0a` : (w.mastery === 0 ? `${tokens.dawnIndigo}0d` : getMasteryColor(w.mastery)),
+                                color: locked ? `${tokens.dawnIndigo}33` : (w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}99`),
+                                borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: w.type === "content" ? 800 : 600,
+                                border: locked ? `2px dashed ${tokens.dawnIndigo}1a`
+                                  : (w.mastery === 0 ? `2px dashed ${tokens.dawnIndigo}26`
+                                    : (w.type === "content" ? "none" : `2px solid ${tokens.marigold}`)),
                                 cursor: locked ? "default" : "pointer",
                                 position: "relative",
                               }}>
                               {locked ? "🔒 ???" : `${w.emoji} ${w.word}`}
-                              {locked && <span style={{ position: "absolute", top: -5, right: -5, background: "#FFE66D", color: "#0F0A1E", fontSize: 7, fontWeight: 900, borderRadius: 6, padding: "1px 4px" }}>PRO</span>}
+                              {locked && <span style={{ position: "absolute", top: -5, right: -5, background: tokens.marigold, color: tokens.dawnIndigo, fontSize: 7, fontWeight: 900, borderRadius: 6, padding: "1px 4px" }}>PRO</span>}
                             </div>
                           ))}
                         </div>
@@ -1364,27 +1362,27 @@ export default function App() {
 
                   {/* Word detail modal */}
                   {activeWord && (
-                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setActiveWord(null)}>
-                      <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(135deg, #1e1040, #160d35)", border: `2px solid ${getMasteryColor(activeWord.mastery)}`, borderRadius: 28, padding: 28, width: "100%", maxWidth: 360, animation: "bounceIn 0.3s ease", boxShadow: `0 20px 60px ${getMasteryColor(activeWord.mastery)}44` }}>
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setActiveWord(null)}>
+                      <div onClick={e => e.stopPropagation()} className="font-body" style={{ background: tokens.cloud, color: tokens.dawnIndigo, border: `2px solid ${getMasteryColor(activeWord.mastery)}`, borderRadius: 28, padding: 28, width: "100%", maxWidth: 360, animation: "bounceIn 0.3s ease" }}>
                         <div style={{ textAlign: "center" }}>
                           <div style={{ fontSize: 56 }}>{activeWord.emoji}</div>
-                          <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", marginTop: 8 }}>{activeWord.word}</div>
+                          <div className="font-display" style={{ fontSize: 40, color: tokens.marigoldDeep, marginTop: 8 }}>{activeWord.word}</div>
                           <div style={{ marginTop: 16 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                               <span style={{ fontSize: 13, opacity: 0.7 }}>Mastery</span>
                               <span style={{ fontSize: 13, fontWeight: 800, color: getMasteryColor(activeWord.mastery) }}>{activeWord.mastery}%</span>
                             </div>
-                            <div style={{ height: 10, background: "rgba(255,255,255,0.1)", borderRadius: 10, overflow: "hidden" }}>
+                            <div style={{ height: 10, background: `${tokens.dawnIndigo}14`, borderRadius: 10, overflow: "hidden" }}>
                               <div style={{ height: "100%", width: `${activeWord.mastery}%`, borderRadius: 10, background: `linear-gradient(90deg, ${getMasteryColor(activeWord.mastery)}, ${getMasteryColor(activeWord.mastery)}aa)`, transition: "width 1s ease" }} />
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
+                            <div style={{ flex: 1, background: `${tokens.dawnIndigo}0a`, borderRadius: 12, padding: 12, textAlign: "center" }}>
                               <div style={{ fontWeight: 800 }}>Unit {activeWord.unit}</div>
                               <div style={{ fontSize: 11, opacity: 0.6 }}>Level</div>
                             </div>
-                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                              <div style={{ fontWeight: 800, color: activeWord.type === "content" ? "#4ECDC4" : "#FF8B94" }}>
+                            <div style={{ flex: 1, background: `${tokens.dawnIndigo}0a`, borderRadius: 12, padding: 12, textAlign: "center" }}>
+                              <div style={{ fontWeight: 800, color: activeWord.type === "content" ? tokens.cometTealDeep : tokens.marigoldDeep }}>
                                 {activeWord.type === "content" ? "Content" : "Function"}
                               </div>
                               <div style={{ fontSize: 11, opacity: 0.6 }}>Type</div>
@@ -1402,7 +1400,7 @@ export default function App() {
                               style={{ width: "100%" }}
                             />
                           </div>
-                          <div className="btn-primary" onClick={() => { setActiveWord(null); setScreen("learn"); }} style={{ marginTop: 16, width: "100%", background: "linear-gradient(135deg, #FFE66D, #FFB347)", color: "#0F0A1E", borderRadius: 14, padding: "12px 0", fontWeight: 900, fontSize: 15, textAlign: "center" }}>
+                          <div className="btn-primary" onClick={() => { setActiveWord(null); setScreen("learn"); }} style={{ marginTop: 16, width: "100%", background: `linear-gradient(135deg, ${tokens.sunriseCoral}, ${tokens.marigold})`, color: tokens.dawnIndigo, borderRadius: 14, padding: "12px 0", fontWeight: 900, fontSize: 15, textAlign: "center" }}>
                             Practice this word →
                           </div>
                           <div style={{ marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => setActiveWord(null)}>Close</div>

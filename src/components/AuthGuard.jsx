@@ -9,6 +9,7 @@
 //   </AuthGuard>
 
 import { useEffect, useRef } from 'react';
+import { colors as tokens } from '../design-system/tokens';
 
 // Animated star field for the loading screen — pure CSS, no libraries
 function StarField() {
@@ -34,7 +35,7 @@ function StarField() {
         .star {
           position: absolute;
           border-radius: 50%;
-          background: white;
+          background: ${tokens.dawnIndigo};
           animation: twinkle var(--dur, 2s) ease-in-out infinite var(--delay, 0s);
         }
       `}</style>
@@ -50,7 +51,7 @@ function StarField() {
             height: s.size + 'px',
             '--dur':   s.dur + 's',
             '--delay': s.delay + 's',
-            opacity: 0.3,
+            opacity: 0.12,
           }}
         />
       ))}
@@ -81,12 +82,12 @@ function GalaxyLoader({ message = "Loading your galaxy…" }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0F0A1E',
+      background: tokens.cloud,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: '"Nunito", sans-serif',
+      fontFamily: '"Atkinson Hyperlegible", sans-serif',
       position: 'relative',
     }}>
       <StarField />
@@ -99,7 +100,7 @@ function GalaxyLoader({ message = "Loading your galaxy…" }) {
             position: 'absolute',
             inset: '10px',
             borderRadius: '50%',
-            border: '2px solid rgba(78,205,196,0.4)',
+            border: `2px solid ${tokens.cometTeal}66`,
             animation: `pulseRing 2s ease-out infinite ${delay}s`,
           }} />
         ))}
@@ -129,16 +130,15 @@ function GalaxyLoader({ message = "Loading your galaxy…" }) {
             width: '14px',
             height: '14px',
             borderRadius: '50%',
-            background: '#FFE66D',
-            boxShadow: '0 0 8px rgba(255,230,109,0.8)',
+            background: tokens.marigold,
           }} />
         </div>
       </div>
 
       <p style={{
-        fontFamily: '"Fredoka One", cursive',
+        fontFamily: '"Space Grotesk", sans-serif',
         fontSize: '1.4rem',
-        color: '#4ECDC4',
+        color: tokens.cometTealDeep,
         margin: 0,
         letterSpacing: '0.5px',
       }}>

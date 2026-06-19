@@ -118,6 +118,18 @@ surfaces them directly, per the master prompt's Phase 6 rule)
   workstream is picked up.)
 - One non-critical TODO: `ErrorBoundary.jsx` 95 (analytics/error-tracking
   integration stub).
+- **Open item — no staging/dev Supabase project (flagged 2026-06-19)**: every
+  test run across this entire redesign session — Playwright suite, manual
+  verification, screenshots — has executed against the live production
+  project (`ozhqsaysltiamadpcruz`), because none other exists. Each run
+  required manual admin-API account creation/cleanup to avoid leaving rows
+  behind. This works today only because every test path happens to be
+  narrowly scoped (synthetic emails, immediate cleanup) — it does not scale
+  to CI, doesn't protect against a forgotten cleanup step, and means a
+  bug in test code has a real (if currently low-blast-radius) path to
+  touching production data. Provisioning a real dev/staging project (or at
+  minimum a clearly-separated test schema/branch) should happen before this
+  testing pattern is relied on long-term or handed to CI.
 - **Known soft spot — hardcoded production fallback in `supabaseClient.js`**:
   when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are unset, the client
   falls back to the live project's URL + publishable anon key baked directly
@@ -313,6 +325,21 @@ instead of just "low-budget."
        JSX bodies) were **not** individually rewritten — only their
        shared `T`-derived colors changed. Their structure/layout is
        unchanged from before this pass.
+   - **Seam closure — done 2026-06-19.** Extended the same token system to
+     Home, Learn (`renderLearnTab`'s wrapper), Words (Word Galaxy list +
+     detail modal), and the bottom nav, plus the app's single global shell
+     (the dark/starfield wrapper that previously sat behind every screen)
+     and `AuthGuard.jsx`'s `GalaxyLoader`. The whole authenticated app is
+     now one consistent Cloud surface — no more light/dark seam between
+     screens. The starfield motif was kept, not deleted: star color
+     changed from white to low-opacity Dawn Indigo ("stardust on paper"
+     rather than stars on a night sky), preserving the space/Nova identity
+     without a literal dark sky. Bonus (styling only, uses the existing
+     `w.type` field, no data-model change): Word Galaxy word pills now
+     show the content/bold-fill vs. non-content/marigold-outline
+     distinction directly in the grid, partially closing the open task
+     from the audit — the full parallax-tilt map rebuild is still Phase 5b
+     item (b).
 6. Fix known bugs only if redesign work in that area surfaces them directly —
    not a standalone pass.
 
