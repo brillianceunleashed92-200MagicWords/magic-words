@@ -343,6 +343,62 @@ instead of just "low-budget."
 6. Fix known bugs only if redesign work in that area surfaces them directly —
    not a standalone pass.
 
+## Phase 5b (behavioral) — confirmed decisions, 2026-06-19
+
+Phase 5b touches real game logic, so these were confirmed with the user
+before any code was written (not just refactors):
+
+**24-level mapping.** The 18 existing "units" are a vocabulary-topic axis
+(Animals, Actions, Family, …) and stay as-is — levels are a *separate,
+orthogonal* sentence-complexity axis layered on top, not a renaming of
+units. The 24 stages follow the MLC arc from the original master prompt:
+single content word → two-word phrases → simple noun-verb sentences →
+introducing "I" → expanding structure → introducing "you" → tense
+(present/past/future) → multi-word combinations → negation → compound
+sentences (and/but/or) → question forms (action, location, identification,
+desire/ability, negation, past, future, yes/no) → summarizing events. Full
+table is the `LEVELS` array in `App.jsx`. **Level is still XP-gated for
+now** — this remap changes the number of brackets (8→24) and what each
+bracket *means* (each now names a real grammar milestone via a `stage`
+field, not an arbitrary point tier), but does **not** yet build a
+curriculum-content-sequencing engine where question templates actually
+change per level. That would be a separate, larger effort — flagged here,
+not silently bundled in.
+- **Level vs. XP hierarchy (confirmed):** Level is now the primary
+  progress metric on Home and the Parent dashboard ("Level X of 24 ·
+  {stage}"), XP demoted to a small secondary line. Each `LEVELS` entry has
+  both a kid-facing celebratory `title` (keeps the space/Nova motif, e.g.
+  "Two-Word Voyager") and a parent-facing `stage` (the real grammar
+  milestone name, e.g. "Two-word phrases") — two naming tracks for two
+  audiences, same underlying level number.
+
+**Lesson-type bindings.** Based on actual interaction mechanics, not
+surface prompt phrasing (all 5 games phrase their prompt as a question in
+the UI, which would make that criterion meaningless):
+- Following Commands → WordMatch, SoundMatch (child acts on "show me X")
+- Answering Questions → WordHunt, RhymeTime (explicitly posed as a
+  question rather than a direct instruction)
+- Verbal Imitation → FlashCardChallenge — **honest caveat: the app has no
+  speech-input capture**, so this is "hear word, self-rate" scaffolding
+  for imitation practice, not verified imitation. Real product gap, not
+  papered over by the binding.
+- Sentence Completion → StoryBuilder. **Confirmed: re-enabling it** (was
+  `available: false`, already built per the original audit) so this
+  category has a live game instead of a conceptual-only binding.
+- SpellItOut doesn't cleanly fit any of the four MLC categories — left
+  unbound rather than forced.
+
 Constraint: Supabase schema, auth logic, XP/streak data model, and dashboard
 business logic stay untouched unless a task explicitly says otherwise. Verify
 build + auth + dashboards after every phase.
+
+### Phase 5b progress
+1. ✅ Done 2026-06-19 — 24-level remap (`LEVELS` array, `MAX_LEVEL`,
+   Home/Parent dashboard hierarchy change). Verified live: build clean,
+   Playwright suite passes, Home and Parent screenshotted showing
+   "Level 1 of 24 · First Word" / stage name correctly.
+2. ⬜ Word Galaxy as parallax-tilt map (addendum item b).
+3. ⬜ Bind the 5 (soon 6, with StoryBuilder) live game types to the four
+   MLC interaction types per the table above; re-enable StoryBuilder.
+4. ⬜ Move error handling toward scaffold-before-failure.
+5. ⬜ Rare/bigger level-up cinematic treatment (addendum item c).
