@@ -167,6 +167,12 @@ function buildLocalQuiz(targetWord, allWords) {
     question:     isAction
       ? `Which picture shows someone ${targetWord.word}ing?`
       : `Which picture shows a ${targetWord.word}?`,
+    // Generic fallback for StoryBuilder when offline — mirrors the
+    // same fallback-of-fallback line the real session generator uses
+    // (api/session-generator.js's STORY_TEMPLATES default) so Story
+    // Builder doesn't render a sentence-less blank if this local quiz
+    // builder is ever used for that game type.
+    sentence:     `I know the word ___.`,
     options:      options.map(o => ({ word: o.word, emoji: o.emoji })),
     correctIndex,
   };

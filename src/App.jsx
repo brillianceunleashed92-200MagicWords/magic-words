@@ -798,7 +798,7 @@ export default function App() {
               setActiveGameType(gameType);
               setGameActive(true);
             }}
-            unlockedGames={["word_match", "sound_match", "word_hunt", "rhyme_time", "flash_cards"]}
+            unlockedGames={["word_match", "sound_match", "word_hunt", "rhyme_time", "flash_cards", "story_builder"]}
           />
         </div>
       );

@@ -1404,13 +1404,27 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
 }
 
 // ─── Game type selector (shown before a game starts) ─────────────────────────
+// MLC interaction-type bindings (confirmed with the user, see CLAUDE.md
+// "Lesson-type bindings" — based on actual interaction mechanics, not
+// surface prompt phrasing). null = doesn't cleanly fit any of the four,
+// left unbound rather than forced (SpellItOut).
+const MLC_TYPES = {
+  word_match:    'Following Commands',
+  sound_match:   'Following Commands',
+  word_hunt:     'Answering Questions',
+  rhyme_time:    'Answering Questions',
+  flash_cards:   'Verbal Imitation',
+  story_builder: 'Sentence Completion',
+  spell_it_out:  null,
+};
+
 const GAME_TYPES = [
   { id: 'word_match',   label: 'Word Match',   emoji: '👀', desc: 'See the word, tap the picture',  color: T.teal,   gradient: `linear-gradient(135deg, rgba(45,212,191,0.2), rgba(45,212,191,0.04))`,   available: true  },
   { id: 'sound_match',  label: 'Sound Match',  emoji: '🔊', desc: 'Hear the word, tap the picture', color: T.purple, gradient: `linear-gradient(135deg, rgba(123,104,238,0.2), rgba(123,104,238,0.04))`, available: true  },
   { id: 'word_hunt',    label: 'Word Hunt',    emoji: '🔍', desc: 'Find the matching word',         color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.2), rgba(255,184,77,0.04))`, available: true  },
   { id: 'rhyme_time',   label: 'Rhyme Time',   emoji: '🎵', desc: 'Find the rhyming word',          color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.2), rgba(255,139,148,0.04))`, available: true  },
   { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
-  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.12), rgba(255,184,77,0.02))`,  available: false },
+  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.12), rgba(255,184,77,0.02))`,  available: true },
   { id: 'spell_it_out', label: 'Spell It Out', emoji: '🔤', desc: 'Tap the letters to spell it',   color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.12), rgba(255,139,148,0.02))`,available: false },
 ];
 
@@ -1552,6 +1566,15 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
               <span style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.75rem', color: T.muted, textAlign: 'center', lineHeight: 1.3 }}>
                 {game.desc}
               </span>
+              {MLC_TYPES[game.id] && (
+                <span style={{
+                  fontFamily: 'Atkinson Hyperlegible', fontSize: '0.625rem', fontWeight: 700,
+                  color: isUnlocked ? game.color : T.muted, opacity: 0.85, marginTop: '0.4rem',
+                  textTransform: 'uppercase', letterSpacing: '0.03em',
+                }}>
+                  {MLC_TYPES[game.id]}
+                </span>
+              )}
             </button>
           );
         })}

@@ -397,8 +397,22 @@ build + auth + dashboards after every phase.
    Home/Parent dashboard hierarchy change). Verified live: build clean,
    Playwright suite passes, Home and Parent screenshotted showing
    "Level 1 of 24 · First Word" / stage name correctly.
-2. ⬜ Word Galaxy as parallax-tilt map (addendum item b).
-3. ⬜ Bind the 5 (soon 6, with StoryBuilder) live game types to the four
-   MLC interaction types per the table above; re-enable StoryBuilder.
+2. ✅ Done 2026-06-19 — lesson-type bindings + StoryBuilder re-enabled.
+   `MLC_TYPES` map added in `GameEngine.jsx` (game id -> MLC category),
+   shown as a small uppercase tag on each `GameTypeSelector` tile.
+   StoryBuilder's `unlockedGames` entry added in `App.jsx` (the actual
+   functional gate — **`GAME_TYPES[].available` turned out to be dead,
+   unread metadata anywhere in the codebase**; flipping it alone would
+   have done nothing. Left it `true` for documentation consistency, but
+   the real fix was `unlockedGames`). Caught and fixed a real bug found
+   only by testing the offline-fallback path directly: `buildLocalQuiz()`
+   in `useSessionPlan.js` never set a `sentence` field, which
+   `StoryBuilder` requires — would have rendered a context-less blank
+   for any user hitting AI-generation fallback (which is this sandbox's
+   default state). Added the same generic fallback sentence the real
+   `api/session-generator.js` uses. Verified live: build clean, full
+   Playwright suite passes, StoryBuilder played end-to-end including the
+   wrong-answer state, screenshotted.
+3. ⬜ Word Galaxy as parallax-tilt map (addendum item b).
 4. ⬜ Move error handling toward scaffold-before-failure.
 5. ⬜ Rare/bigger level-up cinematic treatment (addendum item c).
