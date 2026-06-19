@@ -163,7 +163,7 @@ Indigo bg, are the default body-copy pairings (13.92 / 14.67 contrast, AAA).
 | Cloud | `#FFF8F0` | dashboard/lesson-player surfaces | — |
 | Comet Teal | `#2DD4BF` | fills, content-word chip bg, dark-bg accents | 7.88:1 as text on Dawn Indigo (AAA); fails as text on Cloud — don't use as light-surface text |
 | Comet Teal Deep | `#135D54` | teal *text* on light surfaces only | 7.33:1 on Cloud (AAA) |
-| Sunrise Coral | `#FF7A59` | CTA fills, correct-state, content-word emphasis | fails as text on Cloud or white-on-fill; use Dawn Indigo text on top of Coral fills (5.71:1, AA) |
+| Sunrise Coral | `#FF7A59` | CTA fills, streaks/energetic accents, attention/concern states, content-word emphasis — **not** correct/wrong feedback specifically (corrected 2026-06-19: real usage across the Parent dashboard and lesson player treats it as a warm energetic accent, not a fixed "correct = coral" rule; comet teal owns "correct," coral owns "needs attention") | fails as text on Cloud or white-on-fill; use Dawn Indigo text on top of Coral fills (5.71:1, AA) |
 | Sunrise Coral Deep | `#8F1C00` | coral *text* on light surfaces only | 8.54:1 on Cloud (AAA) |
 | Marigold | `#FFB84D` | progress/achievement fills, non-content-word chip bg | Dawn Indigo text on top: 8.53:1 (AAA) |
 | Marigold Deep | `#704300` | marigold *text* on light surfaces only | 8.00:1 on Cloud (AAA) |
@@ -264,6 +264,55 @@ instead of just "low-budget."
    apply the open tasks flagged above (24-level mapping, Word Galaxy
    visual map per addendum (b), MLC lesson-type binding, errorless-learning
    scaffolding, level-up treatment per addendum (c)).
+   - **5a (visual restyle only) — done 2026-06-19.** Parent dashboard,
+     Teacher dashboard (`App.jsx`), and the entire lesson player
+     (`GameEngine.jsx`) now run on the dawn token system. No XP math,
+     level thresholds, lesson-type logic, or Word Galaxy data model
+     changes — purely color/font swaps. Mechanics:
+     - `App.jsx`: Parent/Teacher screen roots got their own
+       `bg-cloud`/`text-dawn-indigo` wrapper with a `-mx-5` bleed past
+       `.screen-padding`, since both screens render inside the single
+       shared dark/starfield shell used by every screen (Home/Learn/
+       Words included) — that shell itself is untouched and out of
+       scope, so there's now a deliberate visual seam where Parent/
+       Teacher (light) meet Home/Learn/Words and the bottom nav (still
+       dark) within the same session. Expected, not a bug.
+     - `GameEngine.jsx`: the single shared `T` palette object (used by
+       every game type, `SessionProgress`, `FeedbackOverlay`,
+       `GameTypeSelector`, `SessionComplete`, `UpgradeModal`) now maps
+       to `design-system/tokens.js` — one change point propagates
+       everywhere. `T.bg` flipped dark→Cloud, `T.white`/`T.muted`
+       flipped light-text→Dawn-Indigo-text, `T.card`/`T.border`
+       inverted from translucent-white-on-dark to translucent-
+       Dawn-Indigo-on-light. Comet Teal owns "correct," Sunrise Coral
+       owns "wrong"/streaks/attention (see corrected token table note
+       below). Dozens of literal legacy `rgba(78,205,196,…)` /
+       `rgba(255,107,107,…)` / `rgba(255,230,109,…)` values scattered
+       across every game-type component (bypassing `T` entirely) were
+       bulk-converted to the new tokens' decimal RGB equivalents —
+       found via visual QA, not assumption; check for this pattern
+       again before assuming a future palette change is "done" just
+       because `T` was updated.
+     - `GameTypeSelector` and `UpgradeModal` needed their own explicit
+       `background: T.bg` — they're rendered inside App.jsx's
+       still-dark "Learn" tab / Parent dashboard contexts respectively,
+       not inside `GameEngine`'s own self-contained root, so they don't
+       inherit a light page background for free. Caught via live
+       screenshot (dark-on-dark text was otherwise invisible) — **any
+       future component sharing `T` needs the same self-contained-
+       background check if it might render outside `GameEngine`'s own
+       wrapper.**
+     - Known minor pre-existing issue, not fixed (out of scope —
+       display logic, not styling): `getChildName()`-derived display
+       name can overflow the Parent dashboard header when the email
+       local-part is unusually long (only seen with synthetic test
+       emails). No truncation/wrap logic exists; revisit if real users
+       hit it.
+     - Per-game-type internals (the actual WordMatch/SoundMatch/
+       WordHunt/RhymeTime/FlashCardChallenge/StoryBuilder/SpellItOut
+       JSX bodies) were **not** individually rewritten — only their
+       shared `T`-derived colors changed. Their structure/layout is
+       unchanged from before this pass.
 6. Fix known bugs only if redesign work in that area surfaces them directly —
    not a standalone pass.
 

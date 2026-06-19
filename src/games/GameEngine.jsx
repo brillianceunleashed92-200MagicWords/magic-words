@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { colors as dawnTokens } from '../design-system/tokens';
 
 // ─── Audio cache — text → blob URL, survives React re-renders ────────────────
 const audioCache    = new Map(); // text → blob URL string
@@ -137,20 +138,24 @@ const RHYME_DECOYS = [
 ];
 
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
+// Dense, low-motion lesson-player palette — Cloud surface per CLAUDE.md's
+// dashboard/lesson-player token assignment. Comet Teal owns "correct";
+// Sunrise Coral is the energetic/attention accent (streaks, "wrong" feedback,
+// CTAs) — not a fixed "correct = coral" rule, see CLAUDE.md token table.
 const T = {
-  bg:      '#0F0A1E',
-  teal:    '#4ECDC4',
-  gold:    '#FFE66D',
-  coral:   '#FF6B6B',
+  bg:      dawnTokens.cloud,
+  teal:    dawnTokens.cometTeal,
+  gold:    dawnTokens.marigold,
+  coral:   dawnTokens.sunriseCoral,
   pink:    '#FF8B94',
   purple:  '#7B68EE',
-  white:   'rgba(255,255,255,0.95)',
-  muted:   'rgba(255,255,255,0.55)',
-  card:    'rgba(255,255,255,0.06)',
-  cardHov: 'rgba(255,255,255,0.12)',
-  border:  'rgba(255,255,255,0.12)',
-  correct: '#4ECDC4',
-  wrong:   '#FF6B6B',
+  white:   dawnTokens.dawnIndigo,
+  muted:   `${dawnTokens.dawnIndigo}99`,
+  card:    `${dawnTokens.dawnIndigo}0a`,
+  cardHov: `${dawnTokens.dawnIndigo}1a`,
+  border:  `${dawnTokens.dawnIndigo}1f`,
+  correct: dawnTokens.cometTeal,
+  wrong:   dawnTokens.sunriseCoral,
 };
 
 // ─── Shared CSS injected once ─────────────────────────────────────────────────
@@ -188,23 +193,23 @@ const GLOBAL_CSS = `
     to   { transform: translateY(0);    opacity: 1; }
   }
   @keyframes mw-pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(78,205,196,0); }
-    50%       { box-shadow: 0 0 0 12px rgba(78,205,196,0.2); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,0); }
+    50%       { box-shadow: 0 0 0 12px rgba(45,212,191,0.2); }
   }
   @keyframes mw-letter-appear {
     from { transform: scale(0) rotate(-15deg); opacity: 0; }
     to   { transform: scale(1) rotate(0deg);   opacity: 1; }
   }
   @keyframes mw-word-glow {
-    0%, 100% { text-shadow: 0 0 20px rgba(78,205,196,0.3); }
-    50%       { text-shadow: 0 0 40px rgba(78,205,196,0.8), 0 0 60px rgba(78,205,196,0.4); }
+    0%, 100% { text-shadow: 0 0 20px rgba(45,212,191,0.3); }
+    50%       { text-shadow: 0 0 40px rgba(45,212,191,0.8), 0 0 60px rgba(45,212,191,0.4); }
   }
 
   .mw-option-btn {
-    background: rgba(255,255,255,0.06);
+    background: rgba(42,33,80,0.05);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 2px solid rgba(255,255,255,0.12);
+    border: 2px solid rgba(42,33,80,0.16);
     border-radius: 24px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
     cursor: pointer;
@@ -216,33 +221,33 @@ const GLOBAL_CSS = `
     justify-content: center;
     gap: 0.5rem;
     min-height: 110px;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Atkinson Hyperlegible', sans-serif;
     color: ${T.white};
     -webkit-tap-highlight-color: transparent;
   }
   .mw-option-btn:hover:not(:disabled) {
     transform: scale(1.04);
-    border-color: rgba(255,255,255,0.25);
+    border-color: rgba(42,33,80,0.32);
     box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
   }
   .mw-option-btn:active:not(:disabled) {
     transform: scale(0.97);
   }
   .mw-option-btn.correct {
-    background: rgba(78,205,196,0.15);
+    background: rgba(45,212,191,0.15);
     border-color: ${T.correct};
-    box-shadow: 0 0 30px rgba(78,205,196,0.5), 0 8px 32px rgba(0,0,0,0.3);
+    box-shadow: 0 0 30px rgba(45,212,191,0.5), 0 8px 32px rgba(0,0,0,0.3);
     animation: mw-bounce 0.5s ease;
   }
   .mw-option-btn.wrong {
-    background: rgba(255,107,107,0.15);
+    background: rgba(255,122,89,0.15);
     border-color: ${T.wrong};
-    box-shadow: 0 0 20px rgba(255,107,107,0.4), 0 8px 32px rgba(0,0,0,0.3);
+    box-shadow: 0 0 20px rgba(255,122,89,0.4), 0 8px 32px rgba(0,0,0,0.3);
     animation: mw-shake 0.4s ease;
   }
   .mw-option-btn.revealed {
-    background: rgba(78,205,196,0.1);
-    border-color: rgba(78,205,196,0.4);
+    background: rgba(45,212,191,0.1);
+    border-color: rgba(45,212,191,0.4);
   }
 
   .mw-letter-tile {
@@ -254,7 +259,7 @@ const GLOBAL_CSS = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Fredoka One', cursive;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 1.6rem;
     color: ${T.white};
     cursor: pointer;
@@ -273,12 +278,12 @@ const GLOBAL_CSS = `
     transform: none !important;
   }
   .mw-letter-tile.correct-tile {
-    background: rgba(78,205,196,0.25);
+    background: rgba(45,212,191,0.25);
     border-color: ${T.teal};
     animation: mw-letter-appear 0.2s ease;
   }
   .mw-letter-tile.wrong-tile {
-    background: rgba(255,107,107,0.25);
+    background: rgba(255,122,89,0.25);
     border-color: ${T.coral};
     animation: mw-shake 0.3s ease;
   }
@@ -288,7 +293,7 @@ const GLOBAL_CSS = `
     border: 2px solid ${T.border};
     border-radius: 50px;
     padding: 0.5rem 1.25rem;
-    font-family: 'Fredoka One', cursive;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 1.1rem;
     color: ${T.white};
     cursor: grab;
@@ -305,13 +310,13 @@ const GLOBAL_CSS = `
     border-bottom: 3px solid ${T.teal};
     min-width: 80px;
     padding: 0 0.5rem;
-    font-family: 'Fredoka One', cursive;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 1.3rem;
     color: ${T.teal};
     vertical-align: bottom;
     transition: background 0.15s;
   }
-  .mw-drop-zone.over { background: rgba(78,205,196,0.15); border-radius: 8px 8px 0 0; }
+  .mw-drop-zone.over { background: rgba(45,212,191,0.15); border-radius: 8px 8px 0 0; }
   .mw-drop-zone.filled { color: ${T.gold}; border-color: ${T.gold}; }
 `;
 
@@ -356,10 +361,10 @@ function SessionProgress({ current, total, correctCount }) {
   return (
     <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontFamily: 'Fredoka One', color: T.teal, fontSize: '0.9rem' }}>
+        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem' }}>
           Word {current} of {total}
         </span>
-        <span style={{ fontFamily: 'Fredoka One', color: T.gold, fontSize: '1.125rem' }}>
+        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem' }}>
           ⭐ {correctCount} correct
         </span>
       </div>
@@ -372,7 +377,7 @@ function SessionProgress({ current, total, correctCount }) {
               flex: 1,
               height: '10px',
               borderRadius: '6px',
-              background: (done || active) ? T.teal : 'rgba(255,255,255,0.1)',
+              background: (done || active) ? T.teal : 'rgba(42,33,80,0.14)',
               boxShadow: done   ? `0 0 8px ${T.teal}99`
                        : active ? `0 0 14px ${T.teal}`
                        : 'none',
@@ -394,15 +399,15 @@ function FeedbackOverlay({ correct, message, emoji }) {
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       background: correct
-        ? 'rgba(78,205,196,0.18)'
-        : 'rgba(255,107,107,0.18)',
+        ? 'rgba(45,212,191,0.18)'
+        : 'rgba(255,122,89,0.18)',
       backdropFilter: 'blur(4px)',
       animation: 'mw-pop 0.3s ease',
       pointerEvents: 'none',
     }}>
       <div style={{ fontSize: '80px', animation: 'mw-celebrate 0.6s ease' }}>{emoji}</div>
       <div style={{
-        fontFamily: 'Fredoka One',
+        fontFamily: 'Space Grotesk',
         fontSize: '2rem',
         color: correct ? T.teal : T.coral,
         marginTop: '1rem',
@@ -521,7 +526,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
         <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
             <div style={{
-              fontFamily: 'Fredoka One',
+              fontFamily: 'Space Grotesk',
               fontSize: 'clamp(2.5rem, 8vw, 4rem)',
               color: T.white,
               animation: 'mw-word-glow 3s ease-in-out infinite',
@@ -533,7 +538,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
               onClick={replayAudio}
               disabled={!audioUrl}
               style={{
-                background: 'rgba(78,205,196,0.12)',
+                background: 'rgba(45,212,191,0.12)',
                 border: `2px solid ${T.teal}`,
                 borderRadius: '50%',
                 width: '44px',
@@ -553,7 +558,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
             </button>
           </div>
           <div style={{
-            fontFamily: 'Nunito',
+            fontFamily: 'Atkinson Hyperlegible',
             fontSize: '1rem',
             color: T.muted,
             marginTop: '0.25rem',
@@ -577,7 +582,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
             }
             // FIX 7: hint — pulse on correct tile after 2 consecutive wrong
             const hintStyle = showHint && !answered && isCorrectTile
-              ? { animation: 'mw-pulse-glow 0.8s ease-in-out infinite', borderColor: 'rgba(78,205,196,0.5)' }
+              ? { animation: 'mw-pulse-glow 0.8s ease-in-out infinite', borderColor: 'rgba(45,212,191,0.5)' }
               : {};
             return (
               <button
@@ -664,7 +669,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
         <button
           onClick={playWord}
           style={{
-            background: audioPlayed ? 'rgba(78,205,196,0.15)' : 'rgba(78,205,196,0.25)',
+            background: audioPlayed ? 'rgba(45,212,191,0.15)' : 'rgba(45,212,191,0.25)',
             border: `2px solid ${T.teal}`,
             borderRadius: '50%',
             width: '90px', height: '90px',
@@ -678,7 +683,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
         {/* Fallback: show the word if no audio */}
         {audioError && (
           <div style={{
-            fontFamily: 'Fredoka One',
+            fontFamily: 'Space Grotesk',
             fontSize: '2.5rem',
             color: T.teal,
             marginTop: '1rem',
@@ -686,7 +691,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
         )}
 
         <div style={{
-          fontFamily: 'Nunito',
+          fontFamily: 'Atkinson Hyperlegible',
           color: T.muted,
           fontSize: '0.9rem',
           marginTop: '0.75rem',
@@ -793,7 +798,7 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
           <div style={{ fontSize: '80px', animation: 'mw-bounce 2s ease-in-out infinite', lineHeight: 1 }}>
             {quiz.emoji}
           </div>
-          <div style={{ fontFamily: 'Nunito', fontSize: '1rem', color: T.muted, marginTop: '0.75rem' }}>
+          <div style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '1rem', color: T.muted, marginTop: '0.75rem' }}>
             Which word matches this picture? 🔍
           </div>
         </div>
@@ -807,7 +812,7 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
             return (
               <button key={idx} className={className} onClick={() => handleTap(idx)} disabled={answered}
                 style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 90 }}>
-                <span style={{ fontFamily: 'Fredoka One', fontSize: '1.7rem', color: T.white }}>{opt.word}</span>
+                <span style={{ fontFamily: 'Space Grotesk', fontSize: '1.7rem', color: T.white }}>{opt.word}</span>
                 {answered && idx === quiz.correctIndex && (
                   <span style={{ fontSize: '1.2rem', marginTop: 4 }}>{opt.emoji}</span>
                 )}
@@ -890,11 +895,11 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
       )}
       <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
         <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-          <div style={{ fontFamily: 'Fredoka One', fontSize: 'clamp(2.5rem, 10vw, 4rem)', color: T.gold,
+          <div style={{ fontFamily: 'Space Grotesk', fontSize: 'clamp(2.5rem, 10vw, 4rem)', color: T.gold,
             textShadow: `0 0 30px ${T.gold}88`, animation: 'mw-word-glow 3s ease-in-out infinite' }}>
             {quiz.word}
           </div>
-          <div style={{ fontFamily: 'Nunito', fontSize: '0.95rem', color: T.muted, marginTop: '0.5rem' }}>
+          <div style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.95rem', color: T.muted, marginTop: '0.5rem' }}>
             🎵 Which word rhymes with this?
           </div>
         </div>
@@ -902,14 +907,14 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
           {displayOptions.map((opt, idx) => {
             let bg = T.card, border = T.border;
             if (answered) {
-              if (idx === correctIdx)    { bg = 'rgba(78,205,196,0.2)'; border = T.teal; }
-              else if (idx === selected) { bg = 'rgba(255,107,107,0.2)'; border = T.coral; }
+              if (idx === correctIdx)    { bg = 'rgba(45,212,191,0.2)'; border = T.teal; }
+              else if (idx === selected) { bg = 'rgba(255,122,89,0.2)'; border = T.coral; }
             }
             return (
               <button key={idx} onClick={() => handleTap(idx)} disabled={answered}
                 className={`mw-option-btn${answered && idx === correctIdx ? ' correct revealed' : ''}${answered && idx === selected && idx !== correctIdx ? ' wrong' : ''}`}
                 style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 80 }}>
-                <span style={{ fontFamily: 'Fredoka One', fontSize: '1.6rem', color: T.white }}>{opt.word}</span>
+                <span style={{ fontFamily: 'Space Grotesk', fontSize: '1.6rem', color: T.white }}>{opt.word}</span>
               </button>
             );
           })}
@@ -962,31 +967,31 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   return (
     <div style={{ padding: '0 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
       minHeight: '60vh', justifyContent: 'center', animation: 'mw-slide-up 0.35s ease' }}>
-      <div style={{ fontFamily: 'Nunito', color: T.muted, fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+      <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
         Flash Card Challenge ⚡
       </div>
       {/* The flash card */}
       <div onClick={handleReveal} style={{
         width: '100%', maxWidth: 320, minHeight: 200,
         background: revealed
-          ? 'linear-gradient(135deg, rgba(78,205,196,0.2), rgba(168,230,207,0.1))'
-          : 'linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))',
+          ? `linear-gradient(135deg, ${T.teal}33, ${T.teal}1a)`
+          : `linear-gradient(135deg, ${T.gold}26, ${T.gold}1a)`,
         border: `2px solid ${revealed ? T.teal : T.gold}`,
         borderRadius: 24, padding: '2rem',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         cursor: revealed ? 'default' : 'pointer',
         transition: 'all 0.3s',
-        boxShadow: `0 8px 30px ${revealed ? 'rgba(78,205,196,0.2)' : 'rgba(255,230,109,0.2)'}`,
+        boxShadow: `0 8px 30px ${revealed ? `${T.teal}33` : `${T.gold}33`}`,
         animation: 'mw-pop 0.3s ease',
       }}>
         <div style={{ fontSize: '80px', marginBottom: '0.75rem' }}>{quiz.emoji}</div>
         {revealed ? (
-          <div style={{ fontFamily: 'Fredoka One', fontSize: '2.5rem', color: T.teal,
+          <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.teal,
             textShadow: `0 0 20px ${T.teal}55`, animation: 'mw-pop 0.25s ease' }}>
             {quiz.word}
           </div>
         ) : (
-          <div style={{ fontFamily: 'Nunito', color: T.gold, fontSize: '1rem', fontWeight: 700 }}>
+          <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.gold, fontSize: '1rem', fontWeight: 700 }}>
             Tap to reveal! 👆
           </div>
         )}
@@ -995,13 +1000,13 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
       {revealed && !answered && (
         <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', animation: 'mw-slide-up 0.3s ease' }}>
           <button onClick={() => handleKnow(false)} style={{
-            fontFamily: 'Fredoka One', fontSize: '1rem',
-            background: 'rgba(255,107,107,0.15)', border: `2px solid ${T.coral}`,
+            fontFamily: 'Space Grotesk', fontSize: '1rem',
+            background: 'rgba(255,122,89,0.15)', border: `2px solid ${T.coral}`,
             color: T.coral, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
           }}>Need practice 💪</button>
           <button onClick={() => handleKnow(true)} style={{
-            fontFamily: 'Fredoka One', fontSize: '1rem',
-            background: 'rgba(78,205,196,0.15)', border: `2px solid ${T.teal}`,
+            fontFamily: 'Space Grotesk', fontSize: '1rem',
+            background: 'rgba(45,212,191,0.15)', border: `2px solid ${T.teal}`,
             color: T.teal, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
           }}>I know it! ⭐</button>
         </div>
@@ -1062,7 +1067,7 @@ function StoryBuilder({ quiz, onAnswer }) {
       <div style={{
         textAlign: 'center',
         margin: '1.5rem 0',
-        fontFamily: 'Fredoka One',
+        fontFamily: 'Space Grotesk',
         fontSize: 'clamp(1.3rem, 4vw, 1.8rem)',
         color: T.white,
         lineHeight: 1.8,
@@ -1082,7 +1087,7 @@ function StoryBuilder({ quiz, onAnswer }) {
       {/* Instruction */}
       <p style={{
         textAlign: 'center',
-        fontFamily: 'Nunito',
+        fontFamily: 'Atkinson Hyperlegible',
         color: T.muted,
         fontSize: '0.9rem',
         margin: '0 0 1.5rem',
@@ -1113,9 +1118,9 @@ function StoryBuilder({ quiz, onAnswer }) {
                            : isCorrect   ? T.teal
                            : isWrong     ? T.coral
                            : T.border,
-                background:  isSelected  ? 'rgba(78,205,196,0.2)'
-                           : isCorrect   ? 'rgba(78,205,196,0.15)'
-                           : isWrong     ? 'rgba(255,107,107,0.15)'
+                background:  isSelected  ? 'rgba(45,212,191,0.2)'
+                           : isCorrect   ? 'rgba(45,212,191,0.15)'
+                           : isWrong     ? 'rgba(255,122,89,0.15)'
                            : T.card,
                 transform: isSelected && !answered ? 'scale(1.08) translateY(-4px)' : undefined,
               }}
@@ -1200,7 +1205,7 @@ function SpellItOut({ quiz, onAnswer }) {
         <div style={{ fontSize: '72px', animation: 'mw-bounce 2s ease-in-out infinite' }}>
           {quiz.emoji}
         </div>
-        <p style={{ fontFamily: 'Nunito', color: T.muted, fontSize: '0.9rem', margin: '0.5rem 0 0' }}>
+        <p style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, fontSize: '0.9rem', margin: '0.5rem 0 0' }}>
           Spell the word!
         </p>
       </div>
@@ -1221,9 +1226,9 @@ function SpellItOut({ quiz, onAnswer }) {
               width: '52px', height: '52px',
               borderRadius: '12px',
               border: `2px solid ${isTyped ? T.teal : T.border}`,
-              background: isTyped ? 'rgba(78,205,196,0.2)' : 'rgba(255,255,255,0.04)',
+              background: isTyped ? 'rgba(45,212,191,0.2)' : 'rgba(42,33,80,0.05)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Fredoka One',
+              fontFamily: 'Space Grotesk',
               fontSize: '1.6rem',
               color: isTyped ? T.teal : 'transparent',
               transition: 'all 0.15s',
@@ -1239,7 +1244,7 @@ function SpellItOut({ quiz, onAnswer }) {
             onClick={handleBackspace}
             style={{
               width: '52px', height: '52px', borderRadius: '12px',
-              background: 'rgba(255,107,107,0.15)', border: `2px solid ${T.coral}`,
+              background: 'rgba(255,122,89,0.15)', border: `2px solid ${T.coral}`,
               color: T.coral, fontSize: '1.2rem', cursor: 'pointer',
             }}
           >←</button>
@@ -1297,7 +1302,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
       <div style={{ fontSize: '72px', animation: 'mw-bounce 1s ease 0.2s both' }}>🚀</div>
 
       <h2 style={{
-        fontFamily: 'Fredoka One',
+        fontFamily: 'Space Grotesk',
         fontSize: 'clamp(2rem, 6vw, 2.75rem)',
         color: T.gold,
         margin: '0.75rem 0 0.25rem',
@@ -1307,7 +1312,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
       </h2>
 
       {childName && (
-        <p style={{ fontFamily: 'Nunito', fontSize: '1rem', color: T.muted, margin: '0 0 0.75rem' }}>
+        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '1rem', color: T.muted, margin: '0 0 0.75rem' }}>
           Great work, {childName}! 🌟
         </p>
       )}
@@ -1323,7 +1328,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
         ))}
       </div>
 
-      <p style={{ fontFamily: 'Fredoka One', fontSize: '1.3rem', color: T.white, margin: '0.25rem 0 1.25rem' }}>
+      <p style={{ fontFamily: 'Space Grotesk', fontSize: '1.3rem', color: T.white, margin: '0.25rem 0 1.25rem' }}>
         {correctCount} / {total} correct!
       </p>
 
@@ -1339,11 +1344,11 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
         }}>
           {wordsPlayed.map((wp, i) => (
             <div key={i} style={{
-              background: wp.correct ? 'rgba(78,205,196,0.15)' : 'rgba(255,107,107,0.1)',
+              background: wp.correct ? 'rgba(45,212,191,0.15)' : 'rgba(255,122,89,0.1)',
               border: `1.5px solid ${wp.correct ? T.teal : T.coral}`,
               borderRadius: '50px',
               padding: '0.25rem 0.75rem',
-              fontFamily: 'Nunito',
+              fontFamily: 'Atkinson Hyperlegible',
               fontSize: '0.875rem',
               fontWeight: 700,
               color: wp.correct ? T.teal : T.coral,
@@ -1358,7 +1363,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
         </div>
       )}
 
-      <p style={{ fontFamily: 'Nunito', fontSize: '0.95rem', color: T.muted, margin: '0 0 2rem', maxWidth: '260px' }}>
+      <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.95rem', color: T.muted, margin: '0 0 2rem', maxWidth: '260px' }}>
         {encouragement}
       </p>
 
@@ -1366,7 +1371,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
         <button
           onClick={onPlayAgain}
           style={{
-            fontFamily: 'Fredoka One',
+            fontFamily: 'Space Grotesk',
             fontSize: '1.1rem',
             background: T.teal,
             color: T.bg,
@@ -1381,7 +1386,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
         <button
           onClick={onHome}
           style={{
-            fontFamily: 'Fredoka One',
+            fontFamily: 'Space Grotesk',
             fontSize: '1.1rem',
             background: 'transparent',
             color: T.white,
@@ -1400,12 +1405,12 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
 
 // ─── Game type selector (shown before a game starts) ─────────────────────────
 const GAME_TYPES = [
-  { id: 'word_match',   label: 'Word Match',   emoji: '👀', desc: 'See the word, tap the picture',  color: T.teal,   gradient: `linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.04))`,   available: true  },
+  { id: 'word_match',   label: 'Word Match',   emoji: '👀', desc: 'See the word, tap the picture',  color: T.teal,   gradient: `linear-gradient(135deg, rgba(45,212,191,0.2), rgba(45,212,191,0.04))`,   available: true  },
   { id: 'sound_match',  label: 'Sound Match',  emoji: '🔊', desc: 'Hear the word, tap the picture', color: T.purple, gradient: `linear-gradient(135deg, rgba(123,104,238,0.2), rgba(123,104,238,0.04))`, available: true  },
-  { id: 'word_hunt',    label: 'Word Hunt',    emoji: '🔍', desc: 'Find the matching word',         color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,230,109,0.2), rgba(255,230,109,0.04))`, available: true  },
+  { id: 'word_hunt',    label: 'Word Hunt',    emoji: '🔍', desc: 'Find the matching word',         color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.2), rgba(255,184,77,0.04))`, available: true  },
   { id: 'rhyme_time',   label: 'Rhyme Time',   emoji: '🎵', desc: 'Find the rhyming word',          color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.2), rgba(255,139,148,0.04))`, available: true  },
-  { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,107,107,0.04))`, available: true  },
-  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,179,71,0.12), rgba(255,179,71,0.02))`,  available: false },
+  { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
+  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.12), rgba(255,184,77,0.02))`,  available: false },
   { id: 'spell_it_out', label: 'Spell It Out', emoji: '🔤', desc: 'Tap the letters to spell it',   color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.12), rgba(255,139,148,0.02))`,available: false },
 ];
 
@@ -1427,7 +1432,7 @@ export function UpgradeModal({ onClose }) {
       padding: '1.5rem',
     }} onClick={onClose}>
       <div style={{
-        background: '#1A1030',
+        background: T.bg,
         border: `2px solid ${T.gold}`,
         borderRadius: '24px',
         padding: '2rem 1.75rem',
@@ -1437,23 +1442,23 @@ export function UpgradeModal({ onClose }) {
         animation: 'mw-pop 0.3s ease',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ fontSize: '48px', marginBottom: '0.5rem' }}>🌟</div>
-        <h3 style={{ fontFamily: 'Fredoka One', fontSize: '1.5rem', color: T.gold, margin: '0 0 0.25rem' }}>
+        <h3 style={{ fontFamily: 'Space Grotesk', fontSize: '1.5rem', color: T.gold, margin: '0 0 0.25rem' }}>
           Go Premium
         </h3>
-        <p style={{ fontFamily: 'Nunito', fontSize: '0.875rem', color: T.muted, margin: '0 0 1.25rem' }}>
+        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.875rem', color: T.muted, margin: '0 0 1.25rem' }}>
           Unlock all games and every word unit:
         </p>
         <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
           {PREMIUM_FEATURES.map((f, i) => (
             <div key={i} style={{
-              fontFamily: 'Nunito', fontSize: '0.9rem', color: T.white,
+              fontFamily: 'Atkinson Hyperlegible', fontSize: '0.9rem', color: T.white,
               padding: '0.35rem 0', borderBottom: i < PREMIUM_FEATURES.length - 1 ? `1px solid ${T.border}` : 'none',
             }}>{f}</div>
           ))}
         </div>
         <button onClick={() => setNotifyMe(true)} style={{
           width: '100%',
-          fontFamily: 'Fredoka One', fontSize: '1rem',
+          fontFamily: 'Space Grotesk', fontSize: '1rem',
           background: `linear-gradient(135deg, ${T.gold}, #FFB300)`,
           color: '#1A0A00', border: 'none', borderRadius: '50px',
           padding: '0.875rem 1rem', cursor: 'pointer', opacity: notifyMe ? 0.7 : 1,
@@ -1461,12 +1466,12 @@ export function UpgradeModal({ onClose }) {
         }}>
           {notifyMe ? "You're on the list! 🎉" : 'Start Free Trial — $9.99/mo'}
         </button>
-        <p style={{ fontFamily: 'Nunito', fontSize: '0.75rem', color: T.muted, margin: '0.75rem 0 0' }}>
+        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.75rem', color: T.muted, margin: '0.75rem 0 0' }}>
           {notifyMe ? "We'll email you the moment premium launches!" : "Coming soon — tap to get notified at launch"}
         </p>
         <button onClick={onClose} style={{
           background: 'none', border: 'none', color: T.muted,
-          fontFamily: 'Nunito', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.75rem',
+          fontFamily: 'Atkinson Hyperlegible', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.75rem',
         }}>
           Maybe later
         </button>
@@ -1492,11 +1497,11 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
   }, []);
 
   return (
-    <div style={{ padding: '1.5rem', animation: 'mw-slide-up 0.3s ease' }}>
+    <div style={{ padding: '1.5rem', minHeight: '100vh', background: T.bg, animation: 'mw-slide-up 0.3s ease' }}>
       {showUpgrade && <UpgradeModal onClose={dismissUpgrade} />}
 
       <h2 style={{
-        fontFamily: 'Fredoka One',
+        fontFamily: 'Space Grotesk',
         fontSize: '1.5rem',
         color: T.white,
         textAlign: 'center',
@@ -1537,14 +1542,14 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
                   position: 'absolute', top: '8px', right: '8px',
                   background: `${T.gold}22`, border: `1px solid ${T.gold}88`,
                   borderRadius: '20px', padding: '2px 8px',
-                  fontSize: '0.65rem', color: T.gold, fontFamily: 'Nunito', fontWeight: 700,
+                  fontSize: '0.65rem', color: T.gold, fontFamily: 'Atkinson Hyperlegible', fontWeight: 700,
                 }}>🔒 Premium</div>
               )}
               <span style={{ fontSize: '2.5rem' }}>{game.emoji}</span>
-              <span style={{ fontFamily: 'Fredoka One', fontSize: '1rem', color: isUnlocked ? T.white : T.muted }}>
+              <span style={{ fontFamily: 'Space Grotesk', fontSize: '1rem', color: isUnlocked ? T.white : T.muted }}>
                 {game.label}
               </span>
-              <span style={{ fontFamily: 'Nunito', fontSize: '0.75rem', color: T.muted, textAlign: 'center', lineHeight: 1.3 }}>
+              <span style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.75rem', color: T.muted, textAlign: 'center', lineHeight: 1.3 }}>
                 {game.desc}
               </span>
             </button>
@@ -1693,7 +1698,7 @@ export function GameEngine({
 
   if (!currentQuiz) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem 2rem', color: T.muted, fontFamily: 'Nunito' }}>
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', color: T.muted, fontFamily: 'Atkinson Hyperlegible' }}>
         No quizzes loaded. Please check your session plan.
       </div>
     );
@@ -1705,15 +1710,15 @@ export function GameEngine({
       background: T.bg,
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: 'Nunito, sans-serif',
+      fontFamily: "'Atkinson Hyperlegible', sans-serif",
     }}>
       <ConfettiBurst active={showConfetti} />
       {xpToast && (
         <div key={xpToast.id} style={{
           position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
-          fontFamily: 'Fredoka One', fontSize: '1.5rem', color: '#FFE66D',
+          fontFamily: 'Space Grotesk', fontSize: '1.5rem', color: '#FFE66D',
           zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
-          pointerEvents: 'none', textShadow: '0 0 20px rgba(255,230,109,0.8)',
+          pointerEvents: 'none', textShadow: '0 0 20px rgba(255,184,77,0.8)',
           whiteSpace: 'nowrap',
         }}>
           +{xpToast.amount} XP ⭐

@@ -6,6 +6,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useSessionPlan } from "./hooks/useSessionPlan";
 import { GameEngine, GameTypeSelector, SessionComplete, UpgradeModal } from "./games/GameEngine";
 import QRCode from "qrcode";
+import { colors as tokens } from "./design-system/tokens";
 
 const UNIT_NAMES = {
   1:'My World', 2:'Animals', 3:'Actions', 4:'More Actions',
@@ -1414,25 +1415,26 @@ export default function App() {
 
               {/* ═══ PARENT ═══ */}
               {screen === "parent" && (
-                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-                  <div style={{ fontSize: 13, color: "#FF8B94", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Parent Dashboard</div>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 26, marginBottom: 4 }}>
+                <div className="-mx-5 font-body" style={{ background: tokens.cloud, color: tokens.dawnIndigo, minHeight: "100vh", animation: "slideUp 0.4s ease" }}>
+                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20 }}>
+                  <div style={{ fontSize: 13, color: tokens.sunriseCoralDeep, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Parent Dashboard</div>
+                  <div className="font-display" style={{ fontSize: 26, marginBottom: 4 }}>
                     {getChildName(user)}'s Progress 👧
                   </div>
-                  <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>{user?.email}</div>
+                  <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 12 }}>{user?.email}</div>
 
                   {/* Child share code — parent gives this to another account to link */}
                   {user && (
-                    <div style={{ background: "rgba(78,205,196,0.07)", border: "1px solid rgba(78,205,196,0.2)", borderRadius: 14, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ background: `${tokens.cometTeal}15`, border: `1px solid ${tokens.cometTeal}40`, borderRadius: 14, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10, color: "#4ECDC4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Child Share Code</div>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, color: "#FFE66D", letterSpacing: 4 }}>
+                        <div style={{ fontSize: 10, color: tokens.cometTealDeep, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Child Share Code</div>
+                        <div className="font-display" style={{ fontSize: 22, color: tokens.marigoldDeep, letterSpacing: 4 }}>
                           {user.id.substring(0, 6).toUpperCase()}
                         </div>
-                        <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>Give this code to a parent account to link their dashboard to this child</div>
+                        <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>Give this code to a parent account to link their dashboard to this child</div>
                       </div>
                       <div className="btn-primary" onClick={() => navigator.clipboard?.writeText(user.id.substring(0, 6).toUpperCase())}
-                        style={{ background: "rgba(78,205,196,0.12)", border: "1px solid rgba(78,205,196,0.3)", borderRadius: 10, padding: "8px 12px", fontSize: 11, fontWeight: 800, color: "#4ECDC4", cursor: "pointer", flexShrink: 0 }}>
+                        style={{ background: tokens.cometTeal, border: `1px solid ${tokens.cometTealDeep}`, borderRadius: 10, padding: "8px 12px", fontSize: 11, fontWeight: 800, color: tokens.dawnIndigo, cursor: "pointer", flexShrink: 0 }}>
                         Copy 📋
                       </div>
                     </div>
@@ -1445,13 +1447,13 @@ export default function App() {
                     return (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
                         {[
-                          { val: masteredCount.toString(), sub: "Words mastered", color: "#4ECDC4" },
-                          { val: streak !== null ? `${streak}🔥` : '—🔥', sub: "Day streak", color: "#FF6B6B" },
-                          { val: weekStr,                  sub: "This week",      color: "#FFE66D" },
+                          { val: masteredCount.toString(), sub: "Words mastered", color: tokens.cometTealDeep, bg: tokens.cometTeal },
+                          { val: streak !== null ? `${streak}🔥` : '—🔥', sub: "Day streak", color: tokens.sunriseCoralDeep, bg: tokens.sunriseCoral },
+                          { val: weekStr,                  sub: "This week",      color: tokens.marigoldDeep, bg: tokens.marigold },
                         ].map((s, i) => (
-                          <div key={i} style={{ background: `${s.color}15`, border: `1px solid ${s.color}33`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
-                            <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 20, color: s.color }}>{s.val}</div>
-                            <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>
+                          <div key={i} style={{ background: `${s.bg}18`, border: `1px solid ${s.bg}55`, borderRadius: 18, padding: "14px 10px", textAlign: "center" }}>
+                            <div className="font-display" style={{ fontSize: 20, color: s.color }}>{s.val}</div>
+                            <div style={{ fontSize: 10, opacity: 0.75, marginTop: 4 }}>{s.sub}</div>
                           </div>
                         ))}
                       </div>
@@ -1459,11 +1461,11 @@ export default function App() {
                   })()}
 
                   {/* AI coaching tip from session plan */}
-                  <div style={{ background: "linear-gradient(135deg, rgba(255,230,109,0.15), rgba(255,179,71,0.1))", border: "1px solid rgba(255,230,109,0.4)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                  <div style={{ background: `${tokens.marigold}1f`, border: `1px solid ${tokens.marigold}66`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                       <div style={{ fontSize: 28 }}>🤖</div>
                       <div>
-                        <div style={{ fontWeight: 800, color: "#FFE66D", marginBottom: 4 }}>AI Insight this week</div>
+                        <div style={{ fontWeight: 800, color: tokens.marigoldDeep, marginBottom: 4 }}>AI Insight this week</div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.85 }}>
                           {sessionPlan?.coachingTip || "Keep practicing! Focus on words with lower mastery scores first. Short daily sessions work better than long ones for young learners."}
                         </div>
@@ -1472,10 +1474,10 @@ export default function App() {
                   </div>
 
                   {/* Weekly activity chart */}
-                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 16 }}>
+                  <div style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div className="font-display" style={{ fontSize: 18, marginBottom: 16 }}>
                       Weekly Activity ⏱️
-                      {weeklyActivity === null && <span style={{ fontSize: 11, fontFamily: "'Nunito'", opacity: 0.5, marginLeft: 8 }}>loading…</span>}
+                      {weeklyActivity === null && <span className="font-body" style={{ fontSize: 11, opacity: 0.6, marginLeft: 8 }}>loading…</span>}
                     </div>
                     {weeklyActivity !== null && weeklyActivity.length > 0 && weeklyActivity.some(d => d.mins > 0) ? (
                       <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
@@ -1485,15 +1487,15 @@ export default function App() {
                           const isToday = i === arr.length - 1;
                           return (
                             <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                              {d.mins > 0 && <div style={{ fontSize: 9, opacity: 0.6 }}>{d.mins}m</div>}
-                              <div style={{ width: "100%", height: barH + "px", background: isToday ? "#FF6B6B" : d.mins > 30 ? "#FFE66D" : "#4ECDC4", borderRadius: "4px 4px 0 0", opacity: d.mins === 0 ? 0.2 : 1 }} />
-                              <div style={{ fontSize: 9, opacity: isToday ? 1 : 0.6, color: isToday ? "#FF8B94" : undefined }}>{d.day}</div>
+                              {d.mins > 0 && <div style={{ fontSize: 9, opacity: 0.7 }}>{d.mins}m</div>}
+                              <div style={{ width: "100%", height: barH + "px", background: isToday ? tokens.sunriseCoral : d.mins > 30 ? tokens.marigold : tokens.cometTeal, borderRadius: "4px 4px 0 0", opacity: d.mins === 0 ? 0.25 : 1 }} />
+                              <div style={{ fontSize: 9, opacity: isToday ? 1 : 0.7, color: isToday ? tokens.sunriseCoralDeep : undefined }}>{d.day}</div>
                             </div>
                           );
                         })}
                       </div>
                     ) : weeklyActivity !== null ? (
-                      <div style={{ textAlign: "center", padding: "16px 0", color: "#4ECDC4", fontSize: 13, fontFamily: "'Nunito', sans-serif", opacity: 0.85 }}>
+                      <div className="font-body" style={{ textAlign: "center", padding: "16px 0", color: tokens.cometTealDeep, fontSize: 13, opacity: 0.85 }}>
                         No activity yet — play a session to see your chart! 🚀
                       </div>
                     ) : null}
@@ -1504,12 +1506,12 @@ export default function App() {
                     const struggling = words.filter(w => w.mastery > 0 && w.mastery < 50);
                     if (!struggling.length) return null;
                     return (
-                      <div style={{ background: "rgba(255,107,107,0.07)", border: "1px solid rgba(255,107,107,0.25)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, color: "#FF8B94", marginBottom: 10 }}>⚠️ Needs Attention</div>
+                      <div style={{ background: `${tokens.sunriseCoral}15`, border: `1px solid ${tokens.sunriseCoral}40`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                        <div className="font-display" style={{ fontSize: 18, color: tokens.sunriseCoralDeep, marginBottom: 10 }}>⚠️ Needs Attention</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {struggling.map(w => (
-                            <div key={w.id} style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.3)", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, color: "#FF8B94" }}>
-                              {w.emoji} {w.word} <span style={{ opacity: 0.7 }}>{w.mastery}%</span>
+                            <div key={w.id} style={{ background: `${tokens.sunriseCoral}25`, border: `1px solid ${tokens.sunriseCoral}55`, borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, color: tokens.sunriseCoralDeep }}>
+                              {w.emoji} {w.word} <span style={{ opacity: 0.75 }}>{w.mastery}%</span>
                             </div>
                           ))}
                         </div>
@@ -1518,16 +1520,16 @@ export default function App() {
                   })()}
 
                   {/* Mastery heatmap — live data */}
-                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 16, marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
+                  <div style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
+                    <div className="font-display" style={{ fontSize: 18, marginBottom: 12 }}>Word Mastery Heatmap 🗺️</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                       {words.slice(0, 40).map(w => (
-                        <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{ width: 28, height: 28, borderRadius: 6, background: getMasteryColor(w.mastery), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: w.mastery > 0 ? "#0F0A1E" : "rgba(255,255,255,0.2)" }}>
+                        <div key={w.id} title={`${w.word}: ${w.mastery}%`} style={{ width: 28, height: 28, borderRadius: 6, background: getMasteryColor(w.mastery), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}55` }}>
                           {w.word.slice(0, 2)}
                         </div>
                       ))}
                       {words.length > 40 && (
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,230,109,0.08)", border: "1px dashed rgba(255,230,109,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: "rgba(255,230,109,0.6)" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: `${tokens.marigold}20`, border: `1px dashed ${tokens.marigold}88`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: tokens.marigoldDeep }}>
                           +{words.length - 40}
                         </div>
                       )}
@@ -1535,34 +1537,36 @@ export default function App() {
                   </div>
 
                   {/* Upgrade CTA */}
-                  <div style={{ background: "linear-gradient(135deg, #FF6B6B, #FF8B94)", borderRadius: 20, padding: 20, textAlign: "center", boxShadow: "0 8px 30px #FF6B6B44" }}>
-                    <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22 }}>🌟 Free Plan</div>
+                  <div style={{ background: `linear-gradient(135deg, ${tokens.sunriseCoral}, ${tokens.marigold})`, borderRadius: 20, padding: 20, textAlign: "center", boxShadow: `0 8px 30px ${tokens.sunriseCoral}44` }}>
+                    <div className="font-display" style={{ fontSize: 22 }}>🌟 Free Plan</div>
                     <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>Units 1–5 only. Unlock all 200 words!</div>
-                    <div className="btn-primary" onClick={() => setShowUpgradeModal(true)} style={{ display: "inline-block", marginTop: 12, background: "white", color: "#FF6B6B", borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15, cursor: "pointer" }}>
+                    <div className="btn-primary" onClick={() => setShowUpgradeModal(true)} style={{ display: "inline-block", marginTop: 12, background: tokens.cloud, color: tokens.sunriseCoralDeep, borderRadius: 14, padding: "10px 28px", fontWeight: 900, fontSize: 15, cursor: "pointer" }}>
                       Upgrade — $9.99/mo
                     </div>
                   </div>
+                </div>
                 </div>
               )}
 
               {/* ═══ TEACHER ═══ */}
               {screen === "teacher" && (
-                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20, animation: "slideUp 0.4s ease" }}>
-                  <div style={{ fontSize: 13, color: "#A8E6CF", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Teacher Dashboard</div>
-                  <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 24, marginBottom: 16 }}>
+                <div className="-mx-5 font-body" style={{ background: tokens.cloud, color: tokens.dawnIndigo, minHeight: "100vh", animation: "slideUp 0.4s ease" }}>
+                <div className="screen-padding" style={{ paddingTop: 50, paddingBottom: 20 }}>
+                  <div style={{ fontSize: 13, color: tokens.cometTealDeep, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Teacher Dashboard</div>
+                  <div className="font-display" style={{ fontSize: 24, marginBottom: 16 }}>
                     {teacherClass ? `${teacherClass.class_name} 🏫` : 'My Classroom 🏫'}
                   </div>
 
                   {/* Create class modal */}
                   {showCreateClass && (
-                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCreateClass(false)}>
-                      <div onClick={e => e.stopPropagation()} style={{ background: "#1A1030", border: "2px solid #4ECDC4", borderRadius: 24, padding: 28, width: "100%", maxWidth: 340, animation: "bounceIn 0.3s ease" }}>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, color: "#4ECDC4", marginBottom: 16 }}>Create a Class</div>
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCreateClass(false)}>
+                      <div onClick={e => e.stopPropagation()} className="font-body" style={{ background: tokens.cloud, color: tokens.dawnIndigo, border: `2px solid ${tokens.cometTeal}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 340, animation: "bounceIn 0.3s ease" }}>
+                        <div className="font-display" style={{ fontSize: 22, color: tokens.cometTealDeep, marginBottom: 16 }}>Create a Class</div>
                         <input
                           value={newClassName}
                           onChange={e => setNewClassName(e.target.value)}
                           placeholder="e.g. Ms. Kim's Kindergarten"
-                          style={{ width: "100%", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(15,10,30,0.7)", color: "#fff", boxSizing: "border-box", marginBottom: 16 }}
+                          style={{ width: "100%", padding: "12px 14px", borderRadius: 14, border: `1px solid ${tokens.dawnIndigo}33`, background: `${tokens.dawnIndigo}08`, color: tokens.dawnIndigo, boxSizing: "border-box", marginBottom: 16 }}
                         />
                         <button
                           disabled={!newClassName.trim() || creatingClass}
@@ -1596,14 +1600,14 @@ export default function App() {
                             }
                             setCreatingClass(false);
                           }}
-                          style={{ width: "100%", padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", fontWeight: 900, fontSize: 15, cursor: (!newClassName.trim() || creatingClass) ? "not-allowed" : "pointer", opacity: (!newClassName.trim() || creatingClass) ? 0.6 : 1 }}
+                          style={{ width: "100%", padding: "12px", borderRadius: 14, border: "none", background: tokens.cometTeal, color: tokens.dawnIndigo, fontWeight: 900, fontSize: 15, cursor: (!newClassName.trim() || creatingClass) ? "not-allowed" : "pointer", opacity: (!newClassName.trim() || creatingClass) ? 0.6 : 1 }}
                         >
                           {creatingClass ? 'Creating…' : 'Create Class ✨'}
                         </button>
                         {createClassError && (
-                          <div style={{ textAlign: "center", marginTop: 10, fontSize: 13, color: "#FF6B6B", fontWeight: 700 }}>{createClassError}</div>
+                          <div style={{ textAlign: "center", marginTop: 10, fontSize: 13, color: tokens.sunriseCoralDeep, fontWeight: 700 }}>{createClassError}</div>
                         )}
-                        <div style={{ textAlign: "center", marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => { setShowCreateClass(false); setCreateClassError(''); }}>Cancel</div>
+                        <div style={{ textAlign: "center", marginTop: 12, fontSize: 12, opacity: 0.6, cursor: "pointer" }} onClick={() => { setShowCreateClass(false); setCreateClassError(''); }}>Cancel</div>
                       </div>
                     </div>
                   )}
@@ -1612,65 +1616,65 @@ export default function App() {
                     /* No class yet */
                     <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
                       <div style={{ fontSize: 64, marginBottom: 16 }}>🏫</div>
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 22, marginBottom: 8 }}>Create your first class</div>
-                      <div style={{ fontSize: 14, opacity: 0.6, marginBottom: 24 }}>Students join with a 6-character code. Track their progress in real time.</div>
-                      <div className="btn-primary" onClick={() => setShowCreateClass(true)} style={{ display: "inline-block", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", borderRadius: 14, padding: "12px 28px", fontWeight: 900, fontSize: 15 }}>
+                      <div className="font-display" style={{ fontSize: 22, marginBottom: 8 }}>Create your first class</div>
+                      <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 24 }}>Students join with a 6-character code. Track their progress in real time.</div>
+                      <div className="btn-primary" onClick={() => setShowCreateClass(true)} style={{ display: "inline-block", background: tokens.cometTeal, color: tokens.dawnIndigo, borderRadius: 14, padding: "12px 28px", fontWeight: 900, fontSize: 15 }}>
                         Create Class ✨
                       </div>
                     </div>
                   ) : (
                     <>
                       {/* Join code + QR code */}
-                      <div style={{ background: "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(168,230,207,0.1))", border: "2px solid #4ECDC4", borderRadius: 20, padding: 20, marginBottom: 20, textAlign: "center" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Student Join Code</div>
-                        <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 40, color: "#FFE66D", letterSpacing: 6, textShadow: "0 0 20px #FFE66D44" }}>
+                      <div style={{ background: `${tokens.cometTeal}1a`, border: `2px solid ${tokens.cometTeal}`, borderRadius: 20, padding: 20, marginBottom: 20, textAlign: "center" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: tokens.cometTealDeep, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Student Join Code</div>
+                        <div className="font-display" style={{ fontSize: 40, color: tokens.marigoldDeep, letterSpacing: 6 }}>
                           {teacherClass.class_code}
                         </div>
                         {/* QR Code */}
                         {qrDataUrl && (
-                          <div style={{ margin: "12px auto 8px", display: "inline-block", borderRadius: 12, overflow: "hidden", border: "2px solid rgba(78,205,196,0.3)", background: "#0F0A1E", padding: 4 }}>
+                          <div style={{ margin: "12px auto 8px", display: "inline-block", borderRadius: 12, overflow: "hidden", border: `2px solid ${tokens.cometTeal}55`, background: tokens.cloud, padding: 4 }}>
                             <img src={qrDataUrl} alt="QR code to join class" width={140} height={140} style={{ display: "block", borderRadius: 8 }} />
                           </div>
                         )}
                         {/* Shareable link */}
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4, wordBreak: "break-all", padding: "0 8px" }}>
+                        <div style={{ fontSize: 11, color: `${tokens.dawnIndigo}99`, marginTop: 4, wordBreak: "break-all", padding: "0 8px" }}>
                           200magicwordsapp.com/join/{teacherClass.class_code}
                         </div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
                           <div className="btn-primary"
                             onClick={() => navigator.clipboard?.writeText(teacherClass.class_code)}
-                            style={{ display: "inline-block", background: "rgba(78,205,196,0.15)", border: "1px solid #4ECDC4", borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: "#4ECDC4", cursor: "pointer" }}>
+                            style={{ display: "inline-block", background: `${tokens.cometTeal}25`, border: `1px solid ${tokens.cometTeal}`, borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: tokens.cometTealDeep, cursor: "pointer" }}>
                             Copy code 📋
                           </div>
                           <div className="btn-primary"
                             onClick={() => navigator.clipboard?.writeText(`https://200magicwordsapp.com/join/${teacherClass.class_code}`)}
-                            style={{ display: "inline-block", background: "rgba(255,230,109,0.1)", border: "1px solid #FFE66D55", borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: "#FFE66D", cursor: "pointer" }}>
+                            style={{ display: "inline-block", background: `${tokens.marigold}25`, border: `1px solid ${tokens.marigold}`, borderRadius: 10, padding: "6px 14px", fontSize: 12, fontWeight: 800, color: tokens.marigoldDeep, cursor: "pointer" }}>
                             Copy link 🔗
                           </div>
                         </div>
                       </div>
 
                       {/* Student list */}
-                      <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 18, marginBottom: 12 }}>
+                      <div className="font-display" style={{ fontSize: 18, marginBottom: 12 }}>
                         Students 📋
-                        <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, color: "#4ECDC4", marginLeft: 8 }}>
+                        <span className="font-body" style={{ fontSize: 13, fontWeight: 700, color: tokens.cometTealDeep, marginLeft: 8 }}>
                           {classMembers.length} joined
                         </span>
                       </div>
                       {classMembers.length === 0 ? (
-                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "24px 16px", textAlign: "center", marginBottom: 20 }}>
+                        <div style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 18, padding: "24px 16px", textAlign: "center", marginBottom: 20 }}>
                           <div style={{ fontSize: 40, marginBottom: 8 }}>👋</div>
                           <div style={{ fontWeight: 700, marginBottom: 4 }}>No students yet</div>
-                          <div style={{ fontSize: 13, opacity: 0.6 }}>Share the join code or QR code above. Students scan or enter the code to join.</div>
+                          <div style={{ fontSize: 13, opacity: 0.7 }}>Share the join code or QR code above. Students scan or enter the code to join.</div>
                         </div>
                       ) : (
-                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: "12px 16px", marginBottom: 20 }}>
+                        <div style={{ background: `${tokens.dawnIndigo}0a`, border: `1px solid ${tokens.dawnIndigo}1f`, borderRadius: 18, padding: "12px 16px", marginBottom: 20 }}>
                           {classMembers.map((m, i) => (
-                            <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < classMembers.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(78,205,196,0.15)", border: "1px solid rgba(78,205,196,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🧑‍🎓</div>
+                            <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < classMembers.length - 1 ? `1px solid ${tokens.dawnIndigo}14` : "none" }}>
+                              <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${tokens.cometTeal}25`, border: `1px solid ${tokens.cometTeal}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🧑‍🎓</div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 13, fontWeight: 700 }}>Student {i + 1}</div>
-                                <div style={{ fontSize: 10, opacity: 0.5 }}>Joined {new Date(m.joined_at).toLocaleDateString()}</div>
+                                <div style={{ fontSize: 10, opacity: 0.6 }}>Joined {new Date(m.joined_at).toLocaleDateString()}</div>
                               </div>
                             </div>
                           ))}
@@ -1679,10 +1683,10 @@ export default function App() {
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
                         {[
-                          { icon: "📤", label: "Assign Unit",    color: "#4ECDC4" },
-                          { icon: "📊", label: "Export Report",  color: "#FFE66D" },
+                          { icon: "📤", label: "Assign Unit",    color: tokens.cometTealDeep, bg: tokens.cometTeal },
+                          { icon: "📊", label: "Export Report",  color: tokens.marigoldDeep, bg: tokens.marigold },
                         ].map((a, i) => (
-                          <div key={i} className="activity-card" style={{ background: `${a.color}12`, border: `1px solid ${a.color}33`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10, cursor: "not-allowed", opacity: 0.5 }}>
+                          <div key={i} className="activity-card" style={{ background: `${a.bg}18`, border: `1px solid ${a.bg}55`, borderRadius: 18, padding: "16px 12px", display: "flex", alignItems: "center", gap: 10, cursor: "not-allowed", opacity: 0.5 }}>
                             <div style={{ fontSize: 24 }}>{a.icon}</div>
                             <div style={{ fontWeight: 800, fontSize: 14, color: a.color }}>{a.label}</div>
                           </div>
@@ -1690,6 +1694,7 @@ export default function App() {
                       </div>
                     </>
                   )}
+                </div>
                 </div>
               )}
 
