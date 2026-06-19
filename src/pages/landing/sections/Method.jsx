@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import SectionReveal from "../../../design-system/primitives/SectionReveal";
 
 export default function Method() {
   return (
@@ -7,12 +7,7 @@ export default function Method() {
       className="relative min-h-screen flex items-center px-6 py-24"
     >
       <div className="max-w-4xl mx-auto grid sm:grid-cols-2 gap-12 items-center">
-        <motion.div
-          initial={{ opacity: 0, x: -24 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.6 }}
-        >
+        <SectionReveal direction="left">
           <h2 className="font-display text-cloud text-4xl sm:text-5xl font-semibold mb-6">
             Not all words do the same job
           </h2>
@@ -25,15 +20,9 @@ export default function Method() {
             We call these non-content words. A child needs both, and most programs
             only teach the first kind.
           </p>
-        </motion.div>
+        </SectionReveal>
 
-        <motion.div
-          initial={{ opacity: 0, x: 24 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="flex flex-col gap-4"
-        >
+        <SectionReveal direction="right" delay={0.1} className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <span className="font-body font-bold px-4 py-2 rounded-full bg-comet-teal text-dawn-indigo">
               dog
@@ -58,7 +47,7 @@ export default function Method() {
             </span>
             <span className="font-body text-cloud/70 text-sm">non-content word</span>
           </div>
-        </motion.div>
+        </SectionReveal>
       </div>
     </section>
   );

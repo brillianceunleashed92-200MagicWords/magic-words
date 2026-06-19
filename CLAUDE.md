@@ -118,6 +118,12 @@ surfaces them directly, per the master prompt's Phase 6 rule)
   workstream is picked up.)
 - One non-critical TODO: `ErrorBoundary.jsx` 95 (analytics/error-tracking
   integration stub).
+- `supabaseClient.js` has a hardcoded fallback URL + anon key (the real
+  project's publishable anon key — safe to expose by design) used whenever
+  `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are missing. This means local
+  dev/test runs work against the live project even without a `.env.local` —
+  useful to know so a "missing env vars" console warning isn't mistaken for
+  a broken test run.
 
 ## Design tokens (approved 2026-06-18, supersedes "de facto palette" above)
 
@@ -229,8 +235,11 @@ instead of just "low-budget."
 3. Landing page only, new route, isolated from authenticated app routes
    (done 2026-06-18/19 — cinematic scroll-driven landing page, dawn-gradient
    signature element, committed).
-4. Extract shared design system (tokens/primitives) out of the landing page —
-   blocked on Interaction Design addendum sign-off above.
+4. Extract shared design system (tokens/primitives) out of the landing page
+   (done 2026-06-19 — see `src/design-system/`: `tokens.js`, `motion.js`,
+   `useTilt.js`, and `primitives/` for Button, Card (Light/Glass),
+   SectionReveal, TiltCard. Landing sections refactored to consume these
+   instead of duplicated inline motion/className blocks).
 5. Propagate to dashboards/lesson player — lower-motion, denser variants,
    apply the open tasks flagged above (24-level mapping, Word Galaxy
    visual map per addendum (b), MLC lesson-type binding, errorless-learning

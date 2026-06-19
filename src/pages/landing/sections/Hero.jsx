@@ -1,55 +1,40 @@
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
+import { heroReveal } from "../../../design-system/motion";
+import Button from "../../../design-system/primitives/Button";
 
 export default function Hero() {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden">
       <motion.span
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        {...heroReveal(0, 12)}
         className="font-body text-comet-teal font-semibold tracking-wide uppercase text-sm mb-4"
       >
         Built on Dr. Marion Blank's method
       </motion.span>
 
       <motion.h1
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.1 }}
+        {...heroReveal(0.1)}
         className="font-display text-cloud text-6xl sm:text-7xl md:text-8xl font-semibold tracking-tight leading-[0.95]"
       >
         200 Magic Words
       </motion.h1>
 
       <motion.p
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.25 }}
+        {...heroReveal(0.25)}
         className="font-body text-cloud/80 text-lg sm:text-xl max-w-xl mt-6"
       >
         Every reader starts the same way: a small set of words, said often enough
         to stick. That's the whole idea.
       </motion.p>
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.4 }}
-        className="flex flex-col sm:flex-row gap-4 mt-10"
-      >
-        <Link
-          to="/app"
-          className="font-body font-bold px-8 py-4 rounded-2xl bg-sunrise-coral text-dawn-indigo hover:brightness-105 transition-all"
-        >
+      <motion.div {...heroReveal(0.4)} className="flex flex-col sm:flex-row gap-4 mt-10">
+        <Button as={Link} to="/app" variant="primary">
           Start with your child
-        </Link>
-        <a
-          href="#method"
-          className="font-body font-semibold px-8 py-4 rounded-2xl border border-cloud/30 text-cloud hover:bg-cloud/10 transition-colors"
-        >
+        </Button>
+        <Button as="a" href="#method" variant="outline">
           See how it works
-        </a>
+        </Button>
       </motion.div>
 
       <motion.div

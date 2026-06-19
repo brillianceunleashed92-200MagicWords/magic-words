@@ -1,4 +1,6 @@
-import { motion } from "motion/react";
+import SectionReveal from "../../../design-system/primitives/SectionReveal";
+import TiltCard from "../../../design-system/primitives/TiltCard";
+import { GlassCard } from "../../../design-system/primitives/Card";
 
 const INTERACTIONS = [
   {
@@ -23,31 +25,22 @@ export default function HowItWorks() {
   return (
     <section className="relative min-h-screen flex items-center px-6 py-24">
       <div className="max-w-5xl mx-auto w-full">
-        <motion.h2
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.6 }}
-          className="font-display text-cloud text-4xl sm:text-5xl font-semibold mb-12 text-center"
-        >
-          Four ways to practice
-        </motion.h2>
+        <SectionReveal className="mb-12 text-center">
+          <h2 className="font-display text-cloud text-4xl sm:text-5xl font-semibold">
+            Four ways to practice
+          </h2>
+        </SectionReveal>
 
         <div className="grid sm:grid-cols-2 gap-6">
           {INTERACTIONS.map((item, i) => (
-            <motion.div
-              key={item.title}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="bg-cloud/5 border border-cloud/15 rounded-3xl p-8"
-            >
-              <h3 className="font-display text-comet-teal text-2xl font-semibold mb-3">
-                {item.title}
-              </h3>
-              <p className="font-body text-cloud/75">{item.description}</p>
-            </motion.div>
+            <SectionReveal key={item.title} delay={i * 0.08}>
+              <TiltCard as={GlassCard}>
+                <h3 className="font-display text-comet-teal text-2xl font-semibold mb-3">
+                  {item.title}
+                </h3>
+                <p className="font-body text-cloud/75">{item.description}</p>
+              </TiltCard>
+            </SectionReveal>
           ))}
         </div>
       </div>
