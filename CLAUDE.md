@@ -118,12 +118,32 @@ surfaces them directly, per the master prompt's Phase 6 rule)
   workstream is picked up.)
 - One non-critical TODO: `ErrorBoundary.jsx` 95 (analytics/error-tracking
   integration stub).
-- `supabaseClient.js` has a hardcoded fallback URL + anon key (the real
-  project's publishable anon key — safe to expose by design) used whenever
-  `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are missing. This means local
-  dev/test runs work against the live project even without a `.env.local` —
-  useful to know so a "missing env vars" console warning isn't mistaken for
-  a broken test run.
+- **Known soft spot — hardcoded production fallback in `supabaseClient.js`**:
+  when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are unset, the client
+  falls back to the live project's URL + publishable anon key baked directly
+  into source. The key itself is safe to expose (anon keys are meant to be
+  public), but the soft spot is the *behavior*: there is no separate
+  dev/staging Supabase project, so any local run with no env configured
+  silently writes to the same production project everyone else uses — it
+  fails open to prod instead of failing loudly or pointing at a sandbox.
+  We hit this directly: every local test run this session created real rows
+  in the live project, requiring manual admin-API cleanup each time (see
+  smoke test notes below). **`.env.local` is optional, not required** — the
+  app runs either way — but treat "optional" as a gap to eventually close
+  (e.g. a real dev/staging project) rather than a feature, especially before
+  any test or seed scripts run unattended.
+- **Smoke test signup-rate-limit handling (decided 2026-06-19)**: the
+  signup-confirmation-screen test in `tests/smoke.spec.js` calls the real
+  `supabase.auth.signUp()`, which is the exact call Supabase's account-level
+  email rate limit throttles. Provisioning that account via the service_role
+  admin API instead (as the sign-in test does) was considered but rejected —
+  it would create an already-confirmed user without ever exercising the
+  signup code path, defeating the point of testing it. Raising the
+  project's email rate limit was also considered but rejected — that's a
+  shared/production setting we don't want a test silently depending on.
+  Resolution: the test accepts either the confirmation screen *or* the
+  known `email rate limit exceeded` message as a valid outcome, and only
+  fails loudly if neither appears (which would indicate a real regression).
 
 ## Design tokens (approved 2026-06-18, supersedes "de facto palette" above)
 
