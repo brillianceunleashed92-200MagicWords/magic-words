@@ -376,6 +376,8 @@ export default function App() {
   const [teacherClass,     setTeacherClass]     = useState(null);
   const [showCreateClass,  setShowCreateClass]  = useState(false);
   const [newClassName,     setNewClassName]     = useState('');
+  const [createClassError, setCreateClassError] = useState('');
+  const [creatingClass,    setCreatingClass]    = useState(false);
   const [classMembers,     setClassMembers]     = useState([]);
   const [qrDataUrl,        setQrDataUrl]        = useState(null);
 
@@ -432,7 +434,8 @@ export default function App() {
       .select('current_streak, streak_freeze_count')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('[user_streaks load]', error);
         setStreak(data?.current_streak ?? 0);
         setFreezesLeft(data?.streak_freeze_count ?? 0);
         setStreakLoaded(true);
@@ -447,7 +450,8 @@ export default function App() {
       .select('total_xp, current_level, avatar')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('[user_stats load]', error);
         if (data) {
           setAvatar(data.avatar ?? '🚀');
           setTotalXP(data.total_xp ?? 0);
@@ -526,11 +530,12 @@ export default function App() {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
 
-    const { data: existing } = await supabase
+    const { data: existing, error: readErr } = await supabase
       .from('user_streaks')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
+    if (readErr) console.error('[user_streaks read before update]', readErr);
 
     const today    = new Date(todayStr);
     const lastDate = existing?.last_activity_date ? new Date(existing.last_activity_date) : null;
@@ -548,7 +553,7 @@ export default function App() {
 
     const newLongest = Math.max(existing?.longest_streak ?? 0, newStreak);
 
-    await supabase.from('user_streaks').upsert({
+    const { error: writeErr } = await supabase.from('user_streaks').upsert({
       user_id:             user.id,
       current_streak:      newStreak,
       longest_streak:      newLongest,
@@ -556,38 +561,39 @@ export default function App() {
       streak_freeze_count: newFreezes,
       updated_at:          new Date().toISOString(),
     }, { onConflict: 'user_id' });
+    if (writeErr) console.error('[user_streaks upsert]', writeErr);
 
     setStreak(newStreak);
     setFreezesLeft(newFreezes);
     if (usedFreeze) setFreezeUsed(true);
   }, [user]); // eslint-disable-line
 
-  // ── Save XP to user_stats ──
+  // ── Save XP to user_stats (only touches XP/level columns — avatar is saved separately
+  //     to avoid overwriting it with a stale closure value, and vice versa) ──
   const saveXP = useCallback(async (newTotal) => {
     if (!user) return;
     const levelInfo = getLevelInfo(newTotal);
-    await supabase.from('user_stats').upsert({
+    const { error } = await supabase.from('user_stats').upsert({
       user_id:       user.id,
       total_xp:      newTotal,
       current_level: levelInfo.level,
-      avatar,
       updated_at:    new Date().toISOString(),
     }, { onConflict: 'user_id' });
-  }, [user, avatar]); // eslint-disable-line
+    if (error) console.error('[user_stats saveXP]', error);
+  }, [user]);
 
   // ── Save avatar to user_stats ──
   const saveAvatar = useCallback(async (newAvatar) => {
     if (!user) return;
     setAvatar(newAvatar);
     setShowAvatarPicker(false);
-    await supabase.from('user_stats').upsert({
-      user_id:       user.id,
-      avatar:        newAvatar,
-      total_xp:      totalXP,
-      current_level: getLevelInfo(totalXP).level,
-      updated_at:    new Date().toISOString(),
+    const { error } = await supabase.from('user_stats').upsert({
+      user_id:    user.id,
+      avatar:     newAvatar,
+      updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
-  }, [user, totalXP]); // eslint-disable-line
+    if (error) console.error('[user_stats saveAvatar]', error);
+  }, [user]);
 
   // ── Handle XP earned from a session (called by GameEngine via onXP) ──
   const handleXP = useCallback(async (sessionXPAmount) => {
@@ -908,7 +914,6 @@ export default function App() {
       >
         {/* ── Global styles ── */}
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
           * { box-sizing: border-box; }
           @keyframes twinkle       { 0%,100%{opacity:0.2} 50%{opacity:0.9} }
           @keyframes particleFly   { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0} }
@@ -1533,22 +1538,45 @@ export default function App() {
                           style={{ width: "100%", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(15,10,30,0.7)", color: "#fff", boxSizing: "border-box", marginBottom: 16 }}
                         />
                         <button
-                          disabled={!newClassName.trim()}
+                          disabled={!newClassName.trim() || creatingClass}
                           onClick={async () => {
-                            if (!newClassName.trim() || !user) return;
-                            const classCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-                            const { data, error } = await supabase.from('teacher_classes').insert({
-                              teacher_id: user.id,
-                              class_name: newClassName.trim(),
-                              class_code: classCode,
-                            }).select().maybeSingle();
-                            if (!error && data) { setTeacherClass(data); setShowCreateClass(false); setNewClassName(''); }
+                            if (!newClassName.trim() || !user || creatingClass) return;
+                            setCreatingClass(true);
+                            setCreateClassError('');
+                            let lastError = null;
+                            // Retry a couple times in case the random class_code collides with an existing one
+                            for (let attempt = 0; attempt < 3; attempt++) {
+                              const classCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                              const { data, error } = await supabase.from('teacher_classes').insert({
+                                teacher_id: user.id,
+                                class_name: newClassName.trim(),
+                                class_code: classCode,
+                              }).select().maybeSingle();
+                              if (!error && data) {
+                                setTeacherClass(data);
+                                setShowCreateClass(false);
+                                setNewClassName('');
+                                setCreateClassError('');
+                                lastError = null;
+                                break;
+                              }
+                              lastError = error;
+                              if (error?.code !== '23505') break; // only retry on unique-constraint collisions
+                            }
+                            if (lastError) {
+                              console.error('[teacher_classes insert]', lastError);
+                              setCreateClassError("Couldn't create the class — please try again.");
+                            }
+                            setCreatingClass(false);
                           }}
-                          style={{ width: "100%", padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", fontWeight: 900, fontSize: 15, cursor: !newClassName.trim() ? "not-allowed" : "pointer", opacity: !newClassName.trim() ? 0.6 : 1 }}
+                          style={{ width: "100%", padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #4ECDC4, #A8E6CF)", color: "#0F0A1E", fontWeight: 900, fontSize: 15, cursor: (!newClassName.trim() || creatingClass) ? "not-allowed" : "pointer", opacity: (!newClassName.trim() || creatingClass) ? 0.6 : 1 }}
                         >
-                          Create Class ✨
+                          {creatingClass ? 'Creating…' : 'Create Class ✨'}
                         </button>
-                        <div style={{ textAlign: "center", marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => setShowCreateClass(false)}>Cancel</div>
+                        {createClassError && (
+                          <div style={{ textAlign: "center", marginTop: 10, fontSize: 13, color: "#FF6B6B", fontWeight: 700 }}>{createClassError}</div>
+                        )}
+                        <div style={{ textAlign: "center", marginTop: 12, fontSize: 12, opacity: 0.5, cursor: "pointer" }} onClick={() => { setShowCreateClass(false); setCreateClassError(''); }}>Cancel</div>
                       </div>
                     </div>
                   )}

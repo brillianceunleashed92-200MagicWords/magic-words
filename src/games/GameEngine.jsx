@@ -105,6 +105,18 @@ function formatQuestion(word, wordClass) {
   }
 }
 
+// Full-sentence TTS prompt for a quiz, tailored to the game type — used both to
+// warm the audio cache at session start and to play the live prompt in-game, so
+// the cached text key always matches what's actually spoken (no re-fetch delay).
+function getPromptText(quiz, gameType) {
+  if (!quiz) return null;
+  switch (gameType) {
+    case 'word_hunt':   return 'Which word matches this picture?';
+    case 'rhyme_time':  return `Which word rhymes with ${quiz.word}?`;
+    default:            return quiz.question ?? quiz.word;
+  }
+}
+
 // ─── Rhyme map for RhymeTime game ────────────────────────────────────────────
 const RHYME_MAP = {
   cat:'bat', dog:'log', run:'sun', big:'pig', sad:'bad', fly:'sky', eat:'beat',
@@ -143,8 +155,6 @@ const T = {
 
 // ─── Shared CSS injected once ─────────────────────────────────────────────────
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;900&display=swap');
-
   @keyframes mw-pop {
     0%   { transform: scale(0.7); opacity: 0; }
     70%  { transform: scale(1.1); }
@@ -739,6 +749,15 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
     startRef.current = Date.now();
   }, [quiz?.word]);
 
+  // Speak the full prompt — never just the bare word, so the child isn't told the answer
+  useEffect(() => {
+    let cancelled = false;
+    fetchAudio('Which word matches this picture?').then(url => {
+      if (!cancelled && url) playAudio(url);
+    });
+    return () => { cancelled = true; };
+  }, [quiz?.word]);
+
   const handleTap = (idx) => {
     if (answered) return;
     const correct = idx === quiz.correctIndex;
@@ -832,6 +851,16 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
     startRef.current = Date.now();
   }, [quiz?.word]);
 
+  // Speak the full prompt — "Which word rhymes with cat?" not just "cat"
+  useEffect(() => {
+    if (!quiz?.word) return;
+    let cancelled = false;
+    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => {
+      if (!cancelled && url) playAudio(url);
+    });
+    return () => { cancelled = true; };
+  }, [quiz?.word]);
+
   const handleTap = (idx) => {
     if (answered) return;
     const isCorrect = idx === correctIdx;
@@ -892,7 +921,7 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
 
 // ─── GAME NEW-C: Flash Card Challenge ────────────────────────────────────────
 // Show emoji face-up — tap to reveal the word, then self-rate: know it or need practice.
-function FlashCardChallenge({ quiz, onAnswer }) {
+function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   const [revealed, setRevealed] = useState(false);
   const [answered, setAnswered] = useState(false);
   const startRef = useRef(Date.now());
@@ -903,13 +932,28 @@ function FlashCardChallenge({ quiz, onAnswer }) {
     startRef.current = Date.now();
   }, [quiz?.word]);
 
-  const handleReveal = () => { if (!revealed) setRevealed(true); };
+  // Make sure this card's audio is cached the instant it appears (it should
+  // already be warm from session prefetch, but this guards against a miss),
+  // and warm the next card's audio in the background so it's ready when the
+  // child gets there.
+  useEffect(() => {
+    const text = quiz?.question ?? quiz?.word;
+    if (text) fetchAudio(text);
+    const nextText = nextQuiz?.question ?? nextQuiz?.word;
+    if (nextText) fetchAudio(nextText);
+  }, [quiz?.word, nextQuiz?.word]);
+
+  const handleReveal = () => {
+    if (revealed) return;
+    setRevealed(true);
+    const text = quiz?.question ?? quiz?.word;
+    fetchAudio(text).then(url => { if (url) playAudio(url); });
+  };
 
   const handleKnow = (know) => {
     if (answered) return;
     setAnswered(true);
     const responseTimeMs = Date.now() - startRef.current;
-    if (know) playAudio(audioCache.get(quiz?.question ?? quiz?.word) ?? null);
     setTimeout(() => onAnswer({ correct: know, responseTimeMs, firstTry: true }), 300);
   };
 
@@ -1374,6 +1418,7 @@ const PREMIUM_FEATURES = [
 ];
 
 export function UpgradeModal({ onClose }) {
+  const [notifyMe, setNotifyMe] = useState(false);
   return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9998,
@@ -1406,17 +1451,18 @@ export function UpgradeModal({ onClose }) {
             }}>{f}</div>
           ))}
         </div>
-        <button style={{
+        <button onClick={() => setNotifyMe(true)} style={{
           width: '100%',
           fontFamily: 'Fredoka One', fontSize: '1rem',
           background: `linear-gradient(135deg, ${T.gold}, #FFB300)`,
           color: '#1A0A00', border: 'none', borderRadius: '50px',
-          padding: '0.875rem 1rem', cursor: 'not-allowed', opacity: 0.7,
+          padding: '0.875rem 1rem', cursor: 'pointer', opacity: notifyMe ? 0.7 : 1,
+          transition: 'opacity 0.2s ease',
         }}>
-          Start Free Trial — $9.99/mo
+          {notifyMe ? "You're on the list! 🎉" : 'Start Free Trial — $9.99/mo'}
         </button>
         <p style={{ fontFamily: 'Nunito', fontSize: '0.75rem', color: T.muted, margin: '0.75rem 0 0' }}>
-          Coming soon — we'll let you know!
+          {notifyMe ? "We'll email you the moment premium launches!" : "Coming soon — tap to get notified at launch"}
         </p>
         <button onClick={onClose} style={{
           background: 'none', border: 'none', color: T.muted,
@@ -1549,12 +1595,20 @@ export function GameEngine({
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
 
-  // Pre-fetch ALL session question audio in parallel at session start
+  // Pre-fetch session question audio at session start — fetch the first card's
+  // audio first (so it's ready the instant the session opens), then fetch the
+  // rest one at a time in the background. Firing every request in parallel was
+  // congesting the ElevenLabs proxy and delaying the very first clip.
   useEffect(() => {
-    quizzes.forEach(q => {
-      const audioText = q?.question ?? q?.word;
-      if (audioText) fetchAudio(audioText);
-    });
+    const texts = quizzes.map(q => getPromptText(q, gameType)).filter(Boolean);
+    let cancelled = false;
+    (async () => {
+      for (const text of texts) {
+        if (cancelled) return;
+        await fetchAudio(text);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback(({ correct, responseTimeMs, firstTry = true }) => {
@@ -1710,6 +1764,7 @@ export function GameEngine({
         <FlashCardChallenge
           key={currentIdx}
           quiz={currentQuiz}
+          nextQuiz={quizzes[currentIdx + 1] ?? null}
           onAnswer={handleAnswer}
         />
       )}

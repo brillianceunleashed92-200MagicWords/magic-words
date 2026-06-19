@@ -1,3 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dawn gradient token system — see CLAUDE.md "Design tokens" for contrast rationale */
+  --color-dawn-indigo: #2A2150;
+  --color-cloud: #FFF8F0;
+  --color-comet-teal: #2DD4BF;
+  --color-comet-teal-deep: #135D54;
+  --color-sunrise-coral: #FF7A59;
+  --color-sunrise-coral-deep: #8F1C00;
+  --color-marigold: #FFB84D;
+  --color-marigold-deep: #704300;
+  --color-slate-violet: #6B6580;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Atkinson Hyperlegible", sans-serif;
+  --font-utility: "Inter", sans-serif;
+}
+
 @keyframes nova-float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
