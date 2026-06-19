@@ -1,22 +1,28 @@
-import { Link } from "react-router-dom";
+import { motion } from "motion/react";
+import { useDawnBackground } from "./hooks/useDawnBackground";
+import Hero from "./sections/Hero";
+import WordRise from "./sections/WordRise";
+import Method from "./sections/Method";
+import HowItWorks from "./sections/HowItWorks";
+import Audience from "./sections/Audience";
+import ClosingCTA from "./sections/ClosingCTA";
 
-// Phase 1 scaffold: confirms the route + token system work end to end.
-// The cinematic scroll/hero build happens in Phase 3.
 export default function Landing() {
+  const { scrollRef, background } = useDawnBackground();
+
   return (
-    <main className="min-h-screen bg-dawn-indigo text-cloud flex flex-col items-center justify-center gap-6 px-6 text-center">
-      <h1 className="font-display text-5xl sm:text-6xl font-semibold tracking-tight">
-        200 Magic Words
-      </h1>
-      <p className="font-body text-lg text-cloud/80 max-w-md">
-        Every great reader starts with a few magic words.
-      </p>
-      <Link
-        to="/app"
-        className="font-body font-bold px-6 py-3 rounded-2xl bg-sunrise-coral text-dawn-indigo hover:bg-marigold transition-colors"
-      >
-        Open the app
-      </Link>
+    <main ref={scrollRef} className="relative">
+      <motion.div
+        aria-hidden="true"
+        style={{ background }}
+        className="fixed inset-0 -z-10"
+      />
+      <Hero />
+      <WordRise />
+      <Method />
+      <HowItWorks />
+      <Audience />
+      <ClosingCTA />
     </main>
   );
 }
