@@ -532,3 +532,71 @@ build + auth + dashboards after every phase.
      level-up driven through actual gameplay (not simulated) and
      screenshotted, contrast issue caught and re-verified fixed before
      calling this done.
+
+## Phase 5c (visual/interaction polish) — additive only, 2026-06-20
+
+Explicit constraint for this phase: does not touch XP math, level
+thresholds, lesson-type bindings, the errorless-learning scaffold, or
+RLS/Supabase — visual/interaction only, must not change what anything
+*does*. Baseline (4 screenshots: Home, Choose a Game, active WordMatch,
+Word Galaxy + full Playwright suite) captured before any change; re-run
+and diffed against baseline after each numbered item below.
+
+**Pushback before starting, confirmed with the user**: the brief named
+5 "Today's Quest" icons (Watch/Listen/Hunt/Story/Boss). Only 2 quest
+items actually exist in the code (`questsCompleted = { session, words }`,
+rendered as exactly 2 cards). The other 3 names don't correspond to
+anything built — "Boss" traces to an unimplemented `DailyChallenge`
+mentioned only in a code comment. Illustrating fictional quest icons
+would have implied a 5-quest system that doesn't exist. User confirmed:
+illustrate the 2 real ones, skip the other 3 (a richer quest system
+would be new logic, a separate task from visual polish).
+
+### 1. ✅ Done 2026-06-20 — custom illustration system (additive, with emoji fallback)
+
+Style reference generated first via Higgsfield (`recraft-v4-1`,
+`model_type: vector`, dawn-token hex palette) before any individual
+icon — flat single-silhouette + cream negative-space-detail
+construction, no gradients/outlines/shadows. First attempt at an
+individual icon (passing all 5 palette colors to one object) broke the
+established language — scattered multiple colors across separate
+features instead of one cohesive silhouette. Fixed by constraining
+every individual generation to exactly 2 colors (one accent + cream)
+and being explicit about the silhouette/negative-space construction in
+the prompt. Also found and fixed: generated SVGs had a stray full-canvas
+background fill (sometimes an unrequested color) — stripped
+programmatically (first full-canvas `<path>`) so all icons are
+genuinely transparent, not just "appears to match the cream bg by luck."
+
+- **Word icons**: 8 of Unit 1's 8 words illustrated (cat, dog, bird,
+  fish, bear, ball, book, cup) — not all ~94 words across the
+  truly-unlocked-or-Home-hardcoded units 1–9, deliberately. The whole
+  point of `src/design-system/wordIcons.js` (a `import.meta.glob` over
+  `src/assets/icons/words/*.svg`) is that coverage is incremental —
+  drop a new `<word>.svg` in that folder and it's picked up with zero
+  code changes elsewhere. `<WordIcon word emoji>` (`design-system/
+  primitives/WordIcon.jsx`) renders the icon if one exists, the emoji
+  otherwise — same visual slot either way. Wired into: `WordTile`
+  (`GameEngine.jsx`, the WordMatch answer tiles), `WordPill` and unit
+  representative icons (`WordGalaxyMap.jsx`), and Home's word-garden
+  orbs (`App.jsx` — these had no icon at all before, purely additive).
+  Verified live: a WordMatch round now shows illustrated cat/bird tiles
+  mixed naturally with emoji tiles for not-yet-illustrated words (can,
+  jump) on the same screen, no visual seam.
+- **Quest icons**: both real ones illustrated (Session/target, Master/
+  star), static imports in `App.jsx` (fixed set, no fallback system
+  needed — see pushback above for why not 5).
+- **Nova**: 3 illustrated expression states (idle/float, correct/
+  bounce, wrong/shake) via new `NovaMascot` component
+  (`design-system/primitives/NovaMascot.jsx`), swapped by the same
+  `novaState` value that already drove the CSS animation choice — the
+  state variable and animations are unchanged, only the asset is new.
+  Replaces the 👨‍🚀 emoji everywhere it appeared: Home screen
+  (click-to-speak wave) and both in-game sites (WordMatch, WordHunt).
+- **Incidental fix, called out rather than buried**: `WordTile`'s
+  drop-shadow opacity (0.4 → 0.15) — tuned for the old dark theme,
+  too heavy/muddy on the Cloud background. Purely cosmetic.
+- Verified live: build clean, full Playwright suite passes (3/3,
+  unchanged), baseline 4-screenshot diff shows only the intended
+  swaps (Nova, quest icons, Unit 1 word icons) — Choose a Game screen
+  pixel-identical (game-type icons are a separate, untouched system).

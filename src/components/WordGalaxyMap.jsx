@@ -2,12 +2,13 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { useTilt, useParallaxOffset } from "../design-system/useTilt";
 import { colors as tokens } from "../design-system/tokens";
+import WordIcon from "../design-system/primitives/WordIcon";
 
 // World-map-style unit tile with the tilt-toward-cursor convention from the
 // Interaction Design addendum. Locked units get a flatter response (smaller
 // max angle, no icon parallax, desaturated) — depth as a reward for what's
 // unlocked, not decoration on what isn't (see CLAUDE.md addendum item b).
-function UnitTile({ unit, name, icon, locked, mastered, total, progress, expanded, onToggle }) {
+function UnitTile({ unit, name, icon, iconWord, locked, mastered, total, progress, expanded, onToggle }) {
   const max = locked ? 2 : 7;
   const { ref, style, handlers, springX, springY } = useTilt({ max });
   const parallax = useParallaxOffset(springX, springY, { factor: locked ? 1 : 1.4, range: 5 });
@@ -44,7 +45,7 @@ function UnitTile({ unit, name, icon, locked, mastered, total, progress, expande
           style={locked ? {} : { x: parallax.x, y: parallax.y }}
           className="text-3xl"
         >
-          {locked ? "🔒" : icon}
+          {locked ? "🔒" : <WordIcon word={iconWord} emoji={icon} size="2.25rem" />}
         </motion.div>
         <div className="font-display" style={{ fontSize: 13, color: locked ? `${tokens.dawnIndigo}55` : tokens.cometTealDeep, marginTop: 6 }}>
           Unit {unit}
@@ -82,7 +83,7 @@ function WordPill({ word, onClick, getMasteryColor }) {
         cursor: "pointer",
       }}
     >
-      {word.emoji} {word.word}
+      <WordIcon word={word.word} emoji={word.emoji} size="1.1em" /> {word.word}
     </div>
   );
 }
@@ -102,7 +103,7 @@ export default function WordGalaxyMap({ words, unitNames, onWordClick, getMaster
       const locked = unit > 5;
       const mastered = unitWords.filter(w => w.mastery >= 80).length;
       const progress = unitWords.length > 0 ? mastered / unitWords.length : 0;
-      return { unit, words: unitWords, locked, mastered, progress, icon: unitWords[0].emoji };
+      return { unit, words: unitWords, locked, mastered, progress, icon: unitWords[0].emoji, iconWord: unitWords[0].word };
     })
     .filter(Boolean);
 
@@ -117,6 +118,7 @@ export default function WordGalaxyMap({ words, unitNames, onWordClick, getMaster
             unit={u.unit}
             name={unitNames[u.unit]}
             icon={u.icon}
+            iconWord={u.iconWord}
             locked={u.locked}
             mastered={u.mastered}
             total={u.words.length}

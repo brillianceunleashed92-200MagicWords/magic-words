@@ -9,6 +9,10 @@ import QRCode from "qrcode";
 import { colors as tokens } from "./design-system/tokens";
 import WordGalaxyMap from "./components/WordGalaxyMap";
 import LevelUpCelebration from "./components/LevelUpCelebration";
+import WordIcon from "./design-system/primitives/WordIcon";
+import sessionQuestIcon from "./assets/icons/quests/session.svg";
+import masterQuestIcon from "./assets/icons/quests/master.svg";
+import novaIdleIcon from "./assets/icons/nova/idle.svg";
 
 const UNIT_NAMES = {
   1:'My World', 2:'Animals', 3:'Actions', 4:'More Actions',
@@ -1130,11 +1134,12 @@ export default function App() {
                       <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
                         {/* Nova + Welcome label */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <span
-                            role="img" aria-label="Nova astronaut"
-                            style={{ fontSize: 36, display: "inline-block", animation: "nova-wave 2s ease-in-out infinite", transformOrigin: "bottom center", cursor: "pointer" }}
+                          <img
+                            src={novaIdleIcon}
+                            alt="Nova astronaut"
+                            style={{ width: 36, height: 36, display: "inline-block", animation: "nova-wave 2s ease-in-out infinite", transformOrigin: "bottom center", cursor: "pointer" }}
                             onClick={() => speakWord(`Hi ${getChildName(user)}`)}
-                          >👨‍🚀</span>
+                          />
                           <div style={{ fontSize: 13, color: tokens.cometTealDeep, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Welcome back!</div>
                         </div>
                         {/* Avatar + name + edit button */}
@@ -1251,15 +1256,17 @@ export default function App() {
                     <div className="font-display" style={{ fontSize: 20, marginBottom: 12 }}>Today's Quest 🗺️</div>
                     <div style={{ display: "flex", gap: 8 }}>
                       {[
-                        { icon: "🎯", label: "Session", done: questsCompleted.session },
-                        { icon: "🌟", label: "Master",  done: questsCompleted.words || words.filter(w => w.mastery >= 80).length >= 1 },
+                        { icon: sessionQuestIcon, label: "Session", done: questsCompleted.session },
+                        { icon: masterQuestIcon,  label: "Master",  done: questsCompleted.words || words.filter(w => w.mastery >= 80).length >= 1 },
                       ].map((a, i) => (
                         <div key={i} className="activity-card" onClick={() => setScreen("learn")} style={{
                           flex: 1, background: a.done ? `${tokens.cometTeal}25` : `${tokens.dawnIndigo}0a`,
                           border: `1px solid ${a.done ? tokens.cometTeal : `${tokens.dawnIndigo}1f`}`,
                           borderRadius: 14, padding: "10px 0", textAlign: "center", minHeight: 64,
                         }}>
-                          <div style={{ fontSize: 18 }}>{a.done ? "✅" : a.icon}</div>
+                          <div style={{ fontSize: 18, display: "flex", justifyContent: "center" }}>
+                            {a.done ? "✅" : <img src={a.icon} alt={a.label} style={{ width: 22, height: 22 }} />}
+                          </div>
                           <div style={{ fontSize: 9, fontWeight: 700, marginTop: 4, opacity: a.done ? 0.7 : 1 }}>{a.label}</div>
                         </div>
                       ))}
@@ -1278,7 +1285,8 @@ export default function App() {
                           speakWord(w.word);
                           generatePlanForWord(w.word);
                           setScreen('learn');
-                        }} style={{ background: w.mastery === 0 ? `${tokens.dawnIndigo}0d` : getMasteryColor(w.mastery), color: w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}99`, borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                        }} style={{ background: w.mastery === 0 ? `${tokens.dawnIndigo}0d` : getMasteryColor(w.mastery), color: w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}99`, borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          <WordIcon word={w.word} emoji={w.emoji} size="1em" />
                           {w.word}
                         </div>
                       ))}

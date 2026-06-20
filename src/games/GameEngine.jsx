@@ -20,6 +20,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { colors as dawnTokens } from '../design-system/tokens';
+import { wordIcons } from '../design-system/wordIcons';
+import NovaMascot from '../design-system/primitives/NovaMascot';
 
 // ─── Audio cache — text → blob URL, survives React re-renders ────────────────
 const audioCache    = new Map(); // text → blob URL string
@@ -419,10 +421,20 @@ function FeedbackOverlay({ correct, message, emoji }) {
   );
 }
 
-// ─── Word tile: large centered emoji ─────────────────────────────────────────
-function WordTile({ emoji }) {
+// ─── Word tile: illustrated icon if available, emoji fallback otherwise ──────
+function WordTile({ emoji, word }) {
+  const iconUrl = word ? wordIcons[word] : null;
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt={word}
+        style={{ width: '4.5rem', height: '4.5rem', display: 'block', margin: '0 auto', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))' }}
+      />
+    );
+  }
   return (
-    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))' }}>{emoji}</span>
+    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))' }}>{emoji}</span>
   );
 }
 
@@ -547,14 +559,8 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
         />
       )}
       {/* Nova mascot */}
-      <div style={{
-        position: 'fixed', top: 70, left: 16, zIndex: 200, fontSize: 40,
-        animation: novaState === 'idle'    ? 'nova-float 3s ease-in-out infinite'
-                 : novaState === 'correct' ? 'nova-bounce 0.6s ease'
-                 : 'nova-shake 0.4s ease',
-        pointerEvents: 'none',
-      }}>
-        👨‍🚀
+      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, pointerEvents: 'none' }}>
+        <NovaMascot novaState={novaState} size={40} />
       </div>
       <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
         {/* Target word + replay button */}
@@ -636,7 +642,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
                   ...hintStyle,
                 }}
               >
-                <WordTile emoji={opt.emoji} />
+                <WordTile emoji={opt.emoji} word={opt.word} />
               </button>
             );
           })}
@@ -830,9 +836,9 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
       {showOverlay && overlayData && (
         <FeedbackOverlay correct={overlayData.correct} message={overlayData.message} emoji={overlayData.emoji} />
       )}
-      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, fontSize: 40,
-        animation: novaState === 'idle' ? 'nova-float 3s ease-in-out infinite' : novaState === 'correct' ? 'nova-bounce 0.6s ease' : 'nova-shake 0.4s ease',
-        pointerEvents: 'none' }}>👨‍🚀</div>
+      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, pointerEvents: 'none' }}>
+        <NovaMascot novaState={novaState} size={40} />
+      </div>
       <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
         <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
           <div style={{ fontSize: '80px', animation: 'mw-bounce 2s ease-in-out infinite', lineHeight: 1 }}>
