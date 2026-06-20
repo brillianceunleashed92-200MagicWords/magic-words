@@ -438,5 +438,40 @@ build + auth + dashboards after every phase.
    - Verified live: build clean, full Playwright suite passes, map
      screenshotted (grid, tile selection/expand, hover) and StoryBuilder
      re-checked still works after the `getMasteryColor` change.
-4. ⬜ Move error handling toward scaffold-before-failure.
+4. ✅ Done 2026-06-19 — errorless-learning scaffold in `WordMatch`
+   (`GameEngine.jsx`). A first wrong tap no longer lets the error
+   complete: the wrong tile shakes (~450ms), then the correct tile gets
+   a persistent highlight that stays lit until the question is answered
+   (not a flickering timed pulse — the cue must still be visible the
+   instant input re-enables, otherwise the scaffold disappears right
+   when the child is allowed to act again). Only a *second* miss on the
+   same question lets the error complete (overlay + advance), matching
+   the print program's "physical hand support prevents the error;
+   letting one complete is the last resort" behavior described in the
+   master prompt. The session-level hint threshold (`showHint`, pulses
+   the correct tile on a *new* question) also dropped from
+   `consecutiveWrong >= 2` to `>= 1` — scaffold sooner, not just after
+   two separate misses.
+   - **Scoring/XP contract deliberately unchanged**: the eventual
+     `onAnswer({correct, responseTimeMs, firstTry: true})` call — exactly
+     one per question, same field shape, same `firstTry: true` always —
+     is byte-for-byte what it was before. Only the UI/interaction
+     leading up to that call changed. This was a deliberate scope
+     boundary: making the retry's outcome "more accurate" by passing
+     `firstTry: false` would touch the XP bonus formula's input, which
+     wasn't part of this confirmed deliverable.
+   - **Scope boundary, not silently expanded**: only `WordMatch` got
+     this treatment. `SoundMatch`/`WordHunt`/`RhymeTime`/`StoryBuilder`
+     still use the old immediate-overlay flow. `FlashCardChallenge` has
+     no right/wrong state to scaffold (self-rated). Revisit the other
+     multiple-choice games as a follow-up if this pattern proves out.
+   - Caught and fixed in passing: a real React dev warning ("mixing
+     shorthand and non-shorthand animation properties") from combining
+     the hint-pulse's `animation` shorthand with the tile's existing
+     `animationDelay` — fixed by omitting `animationDelay` whenever the
+     pulse is active, rather than merging both.
+   - Verified live: build clean, full Playwright suite passes, full
+     wrong-then-retry-correct flow screenshotted end to end (shake ->
+     persistent highlight -> correct retry -> normal advance, "Word 2
+     of 5" / "1 correct" confirming no double-count or regression).
 5. ⬜ Rare/bigger level-up cinematic treatment (addendum item c).

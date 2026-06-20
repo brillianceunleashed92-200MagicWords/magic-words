@@ -436,6 +436,17 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   const [audioUrl,    setAudioUrl]    = useState(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [novaState,   setNovaState]   = useState('idle');
+  // Errorless-learning scaffold: a first wrong tap doesn't let the error
+  // complete — it shakes the wrong tile, then highlights the correct one
+  // and lets the child retry immediately (highlight stays until they
+  // answer, not a flickering timed pulse — the cue should still be there
+  // the instant input re-enables). Only a second miss on the same
+  // question lets the error complete (overlay + advance), per CLAUDE.md's
+  // errorless-learning open task.
+  const [wrongTileIdx,   setWrongTileIdx]   = useState(null);
+  const [shaking,        setShaking]        = useState(false);
+  const [revealCorrect,  setRevealCorrect]  = useState(false);
+  const [missedOnce,     setMissedOnce]     = useState(false);
   const startRef = useRef(Date.now());
 
   // Reset game state immediately — never wait for audio
@@ -444,6 +455,10 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     setAnswered(false);
     setShowOverlay(false);
     setOverlayData(null);
+    setWrongTileIdx(null);
+    setShaking(false);
+    setRevealCorrect(false);
+    setMissedOnce(false);
     startRef.current = Date.now();
   }, [quiz?.word]);
 
@@ -472,9 +487,29 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   }, [audioUrl]);
 
   const handleTap = useCallback((idx) => {
-    if (answered) return;
+    if (answered || shaking) return;
     const correct = idx === quiz.correctIndex;
     const responseTimeMs = Date.now() - startRef.current;
+
+    if (!correct && !missedOnce) {
+      // First miss on this question: don't let the error complete. Shake
+      // the wrong tile, then highlight the correct one and let the child
+      // retry — no overlay, no advance, no XP/mastery call yet. The
+      // highlight stays until they answer, so the cue is still visible
+      // the instant input re-enables.
+      setMissedOnce(true);
+      setNovaState('wrong');
+      setWrongTileIdx(idx);
+      setShaking(true);
+      setTimeout(() => {
+        setWrongTileIdx(null);
+        setNovaState('idle');
+        setShaking(false);
+        setRevealCorrect(true);
+      }, 450);
+      return;
+    }
+
     setSelected(idx);
     setAnswered(true);
     setNovaState(correct ? 'correct' : 'wrong');
@@ -498,7 +533,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
         onAnswer({ correct, responseTimeMs, firstTry: true });
       }
     }, 1400);
-  }, [answered, quiz, onAnswer, encouragement]);
+  }, [answered, shaking, missedOnce, quiz, onAnswer, encouragement]);
 
   if (!quiz) return null;
 
@@ -580,8 +615,13 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
               if (isCorrectTile)         className += ' correct revealed';
               else if (idx === selected) className += ' wrong';
             }
-            // FIX 7: hint — pulse on correct tile after 2 consecutive wrong
-            const hintStyle = showHint && !answered && isCorrectTile
+            if (idx === wrongTileIdx) className += ' wrong';
+            // Hint — pulse on correct tile after 1 consecutive wrong question
+            // (session-level), OR persistently once this question's own
+            // first miss has been modeled (errorless-learning scaffold —
+            // stays lit until answered, see handleTap).
+            const showPulse = (revealCorrect || (showHint && !answered)) && isCorrectTile;
+            const hintStyle = showPulse
               ? { animation: 'mw-pulse-glow 0.8s ease-in-out infinite', borderColor: 'rgba(45,212,191,0.5)' }
               : {};
             return (
@@ -589,10 +629,10 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
                 key={idx}
                 className={className}
                 onClick={() => handleTap(idx)}
-                disabled={answered}
+                disabled={answered || shaking}
                 style={{
-                  animationDelay: (idx * 0.07) + 's',
-                  cursor: answered ? 'default' : 'pointer',
+                  ...(showPulse ? {} : { animationDelay: (idx * 0.07) + 's' }),
+                  cursor: (answered || shaking) ? 'default' : 'pointer',
                   ...hintStyle,
                 }}
               >
@@ -1761,7 +1801,7 @@ export function GameEngine({
           quiz={currentQuiz}
           onAnswer={handleAnswer}
           encouragement={encouragements[encouragIdx % encouragements.length]}
-          showHint={consecutiveWrong >= 2}
+          showHint={consecutiveWrong >= 1}
         />
       )}
       {gameType === 'sound_match' && (
