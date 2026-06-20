@@ -474,4 +474,42 @@ build + auth + dashboards after every phase.
      wrong-then-retry-correct flow screenshotted end to end (shake ->
      persistent highlight -> correct retry -> normal advance, "Word 2
      of 5" / "1 correct" confirming no double-count or regression).
-5. ⬜ Rare/bigger level-up cinematic treatment (addendum item c).
+5. ✅ Done 2026-06-19 — rare/bigger level-up treatment (addendum item c).
+   New `src/components/LevelUpCelebration.jsx` replaces the old plain
+   dark overlay with a compressed replay of the landing page's WordRise
+   signature moment: the same `dawnGradientStops` sweep, a sample of the
+   child's own mastered words rising with the content/non-content chip
+   convention, then the level emoji + "Level X · {title}" + `stage`.
+   Reserved for level-up only — per-question feedback is untouched and
+   stays exactly as restrained as before. Auto-dismiss timeout extended
+   3000ms -> 4200ms so the sequence has room to play.
+   - **Found and fixed before shipping, not after**: the first version
+     put text directly on the animated gradient. Checked contrast
+     directly rather than eyeballing it — several pairings collapsed to
+     as low as 1.4:1 once the gradient reached Sunrise Coral (its held
+     end state), far below the 4.5:1 minimum. Fixed by moving all
+     foreground content (chips, emoji, text) onto an opaque Cloud panel
+     — the same safe-pattern already proven on the landing page's
+     ClosingCTA — so the gradient still sweeps and glows around the
+     card, but text never rides directly on a color it can disappear
+     into. Verify any future full-bleed-gradient UI the same way: check
+     contrast at the gradient's *held end state*, not just its starting
+     color.
+   - Removed `level-up-bounce`, which became fully dead code (zero call
+     sites) once the old overlay was replaced.
+   - **Found in passing, not fixed (out of scope, pre-existing,
+     unrelated to this redesign)**: testing this required driving real
+     XP gains through actual gameplay, which surfaced two backend
+     issues neither caused by nor fixable within this front-end pass:
+     (a) `user_stats` upsert fails with a row-level-security policy
+     violation for service-role-admin-created test accounts (likely an
+     RLS policy quirk specific to that provisioning path, not regular
+     signups — needs backend investigation); (b) the XP-float toast's
+     `id: Date.now()` can collide under rapid-fire answers (only
+     surfaced by scripted clicking far faster than a real child would
+     tap), producing a "duplicate key" React warning. Both are real,
+     both are someone's next task, neither is this session's.
+   - Verified live: build clean, full Playwright suite passes, a real
+     level-up driven through actual gameplay (not simulated) and
+     screenshotted, contrast issue caught and re-verified fixed before
+     calling this done.

@@ -8,6 +8,7 @@ import { GameEngine, GameTypeSelector, SessionComplete, UpgradeModal } from "./g
 import QRCode from "qrcode";
 import { colors as tokens } from "./design-system/tokens";
 import WordGalaxyMap from "./components/WordGalaxyMap";
+import LevelUpCelebration from "./components/LevelUpCelebration";
 
 const UNIT_NAMES = {
   1:'My World', 2:'Animals', 3:'Actions', 4:'More Actions',
@@ -630,7 +631,7 @@ export default function App() {
       setLevelUpInfo(newLevel);
       setShowLevelUp(true);
       spawnParticles(window.innerWidth / 2, window.innerHeight / 2);
-      setTimeout(() => setShowLevelUp(false), 3000);
+      setTimeout(() => setShowLevelUp(false), 4200);
     }
     await saveXP(newTotal);
   }, [totalXP, saveXP]); // eslint-disable-line
@@ -1031,18 +1032,16 @@ export default function App() {
             </div>
           ))}
 
-          {/* Level-up celebration overlay */}
+          {/* Level-up celebration — the one moment allowed to be cinematic
+              (Interaction Design addendum item c). Replays a compressed
+              WordRise moment using a sample of the child's own mastered
+              words, scoped to level-up only. */}
           {showLevelUp && levelUpInfo && (
-            <div
-              style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "2rem" }}
-              onClick={() => setShowLevelUp(false)}
-            >
-              <div style={{ fontSize: 80, animation: "level-up-bounce 0.6s ease" }}>{levelUpInfo.emoji}</div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: "2.5rem", color: "#FFE66D", margin: "1rem 0 0.5rem", textShadow: "0 0 30px #FFE66D88" }}>LEVEL UP! 🎉</div>
-              <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: "1.5rem", color: "#4ECDC4" }}>Level {levelUpInfo.level}</div>
-              <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: "1.1rem", color: "rgba(255,255,255,0.85)", marginTop: "0.5rem" }}>You're now a {levelUpInfo.title}!</div>
-              <div style={{ marginTop: "1.5rem", fontSize: "0.875rem", opacity: 0.5 }}>Tap to continue</div>
-            </div>
+            <LevelUpCelebration
+              levelInfo={levelUpInfo}
+              words={words.filter(w => w.mastery >= 80)}
+              onDismiss={() => setShowLevelUp(false)}
+            />
           )}
 
           {/* Avatar picker modal */}
