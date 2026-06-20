@@ -33,5 +33,19 @@ export function useTilt({ max = 6 } = {}) {
     ref,
     style: { rotateX, rotateY, translateZ, transformPerspective: 800 },
     handlers: { onPointerMove, onPointerLeave },
+    // Raw normalized pointer position (0..1), exposed so a consumer can
+    // derive its own offsets — e.g. a parallax layer that moves further
+    // than the card itself under the same tilt (Word Galaxy map tiles).
+    springX,
+    springY,
   };
+}
+
+// Builds an x/y pixel-offset transform pair from useTilt's springX/springY,
+// scaled by `factor` (>1 moves further than the card — use on a foreground
+// icon layer for a parallax-under-tilt effect; addendum recommends ~1.4x).
+export function useParallaxOffset(springX, springY, { factor = 1.4, range = 6 } = {}) {
+  const x = useTransform(springX, [0, 1], [-range * factor, range * factor]);
+  const y = useTransform(springY, [0, 1], [-range * factor, range * factor]);
+  return { x, y };
 }

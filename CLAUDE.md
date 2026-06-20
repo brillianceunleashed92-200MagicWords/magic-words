@@ -413,6 +413,30 @@ build + auth + dashboards after every phase.
    `api/session-generator.js` uses. Verified live: build clean, full
    Playwright suite passes, StoryBuilder played end-to-end including the
    wrong-answer state, screenshotted.
-3. ⬜ Word Galaxy as parallax-tilt map (addendum item b).
+3. ✅ Done 2026-06-19 — Word Galaxy rebuilt as a spatial unit map
+   (`src/components/WordGalaxyMap.jsx`), replacing the flat scrollable
+   list. 3-column grid of unit tiles (icon = first word's emoji per
+   unit, name, progress bar, mastered/total), tap-to-expand reveals that
+   unit's word pills below the grid instead of nesting one giant list.
+   Uses the tilt-toward-cursor convention via an extended `useTilt`
+   (now also returns `springX`/`springY`) plus a new `useParallaxOffset`
+   helper so the tile's icon layer drifts further than the tile itself
+   under the same tilt (~1.4x, per the addendum). Locked units get a
+   flatter response (`max: 2` vs `7`, no icon parallax) and desaturated
+   styling — depth as a reward for what's unlocked, not decoration on
+   what isn't. App.jsx's `activeWord` detail modal and all mastery
+   mutation logic (`setWordMastery`, etc.) are untouched — this is a
+   presentation/interaction rebuild only, data model unchanged.
+   - **Found and fixed in passing**: `getMasteryColor` (App.jsx) still
+     used pre-redesign legacy hex values, never migrated during Phase 5a/
+     the seam-closure pass — a real gap since it's used by the Word
+     Galaxy pills, the detail modal, and the Home word-garden orbs.
+     Updated it to the real tokens (matches the legend: Learning ->
+     Marigold, Getting there -> Comet Teal, Mastered -> Sunrise Coral).
+     Also removed `getMasteryGlow`, which had silently become fully dead
+     code (zero call sites) during that same earlier pass.
+   - Verified live: build clean, full Playwright suite passes, map
+     screenshotted (grid, tile selection/expand, hover) and StoryBuilder
+     re-checked still works after the `getMasteryColor` change.
 4. ⬜ Move error handling toward scaffold-before-failure.
 5. ⬜ Rare/bigger level-up cinematic treatment (addendum item c).

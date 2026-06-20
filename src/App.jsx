@@ -7,6 +7,7 @@ import { useSessionPlan } from "./hooks/useSessionPlan";
 import { GameEngine, GameTypeSelector, SessionComplete, UpgradeModal } from "./games/GameEngine";
 import QRCode from "qrcode";
 import { colors as tokens } from "./design-system/tokens";
+import WordGalaxyMap from "./components/WordGalaxyMap";
 
 const UNIT_NAMES = {
   1:'My World', 2:'Animals', 3:'Actions', 4:'More Actions',
@@ -318,18 +319,13 @@ function getDailyMessage(streak, words) {
   return `Welcome back, explorer! Your words are waiting ✨`;
 }
 
+// Matches the Word Galaxy legend: Learning -> Marigold, Getting there ->
+// Comet Teal, Mastered -> Sunrise Coral (see CLAUDE.md dawn token table).
 const getMasteryColor = (m) => {
   if (m === 0)   return "#e8e8f0";
-  if (m < 40)    return "#FFB347";
-  if (m < 80)    return "#4ECDC4";
-  return "#FFE66D";
-};
-
-const getMasteryGlow = (m) => {
-  if (m === 0)   return "none";
-  if (m < 40)    return "0 0 8px #FFB34799";
-  if (m < 80)    return "0 0 12px #4ECDC499";
-  return "0 0 16px #FFE66D, 0 0 32px #FFE66D88";
+  if (m < 40)    return tokens.marigold;
+  if (m < 80)    return tokens.cometTeal;
+  return tokens.sunriseCoral;
 };
 
 // ─── Derive the child's display name from Supabase auth metadata ─────────────
@@ -1340,57 +1336,13 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Words grouped by unit */}
-                  {Array.from({ length: 18 }, (_, i) => i + 1).map(unit => {
-                    const unitWords = words.filter(w => w.unit === unit);
-                    if (!unitWords.length) return null;
-                    const locked = unit > 5;
-                    const mastered = unitWords.filter(w => w.mastery >= 80).length;
-                    const progress = unitWords.length > 0 ? mastered / unitWords.length : 0;
-                    return (
-                      <div key={unit} style={{ marginBottom: 20 }}>
-                        {/* Unit header */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <div className="font-display" style={{ fontSize: 15,
-                            color: locked ? `${tokens.dawnIndigo}4d` : tokens.cometTealDeep }}>
-                            {locked ? "🔒 " : ""}Unit {unit}: {UNIT_NAMES[unit]}
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 700,
-                            color: locked ? `${tokens.dawnIndigo}33` : tokens.marigoldDeep }}>
-                            {locked ? "PRO" : `${mastered}/${unitWords.length}`}
-                          </div>
-                        </div>
-                        {/* Mini progress bar */}
-                        {!locked && (
-                          <div style={{ height: 4, background: `${tokens.dawnIndigo}14`, borderRadius: 4, marginBottom: 8, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${progress * 100}%`,
-                              background: `linear-gradient(90deg, ${tokens.cometTeal}, ${tokens.marigold})`,
-                              borderRadius: 4, transition: "width 0.5s ease" }} />
-                          </div>
-                        )}
-                        {/* Word pills */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {unitWords.map(w => (
-                            <div key={w.id} className="word-orb"
-                              onClick={() => locked ? null : setActiveWord(w)}
-                              style={{
-                                background: locked ? `${tokens.dawnIndigo}0a` : (w.mastery === 0 ? `${tokens.dawnIndigo}0d` : getMasteryColor(w.mastery)),
-                                color: locked ? `${tokens.dawnIndigo}33` : (w.mastery > 0 ? tokens.dawnIndigo : `${tokens.dawnIndigo}99`),
-                                borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: w.type === "content" ? 800 : 600,
-                                border: locked ? `2px dashed ${tokens.dawnIndigo}1a`
-                                  : (w.mastery === 0 ? `2px dashed ${tokens.dawnIndigo}26`
-                                    : (w.type === "content" ? "none" : `2px solid ${tokens.marigold}`)),
-                                cursor: locked ? "default" : "pointer",
-                                position: "relative",
-                              }}>
-                              {locked ? "🔒 ???" : `${w.emoji} ${w.word}`}
-                              {locked && <span style={{ position: "absolute", top: -5, right: -5, background: tokens.marigold, color: tokens.dawnIndigo, fontSize: 7, fontWeight: 900, borderRadius: 6, padding: "1px 4px" }}>PRO</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {/* Word Galaxy as a spatial unit map (Interaction Design addendum item b) */}
+                  <WordGalaxyMap
+                    words={words}
+                    unitNames={UNIT_NAMES}
+                    onWordClick={setActiveWord}
+                    getMasteryColor={getMasteryColor}
+                  />
 
                   {/* Word detail modal */}
                   {activeWord && (
