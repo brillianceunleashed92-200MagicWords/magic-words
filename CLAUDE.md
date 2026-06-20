@@ -397,6 +397,25 @@ build + auth + dashboards after every phase.
    Home/Parent dashboard hierarchy change). Verified live: build clean,
    Playwright suite passes, Home and Parent screenshotted showing
    "Level 1 of 24 · First Word" / stage name correctly.
+
+   **⚠️ MIGRATION BLOCKER, confirmed live 2026-06-20 — do not ship this
+   item without resolving it.** This was originally assumed safe because
+   `user_stats` was empty in production (the RLS bug on a separate branch,
+   `fix/rls-user-stats-policies`, meant XP never persisted for anyone).
+   That RLS bug has since been fixed and verified in production. Checking
+   `user_stats` again *after* the fix went live found a real account
+   (`brillianceunleashed92@gmail.com`) with `total_xp = 185`,
+   `current_level = 2` — written after the fix, meaning a real user has
+   already played and earned real XP under the old 8-tier table. Under
+   the new 24-tier table in this branch, that same 185 XP recalculates to
+   Level 3, not Level 2 — confirmed by computing both tables directly, not
+   assumed. **The "no migration needed" condition this item originally
+   shipped under no longer holds.** Before merging this branch: either
+   write a one-time migration for any `user_stats` rows with `total_xp >
+   0` (re-grandfather their displayed level/title so it doesn't silently
+   jump), or explicitly accept the level-number/title change as
+   cosmetically fine and say so — but that needs to be a decision, not a
+   leftover assumption from when the table was empty.
 2. ✅ Done 2026-06-19 — lesson-type bindings + StoryBuilder re-enabled.
    `MLC_TYPES` map added in `GameEngine.jsx` (game id -> MLC category),
    shown as a small uppercase tag on each `GameTypeSelector` tile.
