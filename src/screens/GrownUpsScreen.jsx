@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { colors, fonts, shadows } from '../theme/tokens';
 import { useUIStore } from '../stores/useUIStore';
-import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
+import DashboardTab from './parent/DashboardTab';
+import MomentsTab from './parent/MomentsTab';
+import MasteryMapTab from './parent/MasteryMapTab';
+import SettingsTab from './parent/SettingsTab';
 
 const HOLD_MS = 3000;
-const TIME_LIMIT_OPTIONS = [null, 10, 15, 20, 30];
 
 function HoldGate({ onPassed }) {
   const [holding, setHolding] = useState(false);
@@ -98,31 +100,23 @@ function MathGate({ onPassed }) {
   );
 }
 
-function MasteryHeatmap({ words }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(28px, 1fr))', gap: 4 }}>
-      {words.map((w) => {
-        const bucket = w.mastery >= 80 ? colors.mint : w.mastery >= 40 ? colors.sun : w.mastery > 0 ? colors.tang : 'rgba(0,0,0,.08)';
-        return (
-          <div
-            key={w.word}
-            title={`${w.word} — ${w.mastery}%`}
-            style={{ width: '100%', aspectRatio: '1', borderRadius: 6, background: bucket }}
-          />
-        );
-      })}
-    </div>
-  );
-}
+const TABS = [
+  { id: 'dashboard', label: 'Dashboard', Component: DashboardTab },
+  { id: 'moments', label: 'Moments', Component: MomentsTab },
+  { id: 'mastery', label: 'Mastery Map', Component: MasteryMapTab },
+  { id: 'settings', label: 'Settings', Component: SettingsTab },
+];
 
+// Full Parent Portal (blueprint Part 4), behind the existing hold+math
+// gate. Calm design per 7.2 — same brand family, lower saturation, more
+// whitespace than the child app (still Cloud/Ink tokens, no candy-bright
+// fills here).
 export default function GrownUpsScreen() {
   const grownUpsUnlocked = useUIStore((s) => s.grownUpsUnlocked);
   const unlockGrownUps = useUIStore((s) => s.unlockGrownUps);
   const lockGrownUps = useUIStore((s) => s.lockGrownUps);
-  const sessionTimeLimitMinutes = useUIStore((s) => s.sessionTimeLimitMinutes);
-  const setSessionTimeLimitMinutes = useUIStore((s) => s.setSessionTimeLimitMinutes);
   const [holdPassed, setHoldPassed] = useState(false);
-  const { words, masteredCount } = useCandyGalaxyData();
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   if (!grownUpsUnlocked) {
     return (
@@ -132,40 +126,36 @@ export default function GrownUpsScreen() {
     );
   }
 
+  const ActiveComponent = TABS.find((t) => t.id === activeTab)?.Component ?? DashboardTab;
+
   return (
     <div style={{ minHeight: '100vh', background: colors.cloud, paddingBottom: 140 }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '52px 20px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.ink }}>Grown-Ups</div>
           <button onClick={lockGrownUps} style={{ background: 'none', border: 'none', color: colors.mutedInk, fontFamily: fonts.body, fontWeight: 700, cursor: 'pointer' }}>
             Lock 🔒
           </button>
         </div>
 
-        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
-          Mastery Map — {masteredCount}/{words.length} words
-        </div>
-        <MasteryHeatmap words={words} />
-
-        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, margin: '28px 0 8px' }}>
-          Session Time Limit
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {TIME_LIMIT_OPTIONS.map((mins) => (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
+          {TABS.map((tab) => (
             <button
-              key={mins ?? 'none'}
-              onClick={() => setSessionTimeLimitMinutes(mins)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: '10px 16px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                fontFamily: fonts.display, fontWeight: 700,
-                background: sessionTimeLimitMinutes === mins ? colors.sky : 'rgba(0,0,0,.06)',
-                color: sessionTimeLimitMinutes === mins ? '#fff' : colors.ink,
+                padding: '8px 14px', borderRadius: 100, border: 'none', cursor: 'pointer', flexShrink: 0,
+                fontFamily: fonts.display, fontWeight: 700, fontSize: '.8rem',
+                background: activeTab === tab.id ? colors.ink : 'rgba(0,0,0,.05)',
+                color: activeTab === tab.id ? colors.cloud : colors.mutedInk,
               }}
             >
-              {mins ? `${mins} min` : 'No limit'}
+              {tab.label}
             </button>
           ))}
         </div>
+
+        <ActiveComponent />
       </div>
     </div>
   );

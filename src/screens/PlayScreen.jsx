@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { colors, fonts, skyGradient, shadows } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../supabaseClient';
 import { useSessionPlan } from '../hooks/useSessionPlan';
 import { GameEngine, SessionComplete } from '../games/GameEngine';
 import { GalaxyLoader } from '../components/AuthGuard';
@@ -12,6 +13,9 @@ import { useUpdateStreakMutation } from '../lib/queries/streaks';
 import { useUIStore } from '../stores/useUIStore';
 import { useSpeak } from '../lib/useSpeak';
 import { logSessionResult, getRollingSuccessRate, suggestActivity } from '../lib/difficultyGovernor';
+import { useParentSettingsQuery } from '../lib/queries/parentSettings';
+import { useSessionTimeLimit } from '../lib/useSessionTimeLimit';
+import NovaPortrait from '../components/candy/NovaPortrait';
 
 const MASTERED_THRESHOLD = 80;
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
@@ -39,6 +43,8 @@ export default function PlayScreen({ focusWord, onExit }) {
   const [sessionResult, setSessionResult] = useState(null);
   const { speak } = useSpeak();
   const queueCelebration = useUIStore((s) => s.queueCelebration);
+  const parentSettingsQ = useParentSettingsQuery(user?.id);
+  const { minutesToday, limitReached } = useSessionTimeLimit(childId, parentSettingsQ.data?.daily_minutes_limit);
 
   const wordProgressForPlan = useMemo(
     () => words.map((w) => ({ word: w.word, mastery: w.mastery, last_practiced: null })),
@@ -60,10 +66,24 @@ export default function PlayScreen({ focusWord, onExit }) {
 
   const suggestedActivity = suggestActivity(getRollingSuccessRate());
 
-  async function handleProgress({ word, correct }) {
+  async function handleProgress({ word, correct, responseTimeMs, gameType: playedGameType }) {
     const before = words.find((w) => w.word === word);
     const prevMastery = before?.mastery ?? 0;
     const result = await saveWordProgress.mutateAsync({ word, correct });
+
+    // Fire-and-forget — feeds the parent portal's "minutes this week" stat
+    // (blueprint 4.1). Not awaited: a logging failure shouldn't affect the
+    // child's session in any way.
+    supabase.from('learning_events').insert({
+      user_id: user?.id,
+      child_id: childId,
+      word,
+      game_type: playedGameType ?? gameType,
+      correct,
+      response_time_ms: responseTimeMs ?? null,
+      attempt_number: 1,
+    }).then(({ error }) => { if (error) console.error('[learning_events]', error.message); });
+
     if (prevMastery < MASTERED_THRESHOLD && result.mastery >= MASTERED_THRESHOLD) {
       const wordData = before ?? { word };
       queueCelebration({ type: 'wordMastered', payload: { word: wordData.word } });
@@ -95,6 +115,31 @@ export default function PlayScreen({ focusWord, onExit }) {
     if (STREAK_MILESTONES.includes(streakResult?.current_streak)) {
       queueCelebration({ type: 'streakMilestone', payload: { streak: streakResult.current_streak } });
     }
+  }
+
+  // Soft time-limit lockout (blueprint 4.3 "Time controls" — parent-set
+  // daily_minutes_limit, enforced with a gentle Nova moment, not a wall of
+  // text). Checked before the activity picker so a limit reached mid-quest
+  // still finishes the current session (this check only gates *starting*
+  // a new one — see handleSessionEnd/PlayScreen's gameType flow).
+  if (limitReached && !gameType) {
+    return (
+      <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+        <NovaPortrait pose="wave" size={120} />
+        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', color: colors.cloud, marginTop: '1rem' }}>
+          Time for a break! ✨
+        </div>
+        <div style={{ color: 'rgba(255,255,255,.85)', marginTop: 8, maxWidth: 280 }}>
+          You've played {minutesToday} minutes today — Nova will be here tomorrow!
+        </div>
+        <button onClick={onExit} style={{
+          marginTop: '1.5rem', background: colors.cloud, border: 'none', borderRadius: 100,
+          padding: '0.75rem 1.75rem', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer',
+        }}>
+          Back Home
+        </button>
+      </div>
+    );
   }
 
   if (!gameType) {

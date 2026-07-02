@@ -68,3 +68,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Parent portal printables (Dinner Table Cards, Practice Packs) — schools
+   and parents still print, per blueprint 5.1/4.3. Print only the marked
+   printable content, nothing else on the page. */
+@media print {
+  body * { visibility: hidden; }
+  .dinner-cards-print, .dinner-cards-print * { visibility: visible; }
+  .dinner-cards-print { position: absolute; left: 0; top: 0; width: 100%; }
+}

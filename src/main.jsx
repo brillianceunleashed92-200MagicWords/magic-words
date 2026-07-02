@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -24,21 +24,29 @@ import '@fontsource/quicksand/500.css'
 import '@fontsource/quicksand/600.css'
 import '@fontsource/quicksand/700.css'
 import './index.css'
-import App from './App.jsx'
-import CandyGalaxyShell from './CandyGalaxyShell.jsx'
-import Landing from './pages/landing/Landing.jsx'
+
+// Route-level code-splitting (Phase 2 carry-over punch list item): each
+// of these three trees is large and mutually exclusive per page load — a
+// landing-page visitor was previously downloading the entire authenticated
+// Candy Galaxy app AND the unlinked pre-redesign legacy tree in the same
+// bundle. Lazy-loading means each route only pays for what it renders.
+const Landing = lazy(() => import('./pages/landing/Landing.jsx'))
+const CandyGalaxyShell = lazy(() => import('./CandyGalaxyShell.jsx'))
+const App = lazy(() => import('./App.jsx'))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/app/*" element={<CandyGalaxyShell />} />
-          {/* Pre-Candy-Galaxy tree, kept reachable for rollback/comparison
-              during Phase 1 review — not linked from anywhere in the UI. */}
-          <Route path="/app-legacy/*" element={<App />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/app/*" element={<CandyGalaxyShell />} />
+            {/* Pre-Candy-Galaxy tree, kept reachable for rollback/comparison
+                during Phase 1 review — not linked from anywhere in the UI. */}
+            <Route path="/app-legacy/*" element={<App />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

@@ -140,6 +140,11 @@ test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   const [a, b] = question.match(/\d+/g).map(Number);
   await page.getByRole("button", { name: String(a + b), exact: true }).click();
 
-  await expect(page.getByText(/Mastery Map/)).toBeVisible();
-  await expect(page.getByText("Session Time Limit")).toBeVisible();
+  // Full Parent Portal (Phase 2 Step 5) — tabbed: Dashboard (default),
+  // Moments, Mastery Map, Settings.
+  await expect(page.getByText("AI Insight")).toBeVisible();
+  await page.getByRole("button", { name: "Mastery Map", exact: true }).click();
+  await expect(page.getByText(/Mastery Map — \d+\/\d+ words/)).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Daily Time Limit")).toBeVisible();
 });
