@@ -38,6 +38,32 @@
   0%, 100% { transform: rotate(-10deg); }
   50% { transform: rotate(10deg); }
 }
+
+/* Candy Galaxy (v2) — separate namespace from the dawn-token nova-* set above,
+   which belongs to the superseded design system and is left untouched. */
+@keyframes candy-nova-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes candy-nova-bounce {
+  0% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.35) rotate(-8deg); }
+  60% { transform: scale(0.92) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes candy-nova-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .candy-galaxy * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 @keyframes xp-float-up {
   0% { opacity: 1; transform: translateX(-50%) translateY(0); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
