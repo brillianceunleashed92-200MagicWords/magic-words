@@ -94,7 +94,7 @@ test("sign up shows the post-signup confirmation screen", async ({ page }) => {
   }
 });
 
-test("sign in loads the Parent dashboard", async ({ page }) => {
+test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   test.skip(!confirmedUser?.id, "requires SUPABASE_SERVICE_ROLE_KEY to provision a confirmed test account");
 
   await page.goto("/app");
@@ -102,9 +102,34 @@ test("sign in loads the Parent dashboard", async ({ page }) => {
   await page.getByPlaceholder("••••••••").fill("TestPass!23456");
   await page.locator('button[type="submit"]').click();
 
-  await expect(page.getByText("WELCOME BACK!")).toBeVisible({ timeout: 20000 });
+  // Home screen (src/screens/HomeScreen.jsx) — hero card + Today's Magic Word.
+  await expect(page.getByText("Ready to fly?")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Today's Magic Word")).toBeVisible();
 
-  await page.getByText("Parent", { exact: true }).click();
-  await expect(page.getByText("PARENT DASHBOARD")).toBeVisible();
-  await expect(page.getByText("CHILD SHARE CODE")).toBeVisible();
+  // Galaxy tab (src/screens/GalaxyScreen.jsx) — full 200-word constellation.
+  await page.getByRole("button", { name: /Galaxy/ }).click();
+  await expect(page.getByText("Your Galaxy")).toBeVisible();
+
+  // Grown-ups tab (src/screens/GrownUpsScreen.jsx) — hold-3s + math gate,
+  // then the mastery map + session time-limit setting.
+  await page.getByRole("button", { name: /Grown-ups/ }).click();
+  await expect(page.getByText("Grown-Ups Only")).toBeVisible();
+
+  // Galaxy's map is ~34,000px tall; the scroll position carries over into
+  // this client-side screen swap, so bring the gate back into view first.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const star = page.getByRole("button", { name: "⭐" });
+  await star.scrollIntoViewIfNeeded();
+  const box = await star.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(3300); // HOLD_MS (3000ms) + margin
+  await page.mouse.up();
+
+  const question = await page.getByText(/Quick check: what's \d+ \+ \d+\?/).textContent();
+  const [a, b] = question.match(/\d+/g).map(Number);
+  await page.getByRole("button", { name: String(a + b), exact: true }).click();
+
+  await expect(page.getByText(/Mastery Map/)).toBeVisible();
+  await expect(page.getByText("Session Time Limit")).toBeVisible();
 });
