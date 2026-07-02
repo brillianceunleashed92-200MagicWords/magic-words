@@ -2,24 +2,27 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { colors, fonts, shadows, skyGradient } from '../../theme/tokens';
 import NovaPortrait from './NovaPortrait';
-import { useSpeak } from '../../lib/useSpeak';
+import { useWordSpeak } from '../../lib/useWordSpeak';
 
 // Shared full-screen storybook reader — one sentence per page, every word
 // tappable (speaks), target word glows, Nova reading-pose cover, ends with
 // an optional one-question comprehension check. Used by both the "Story
 // Time" MLC activity (a simple local fallback story, Step 2) and the real
 // AI Story Engine (Step 3) — same reading UI either way, only the story
-// content's source differs.
-export default function StoryReader({ story, onComplete }) {
+// content's source differs. `words` (optional — the full tracked-word
+// list with audio_url) lets tapped words play real ElevenLabs audio
+// instead of Web Speech synthesis; a story word with no match (e.g. the
+// child's own name) falls back to synthesis automatically.
+export default function StoryReader({ story, onComplete, words }) {
   const [page, setPage] = useState(-1); // -1 = cover
   const [answered, setAnswered] = useState(false);
-  const { speak } = useSpeak();
+  const { speakWord: speakTrackedWord } = useWordSpeak(words);
   const totalPages = story.sentences.length;
   const onLastPage = page === totalPages - 1;
   const hasQuestion = !!story.comprehensionQuestion;
 
   function speakWord(word) {
-    speak(word.replace(/[^a-zA-Z']/g, ''));
+    speakTrackedWord(word.replace(/[^a-zA-Z']/g, ''));
   }
 
   function renderSentence(sentence) {

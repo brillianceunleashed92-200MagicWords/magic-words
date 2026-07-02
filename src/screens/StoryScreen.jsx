@@ -83,6 +83,7 @@ export default function StoryScreen({ existingStory, onDone }) {
         sentences: story.body,
         targetWord: story.target_word,
       }}
+      words={words}
       onComplete={handleComplete}
     />
   );

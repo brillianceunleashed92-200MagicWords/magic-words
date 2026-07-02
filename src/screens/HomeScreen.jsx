@@ -9,7 +9,7 @@ import TrophyCard from '../components/candy/TrophyCard';
 import NovaPortrait from '../components/candy/NovaPortrait';
 import ChildSwitcher from '../components/candy/ChildSwitcher';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
-import { useSpeak } from '../lib/useSpeak';
+import { useWordSpeak } from '../lib/useWordSpeak';
 import { useStoriesQuery, isNewStoryDue } from '../lib/queries/stories';
 
 const MASTERED_THRESHOLD = 80;
@@ -26,7 +26,7 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
     user, children, activeChild, setActiveChildId, maxChildren,
     words, currentWord, masteredCount, sparks, streak, sleepyStars, isLoading,
   } = useCandyGalaxyData();
-  const { speak } = useSpeak();
+  const { speak, speakWord } = useWordSpeak(words);
   const sleepyWord = sleepyStars[0];
   const storiesQ = useStoriesQuery(activeChild?.id);
   const storyDue = !storiesQ.isLoading && isNewStoryDue(storiesQ.data);
@@ -183,7 +183,7 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
             <b style={{ color: colors.sky }}>{masteredCount}</b> / {words.length} ⭐
           </div>
         </div>
-        <GalaxyPath words={pathWords} onNodeTap={(w) => onOpenWord?.(w)} speak={speak} />
+        <GalaxyPath words={pathWords} onNodeTap={(w) => onOpenWord?.(w)} speak={speakWord} />
 
         {/* WORD BUBBLES */}
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', margin: '34px 0 14px', color: colors.cloud }}>🫧 Your Word Bubbles</div>
@@ -197,7 +197,7 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
               word={w.word}
               variant={w.type === 'content' ? 'sun' : 'mint'}
               delay={i * 0.05}
-              speak={speak}
+              speak={speakWord}
               onTap={() => onOpenWord?.(w)}
             />
           ))}

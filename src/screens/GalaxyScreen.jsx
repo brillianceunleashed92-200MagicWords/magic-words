@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { colors, fonts, skyGradient } from '../theme/tokens';
 import GalaxyPath from '../components/candy/GalaxyPath';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
-import { useSpeak } from '../lib/useSpeak';
+import { useWordSpeak } from '../lib/useWordSpeak';
 
 const MASTERED_THRESHOLD = 80;
 
@@ -11,7 +11,7 @@ const MASTERED_THRESHOLD = 80;
 // just fed every word instead of a ~7-node slice around the current one.
 export default function GalaxyScreen({ onOpenWord }) {
   const { words, currentWord, masteredCount, isLoading } = useCandyGalaxyData();
-  const { speak } = useSpeak();
+  const { speakWord } = useWordSpeak(words);
 
   const pathWords = useMemo(() => {
     return words.map((w) => {
@@ -44,7 +44,7 @@ export default function GalaxyScreen({ onOpenWord }) {
             <b style={{ color: colors.sky }}>{masteredCount}</b> / {words.length} ⭐
           </div>
         </div>
-        <GalaxyPath words={pathWords} onNodeTap={onOpenWord} speak={speak} />
+        <GalaxyPath words={pathWords} onNodeTap={onOpenWord} speak={speakWord} />
       </div>
     </div>
   );
