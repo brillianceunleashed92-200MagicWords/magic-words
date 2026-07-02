@@ -25,6 +25,7 @@ import '@fontsource/quicksand/600.css'
 import '@fontsource/quicksand/700.css'
 import './index.css'
 import App from './App.jsx'
+import CandyGalaxyShell from './CandyGalaxyShell.jsx'
 import Landing from './pages/landing/Landing.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -33,7 +34,10 @@ createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/app/*" element={<App />} />
+          <Route path="/app/*" element={<CandyGalaxyShell />} />
+          {/* Pre-Candy-Galaxy tree, kept reachable for rollback/comparison
+              during Phase 1 review — not linked from anywhere in the UI. */}
+          <Route path="/app-legacy/*" element={<App />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
