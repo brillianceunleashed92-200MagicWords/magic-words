@@ -19,8 +19,9 @@ function childFirstName(user) {
 }
 
 export default function HomeScreen({ onStartQuest, onOpenWord }) {
-  const { user, words, currentWord, masteredCount, sparks, streak, isLoading } = useCandyGalaxyData();
+  const { user, words, currentWord, masteredCount, sparks, streak, sleepyStars, isLoading } = useCandyGalaxyData();
   const { speak } = useSpeak();
+  const sleepyWord = sleepyStars[0];
 
   const pathWords = useMemo(() => {
     if (!currentWord) return [];
@@ -78,6 +79,26 @@ export default function HomeScreen({ onStartQuest, onOpenWord }) {
             ⌄ scroll — Nova flies with you ⌄
           </div>
         </div>
+
+        {/* STAR KEEPER — fixed-interval review prompt (200MW_Product_Blueprint.md 2.4) */}
+        {sleepyWord && (
+          <div
+            onClick={() => onStartQuest?.(sleepyWord)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'rgba(255,255,255,.14)', border: '2px dashed rgba(255,255,255,.35)',
+              borderRadius: 26, padding: '14px 18px', marginTop: 18, cursor: 'pointer',
+            }}
+          >
+            <NovaPortrait pose="wave" size={48} />
+            <div style={{ color: colors.cloud }}>
+              <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '.95rem' }}>
+                Your "{sleepyWord.word}" star is getting sleepy! 😴
+              </div>
+              <div style={{ fontSize: '.8rem', opacity: 0.85 }}>Tap to wake it up with a quick review</div>
+            </div>
+          </div>
+        )}
 
         {/* TODAY'S MAGIC WORD */}
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', margin: '34px 0 14px', color: colors.cloud, display: 'flex', gap: 8 }}>
