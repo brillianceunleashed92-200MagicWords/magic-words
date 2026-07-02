@@ -26,6 +26,7 @@ import DrawIt from './DrawIt';
 import WordSong from './WordSong';
 import MagicVideo from './MagicVideo';
 import StoryTimeActivity from './StoryTimeActivity';
+import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
 import { T } from './gameTheme';
 
@@ -1400,7 +1401,13 @@ const MLC_TYPES = {
   sound_match:   'Following Commands',
   word_hunt:     'Answering Questions',
   rhyme_time:    'Answering Questions',
-  flash_cards:   'Verbal Imitation',
+  // Phase 2 Step 7: rebound from flash_cards now that say_it does real
+  // speech capture (Web Speech SpeechRecognition) instead of a
+  // "hear, self-rate" scaffold — closes the gap flagged in
+  // docs/mlc-engine-audit.md. flash_cards is left unbound rather than
+  // double-counted against the same MLC category.
+  say_it:        'Verbal Imitation',
+  flash_cards:   null,
   story_builder: 'Sentence Completion',
   spell_it_out:  null,
 };
@@ -1413,6 +1420,7 @@ const GAME_TYPES = [
   { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
   { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.12), rgba(255,184,77,0.02))`,  available: true },
   { id: 'spell_it_out', label: 'Spell It Out', emoji: '🔤', desc: 'Tap the letters to spell it',   color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.12), rgba(255,139,148,0.02))`,available: false },
+  { id: 'say_it',       label: 'Say It with Nova', emoji: '🎤', desc: 'Say the word out loud',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
 ];
 
 const PREMIUM_FEATURES = [
@@ -1800,6 +1808,9 @@ export function GameEngine({
       )}
       {gameType === 'story_time' && (
         <StoryTimeActivity key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'say_it' && (
+        <SayItWithNova key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
     </div>
   );

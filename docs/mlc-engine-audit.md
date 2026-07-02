@@ -98,11 +98,20 @@ MLC_TYPES = {
   sound_match:   'Following Commands',
   word_hunt:     'Answering Questions',
   rhyme_time:    'Answering Questions',
-  flash_cards:   'Verbal Imitation',      // no speech capture — "hear, self-rate" scaffold, not verified imitation
+  say_it:        'Verbal Imitation',      // Phase 2 Step 7: real Web Speech capture — closes the gap noted below
+  flash_cards:   null,                    // rebound away from Verbal Imitation now that say_it exists
   story_builder: 'Sentence Completion',
   spell_it_out:  null,                    // doesn't cleanly fit, left unbound
 }
 ```
+
+**Updated 2026-07-02 (Phase 2 Step 7):** `flash_cards` was previously
+bound to Verbal Imitation as a "hear, self-rate" scaffold with no actual
+speech capture. `src/games/SayItWithNova.jsx` now does real capture via
+the Web Speech `SpeechRecognition` API (feature-detected, with an honest
+self-rate fallback for unsupported browsers or denied mic permission) —
+the binding moved to it, and `flash_cards` was left unbound rather than
+double-counted against the same category.
 
 This mapping is display-only (a small uppercase tag on `GameTypeSelector`
 tiles) — it does not change game *mechanics* per type, only labels them.

@@ -38,7 +38,7 @@ export function getRollingSuccessRate() {
 // activity types (Step 2) — the pools are a starting split, easy to
 // retune from one place as real usage data comes in.
 const EASIER_POOL = ['word_match', 'sound_match', 'word_hunt', 'draw_it', 'word_song', 'magic_video'];
-const HARDER_POOL = ['flash_cards', 'word_builder', 'story_builder', 'spell_it_out'];
+const HARDER_POOL = ['flash_cards', 'word_builder', 'story_builder', 'spell_it_out', 'say_it'];
 
 // Returns a suggested game id to highlight first in the activity picker,
 // or null if there isn't enough history yet to have an opinion.

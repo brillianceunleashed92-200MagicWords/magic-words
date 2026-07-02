@@ -34,6 +34,7 @@ const ACTIVITIES = [
   { id: 'story_time', label: 'Story Time', icon: '📚' },
   { id: 'word_song', label: 'Word Song', icon: '🎶' },
   { id: 'magic_video', label: 'Magic Video', icon: '🎬' },
+  { id: 'say_it', label: 'Say It with Nova', icon: '🎤' },
 ];
 
 export default function PlayScreen({ focusWord, onExit }) {
