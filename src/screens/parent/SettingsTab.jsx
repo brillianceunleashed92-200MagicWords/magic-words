@@ -1,6 +1,9 @@
 import { colors, fonts, shadows } from '../../theme/tokens';
 import { useAuth } from '../../hooks/useAuth';
 import { useParentSettingsQuery, useUpdateParentSettingsMutation } from '../../lib/queries/parentSettings';
+import { useSubscriptionQuery } from '../../lib/queries/subscription';
+import { useCreatePortalSession } from '../../lib/queries/checkout';
+import UpgradeBanner from './UpgradeBanner';
 
 const TIME_LIMIT_OPTIONS = [null, 10, 15, 20, 30];
 
@@ -11,11 +14,45 @@ export default function SettingsTab() {
   const { user } = useAuth();
   const settingsQ = useParentSettingsQuery(user?.id);
   const updateSettings = useUpdateParentSettingsMutation(user?.id);
+  const subscriptionQ = useSubscriptionQuery(user?.id);
+  const portalSession = useCreatePortalSession();
   const dailyLimit = settingsQ.data?.daily_minutes_limit ?? null;
   const weekendPause = settingsQ.data?.weekend_streak_pause ?? false;
+  const plan = subscriptionQ.data?.plan ?? 'free';
 
   return (
     <div>
+      <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
+        Plan
+      </div>
+      {plan === 'family' ? (
+        <div style={{ background: colors.cloud, borderRadius: 20, padding: 16, marginBottom: 24, boxShadow: shadows.chunkSm }}>
+          <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.ink, marginBottom: 4 }}>
+            ✨ Family plan — {subscriptionQ.data?.status === 'active' ? 'active' : subscriptionQ.data?.status}
+          </div>
+          {subscriptionQ.data?.current_period_end && (
+            <div style={{ color: colors.mutedInk, fontSize: '.85rem', marginBottom: 12 }}>
+              Renews {new Date(subscriptionQ.data.current_period_end).toLocaleDateString()}
+            </div>
+          )}
+          <button
+            onClick={() => user && portalSession.mutate({ userId: user.id })}
+            disabled={portalSession.isPending}
+            style={{
+              background: 'rgba(0,0,0,.06)', border: 'none', borderRadius: 100, padding: '8px 16px',
+              fontFamily: fonts.display, fontWeight: 700, fontSize: '.85rem', color: colors.ink, cursor: 'pointer',
+            }}
+          >
+            Manage subscription
+          </button>
+          {portalSession.isError && (
+            <div style={{ marginTop: 8, fontSize: '.8rem', color: colors.tang }}>{portalSession.error.message}</div>
+          )}
+        </div>
+      ) : (
+        <UpgradeBanner variant="subtle" />
+      )}
+
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
         Daily Time Limit
       </div>

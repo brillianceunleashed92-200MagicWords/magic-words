@@ -37,8 +37,8 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
     const start = Math.max(0, idx - 1);
     return words.slice(start, start + PATH_PREVIEW_SIZE).map((w) => ({
       ...w,
-      status: w.mastery >= MASTERED_THRESHOLD ? 'done' : w.word === currentWord.word ? 'current' : 'locked',
-      progressLabel: w.mastery >= MASTERED_THRESHOLD ? '★ 100%' : w.word === currentWord.word ? `▶ ${w.mastery}%` : '🔒',
+      status: w.premiumLocked ? 'premium' : w.mastery >= MASTERED_THRESHOLD ? 'done' : w.word === currentWord.word ? 'current' : 'locked',
+      progressLabel: w.premiumLocked ? '✨' : w.mastery >= MASTERED_THRESHOLD ? '★ 100%' : w.word === currentWord.word ? `▶ ${w.mastery}%` : '🔒',
     }));
   }, [words, currentWord]);
 

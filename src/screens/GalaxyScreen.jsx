@@ -19,8 +19,8 @@ export default function GalaxyScreen({ onOpenWord }) {
       const isCurrent = !done && currentWord && w.word === currentWord.word;
       return {
         ...w,
-        status: done ? 'done' : isCurrent ? 'current' : 'locked',
-        progressLabel: done ? '★ 100%' : isCurrent ? `▶ ${w.mastery}%` : '🔒',
+        status: w.premiumLocked ? 'premium' : done ? 'done' : isCurrent ? 'current' : 'locked',
+        progressLabel: w.premiumLocked ? '✨' : done ? '★ 100%' : isCurrent ? `▶ ${w.mastery}%` : '🔒',
       };
     });
   }, [words, currentWord]);

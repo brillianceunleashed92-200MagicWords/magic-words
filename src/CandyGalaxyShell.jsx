@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AuthGuard, GalaxyLoader } from './components/AuthGuard';
 import LoginScreen from './screens/LoginScreen';
@@ -8,6 +9,7 @@ import GalaxyScreen from './screens/GalaxyScreen';
 import GrownUpsScreen from './screens/GrownUpsScreen';
 import ChildOnboardingScreen from './screens/ChildOnboardingScreen';
 import StoryScreen from './screens/StoryScreen';
+import UpgradeResultScreen from './screens/UpgradeResultScreen';
 import BottomNav from './components/candy/BottomNav';
 import CelebrationRenderer from './components/candy/CelebrationRenderer';
 import { useUIStore } from './stores/useUIStore';
@@ -53,8 +55,20 @@ export default function CandyGalaxyShell() {
 // null id across renders in a way that would trip the rules-of-hooks
 // linter for a component this size.
 function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   if (childrenQ.isLoading) {
     return <GalaxyLoader message="Loading your galaxy…" />;
+  }
+
+  // Stripe Checkout success_url/cancel_url (Phase 2 Step 6) land on
+  // /app/upgrade/success or /app/upgrade/cancel — checked before the
+  // normal onboarding/nav-tab branches so it takes over regardless of
+  // whatever navTab was persisted from before checkout started.
+  if (location.pathname === '/app/upgrade/success' || location.pathname === '/app/upgrade/cancel') {
+    const outcome = location.pathname.endsWith('success') ? 'success' : 'cancel';
+    return <UpgradeResultScreen outcome={outcome} onDone={() => navigate('/app')} />;
   }
 
   // First-run (brand-new account) or "+ Add child" from the switcher —

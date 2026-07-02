@@ -6,7 +6,7 @@ import { useSparksQuery } from './queries/sparks';
 import { useStreakQuery } from './queries/streaks';
 import { useUserStatsQuery } from './queries/userStats';
 import { useChildProfilesQuery } from './queries/childProfiles';
-import { useSubscriptionQuery, maxChildrenForPlan } from './queries/subscription';
+import { useSubscriptionQuery, maxChildrenForPlan, isUnitLocked } from './queries/subscription';
 import { getLevelInfo } from './levels';
 import { isStarSleepy } from './starKeeper';
 import { useUIStore } from '../stores/useUIStore';
@@ -42,6 +42,7 @@ export function useCandyGalaxyData() {
   const sparksQ = useSparksQuery(childId);
   const streakQ = useStreakQuery(childId);
   const statsQ = useUserStatsQuery(childId);
+  const plan = subscriptionQ.data?.plan ?? 'free';
 
   const words = useMemo(() => {
     const progressByWord = new Map((progressQ.data ?? []).map((p) => [p.word, p]));
@@ -53,9 +54,10 @@ export function useCandyGalaxyData() {
         attemptCount: p?.attempt_count ?? 0,
         nextReviewAt: p?.next_review_at ?? null,
         sleepy: p ? isStarSleepy(p.next_review_at) : false,
+        premiumLocked: isUnitLocked(w.unit, plan),
       };
     });
-  }, [wordsQ.data, progressQ.data]);
+  }, [wordsQ.data, progressQ.data, plan]);
 
   const unitsById = useMemo(() => {
     const map = new Map();
@@ -66,10 +68,14 @@ export function useCandyGalaxyData() {
     return map;
   }, [words]);
 
-  // "Current" word: first not-yet-mastered word in sort order, or the last
-  // word if everything is mastered (nothing left to learn today).
+  // "Current" word: first not-yet-mastered, not-premium-locked word in
+  // sort order. Free-tier children never land on a Unit 6+ word as their
+  // "next" quest — once everything unlocked is mastered, this falls back
+  // to the last unlocked word (Home shows a "come back for more" state
+  // rather than silently handing them a locked word to attempt).
   const currentWord = useMemo(() => {
-    return words.find((w) => w.mastery < MASTERED_THRESHOLD) ?? words[words.length - 1] ?? null;
+    const playable = words.filter((w) => !w.premiumLocked);
+    return playable.find((w) => w.mastery < MASTERED_THRESHOLD) ?? playable[playable.length - 1] ?? null;
   }, [words]);
 
   const sleepyStars = useMemo(
@@ -91,7 +97,6 @@ export function useCandyGalaxyData() {
   }, [unitsById]);
 
   const levelInfo = getLevelInfo(statsQ.data?.total_xp ?? 0);
-  const plan = subscriptionQ.data?.plan ?? 'free';
 
   return {
     user,

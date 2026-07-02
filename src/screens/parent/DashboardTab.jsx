@@ -2,12 +2,15 @@ import { colors, fonts, shadows } from '../../theme/tokens';
 import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
 import { useWeeklyStatsQuery } from '../../lib/queries/weeklyStats';
 import { useParentDigest } from '../../lib/queries/parentDigest';
+import UpgradeBanner from './UpgradeBanner';
+
+const UPGRADE_PROMPT_THRESHOLD = 20;
 
 // Dashboard (blueprint 4.1) — "the parent visit is 30 seconds, weekly."
 // This Week hero (3 huge numbers) + AI Insight paragraph + Dinner Table
 // Cards, print-friendly.
 export default function DashboardTab() {
-  const { activeChild, words, streak } = useCandyGalaxyData();
+  const { activeChild, words, streak, masteredCount, plan } = useCandyGalaxyData();
   const { minutesThisWeek, wordsThisWeek, weakWords } = useWeeklyStatsQuery(activeChild?.id, words);
 
   const summary = activeChild ? {
@@ -34,6 +37,10 @@ export default function DashboardTab() {
           </div>
         ))}
       </div>
+
+      {plan !== 'family' && masteredCount >= UPGRADE_PROMPT_THRESHOLD && (
+        <UpgradeBanner variant="prominent" />
+      )}
 
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
         AI Insight

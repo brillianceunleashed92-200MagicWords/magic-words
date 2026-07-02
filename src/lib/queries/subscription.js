@@ -23,3 +23,11 @@ export function useSubscriptionQuery(userId) {
 export function maxChildrenForPlan(plan) {
   return plan === 'family' ? FAMILY_TIER_MAX_CHILDREN : FREE_TIER_MAX_CHILDREN;
 }
+
+// Phase 2 Step 6 — free tier plays Units 1-5, Family unlocks 6-18. Word
+// `unit` values are 1-indexed (see supabase words seed).
+export const FREE_TIER_MAX_UNIT = 5;
+
+export function isUnitLocked(unit, plan) {
+  return plan !== 'family' && unit > FREE_TIER_MAX_UNIT;
+}
