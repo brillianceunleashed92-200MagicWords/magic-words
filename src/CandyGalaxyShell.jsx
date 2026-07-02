@@ -7,6 +7,7 @@ import PlayScreen from './screens/PlayScreen';
 import GalaxyScreen from './screens/GalaxyScreen';
 import GrownUpsScreen from './screens/GrownUpsScreen';
 import ChildOnboardingScreen from './screens/ChildOnboardingScreen';
+import StoryScreen from './screens/StoryScreen';
 import BottomNav from './components/candy/BottomNav';
 import CelebrationRenderer from './components/candy/CelebrationRenderer';
 import { useUIStore } from './stores/useUIStore';
@@ -25,6 +26,7 @@ export default function CandyGalaxyShell() {
   const { speak } = useSpeak();
   const [questWord, setQuestWord] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
+  const [showStory, setShowStory] = useState(false);
 
   const childrenQ = useChildProfilesQuery(user?.id);
 
@@ -39,6 +41,8 @@ export default function CandyGalaxyShell() {
         setQuestWord={setQuestWord}
         showAddChild={showAddChild}
         setShowAddChild={setShowAddChild}
+        showStory={showStory}
+        setShowStory={setShowStory}
       />
     </AuthGuard>
   );
@@ -48,7 +52,7 @@ export default function CandyGalaxyShell() {
 // exists — avoids conditionally calling useChildProfilesQuery with a
 // null id across renders in a way that would trip the rules-of-hooks
 // linter for a component this size.
-function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild }) {
+function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
   if (childrenQ.isLoading) {
     return <GalaxyLoader message="Loading your galaxy…" />;
   }
@@ -63,6 +67,10 @@ function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQ
     );
   }
 
+  if (showStory) {
+    return <StoryScreen onDone={() => setShowStory(false)} />;
+  }
+
   return (
     <>
       {navTab === 'home' && (
@@ -70,6 +78,7 @@ function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQ
           onStartQuest={(word) => { setQuestWord(word); setNavTab('play'); }}
           onOpenWord={(word) => { setQuestWord(word); setNavTab('play'); }}
           onAddChild={() => setShowAddChild(true)}
+          onOpenStory={() => setShowStory(true)}
         />
       )}
       {navTab === 'play' && (

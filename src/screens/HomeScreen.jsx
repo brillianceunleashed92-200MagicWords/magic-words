@@ -10,6 +10,7 @@ import NovaPortrait from '../components/candy/NovaPortrait';
 import ChildSwitcher from '../components/candy/ChildSwitcher';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useSpeak } from '../lib/useSpeak';
+import { useStoriesQuery, isNewStoryDue } from '../lib/queries/stories';
 
 const MASTERED_THRESHOLD = 80;
 const PATH_PREVIEW_SIZE = 7; // matches mockup D's "current unit + next" node count
@@ -20,13 +21,15 @@ function childDisplayName(activeChild, user) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild }) {
+export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpenStory }) {
   const {
     user, children, activeChild, setActiveChildId, maxChildren,
     words, currentWord, masteredCount, sparks, streak, sleepyStars, isLoading,
   } = useCandyGalaxyData();
   const { speak } = useSpeak();
   const sleepyWord = sleepyStars[0];
+  const storiesQ = useStoriesQuery(activeChild?.id);
+  const storyDue = !storiesQ.isLoading && isNewStoryDue(storiesQ.data);
 
   const pathWords = useMemo(() => {
     if (!currentWord) return [];
@@ -113,6 +116,29 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild }) {
                 Your "{sleepyWord.word}" star is getting sleepy! 😴
               </div>
               <div style={{ fontSize: '.8rem', opacity: 0.85 }}>Tap to wake it up with a quick review</div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW STORY FRIDAY — the Story Engine's on-demand entry point
+            (200MW_Product_Blueprint.md 3.1). Surfaced once the newest
+            story is missing or >6 days old; generated on tap, no cron. */}
+        {storyDue && (
+          <div
+            onClick={onOpenStory}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: `linear-gradient(135deg, ${colors.bubble}33, ${colors.sky}33)`,
+              border: `2px solid ${colors.bubble}`, borderRadius: 26, padding: '14px 18px',
+              marginTop: 14, cursor: 'pointer',
+            }}
+          >
+            <NovaPortrait pose="read" size={48} />
+            <div style={{ color: colors.cloud }}>
+              <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '.95rem' }}>
+                New Story Friday! 📖✨
+              </div>
+              <div style={{ fontSize: '.8rem', opacity: 0.85 }}>Nova wrote you a brand-new story</div>
             </div>
           </div>
         )}
