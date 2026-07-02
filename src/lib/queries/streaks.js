@@ -1,15 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../supabaseClient';
 
-export function useStreakQuery(userId) {
+export function useStreakQuery(childId) {
   return useQuery({
-    queryKey: ['streak', userId],
-    enabled: !!userId,
+    queryKey: ['streak', childId],
+    enabled: !!childId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_streaks')
         .select('current_streak, longest_streak, streak_freeze_count, last_activity_date')
-        .eq('user_id', userId)
+        .eq('child_id', childId)
         .maybeSingle();
       if (error) throw error;
       return data ?? { current_streak: 0, longest_streak: 0, streak_freeze_count: 0, last_activity_date: null };
@@ -18,9 +18,9 @@ export function useStreakQuery(userId) {
 }
 
 // Same day-diff/freeze logic as the legacy updateStreak (src/App.jsx ~554),
-// kept verbatim per docs/mlc-engine-audit.md — extended only by living in
-// its own hook instead of inline in the monolith.
-export function useUpdateStreakMutation(userId) {
+// kept verbatim per docs/mlc-engine-audit.md — now scoped per child_id
+// instead of user_id (a family's children keep independent streaks).
+export function useUpdateStreakMutation(userId, childId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
@@ -30,7 +30,7 @@ export function useUpdateStreakMutation(userId) {
       const { data: existing, error: readErr } = await supabase
         .from('user_streaks')
         .select('*')
-        .eq('user_id', userId)
+        .eq('child_id', childId)
         .maybeSingle();
       if (readErr) throw readErr;
 
@@ -53,19 +53,20 @@ export function useUpdateStreakMutation(userId) {
         .from('user_streaks')
         .upsert({
           user_id: userId,
+          child_id: childId,
           current_streak: newStreak,
           longest_streak: newLongest,
           last_activity_date: todayStr,
           streak_freeze_count: newFreezes,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
+        }, { onConflict: 'child_id' })
         .select()
         .single();
       if (writeErr) throw writeErr;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['streak', userId], data);
+      queryClient.setQueryData(['streak', childId], data);
     },
   });
 }

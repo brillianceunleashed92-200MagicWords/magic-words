@@ -1,26 +1,47 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useWordsQuery } from './queries/words';
 import { useWordProgressQuery } from './queries/wordProgress';
 import { useSparksQuery } from './queries/sparks';
 import { useStreakQuery } from './queries/streaks';
 import { useUserStatsQuery } from './queries/userStats';
+import { useChildProfilesQuery } from './queries/childProfiles';
+import { useSubscriptionQuery, maxChildrenForPlan } from './queries/subscription';
 import { getLevelInfo } from './levels';
 import { isStarSleepy } from './starKeeper';
+import { useUIStore } from '../stores/useUIStore';
 
 const MASTERED_THRESHOLD = 80;
 
 // Combines every server-state query into the shape Candy Galaxy's screens
-// need: words merged with the signed-in user's per-word progress, plus
-// derived unit/trophy/star-keeper summaries. One hook so Home/Play/Galaxy
-// don't each re-derive this independently.
+// need: the active child (Phase 2 multi-child — see
+// src/lib/queries/childProfiles.js), words merged with that child's
+// per-word progress, plus derived unit/trophy/star-keeper summaries. One
+// hook so Home/Play/Galaxy don't each re-derive this independently.
 export function useCandyGalaxyData() {
   const { user } = useAuth();
+  const childrenQ = useChildProfilesQuery(user?.id);
+  const subscriptionQ = useSubscriptionQuery(user?.id);
+  const activeChildId = useUIStore((s) => s.activeChildId);
+  const setActiveChildId = useUIStore((s) => s.setActiveChildId);
+
+  const children = childrenQ.data ?? [];
+  // Fall back to the first child if nothing's selected yet, or the
+  // persisted selection doesn't match any of this parent's children
+  // (e.g. switched accounts, or that child was never actually created).
+  const activeChild = children.find((c) => c.id === activeChildId) ?? children[0] ?? null;
+
+  useEffect(() => {
+    if (activeChild && activeChild.id !== activeChildId) setActiveChildId(activeChild.id);
+  }, [activeChild, activeChildId, setActiveChildId]);
+
+  const childId = activeChild?.id ?? null;
+
   const wordsQ = useWordsQuery();
-  const progressQ = useWordProgressQuery(user?.id);
-  const sparksQ = useSparksQuery(user?.id);
-  const streakQ = useStreakQuery(user?.id);
-  const statsQ = useUserStatsQuery(user?.id);
+  const progressQ = useWordProgressQuery(childId);
+  const sparksQ = useSparksQuery(childId);
+  const streakQ = useStreakQuery(childId);
+  const statsQ = useUserStatsQuery(childId);
 
   const words = useMemo(() => {
     const progressByWord = new Map((progressQ.data ?? []).map((p) => [p.word, p]));
@@ -70,10 +91,17 @@ export function useCandyGalaxyData() {
   }, [unitsById]);
 
   const levelInfo = getLevelInfo(statsQ.data?.total_xp ?? 0);
+  const plan = subscriptionQ.data?.plan ?? 'free';
 
   return {
     user,
-    isLoading: wordsQ.isLoading || progressQ.isLoading,
+    children,
+    activeChild,
+    childId,
+    setActiveChildId,
+    maxChildren: maxChildrenForPlan(plan),
+    plan,
+    isLoading: childrenQ.isLoading || wordsQ.isLoading || progressQ.isLoading,
     words,
     unitsById,
     currentWord,

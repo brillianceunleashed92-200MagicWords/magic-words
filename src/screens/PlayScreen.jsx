@@ -29,7 +29,7 @@ const ACTIVITIES = [
 
 export default function PlayScreen({ focusWord, onExit }) {
   const { user } = useAuth();
-  const { words, currentWord, unitsById } = useCandyGalaxyData();
+  const { words, currentWord, unitsById, childId, activeChild } = useCandyGalaxyData();
   const [gameType, setGameType] = useState(null);
   const [sessionResult, setSessionResult] = useState(null);
   const { speak } = useSpeak();
@@ -48,10 +48,10 @@ export default function PlayScreen({ focusWord, onExit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusWord?.word]);
 
-  const saveWordProgress = useSaveWordProgressMutation(user?.id);
-  const saveXP = useSaveXPMutation(user?.id);
-  const earnSparks = useEarnSparksMutation(user?.id);
-  const updateStreak = useUpdateStreakMutation(user?.id);
+  const saveWordProgress = useSaveWordProgressMutation(user?.id, childId);
+  const saveXP = useSaveXPMutation(user?.id, childId);
+  const earnSparks = useEarnSparksMutation(childId);
+  const updateStreak = useUpdateStreakMutation(user?.id, childId);
 
   const suggestedActivity = suggestActivity(getRollingSuccessRate());
 
@@ -149,7 +149,7 @@ export default function PlayScreen({ focusWord, onExit }) {
         correctCount={sessionResult.wordsCorrect}
         total={sessionResult.totalWords}
         encouragement={sessionPlan?.encouragements?.[0]}
-        childName={user?.user_metadata?.name ?? 'Star Learner'}
+        childName={activeChild?.name ?? 'Star Learner'}
         wordsPlayed={sessionResult.wordsPlayed}
         onPlayAgain={() => { setSessionResult(null); setGameType(null); }}
         onHome={onExit}
@@ -161,7 +161,7 @@ export default function PlayScreen({ focusWord, onExit }) {
     <GameEngine
       sessionPlan={sessionPlan}
       gameType={gameType}
-      childName={user?.user_metadata?.name ?? 'Star Learner'}
+      childName={activeChild?.name ?? 'Star Learner'}
       onProgress={handleProgress}
       onSessionEnd={handleSessionEnd}
       onHome={onExit}

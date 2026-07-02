@@ -15,6 +15,14 @@ export const useUIStore = create(
       navTab: 'home',
       setNavTab: (navTab) => set({ navTab }),
 
+      // The child profile currently active in the app (Phase 2 multi-child
+      // — see src/lib/queries/childProfiles.js). Persisted so a parent
+      // doesn't have to re-pick a child every refresh; HomeScreen falls
+      // back to the first child if this id doesn't match any of theirs
+      // (e.g. after switching accounts).
+      activeChildId: null,
+      setActiveChildId: (activeChildId) => set({ activeChildId }),
+
       // Grown-Ups gate — resets to locked on every app load/refresh, not persisted.
       grownUpsUnlocked: false,
       unlockGrownUps: () => set({ grownUpsUnlocked: true }),
@@ -33,7 +41,10 @@ export const useUIStore = create(
     }),
     {
       name: 'candy-galaxy-ui',
-      partialize: (state) => ({ sessionTimeLimitMinutes: state.sessionTimeLimitMinutes }),
+      partialize: (state) => ({
+        sessionTimeLimitMinutes: state.sessionTimeLimitMinutes,
+        activeChildId: state.activeChildId,
+      }),
     }
   )
 );

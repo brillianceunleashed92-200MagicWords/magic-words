@@ -7,19 +7,24 @@ import GalaxyPath from '../components/candy/GalaxyPath';
 import WordBubble from '../components/candy/WordBubble';
 import TrophyCard from '../components/candy/TrophyCard';
 import NovaPortrait from '../components/candy/NovaPortrait';
+import ChildSwitcher from '../components/candy/ChildSwitcher';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useSpeak } from '../lib/useSpeak';
 
 const MASTERED_THRESHOLD = 80;
 const PATH_PREVIEW_SIZE = 7; // matches mockup D's "current unit + next" node count
 
-function childFirstName(user) {
+function childDisplayName(activeChild, user) {
+  if (activeChild?.name) return activeChild.name;
   const raw = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Star Learner';
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-export default function HomeScreen({ onStartQuest, onOpenWord }) {
-  const { user, words, currentWord, masteredCount, sparks, streak, sleepyStars, isLoading } = useCandyGalaxyData();
+export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild }) {
+  const {
+    user, children, activeChild, setActiveChildId, maxChildren,
+    words, currentWord, masteredCount, sparks, streak, sleepyStars, isLoading,
+  } = useCandyGalaxyData();
   const { speak } = useSpeak();
   const sleepyWord = sleepyStars[0];
 
@@ -51,13 +56,25 @@ export default function HomeScreen({ onStartQuest, onOpenWord }) {
     <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, fontFamily: fonts.body, paddingBottom: 140 }}>
       <div style={{ position: 'relative', maxWidth: 500, margin: '0 auto', padding: '0 20px' }}>
 
+        {/* CHILD SWITCHER */}
+        <div style={{ paddingTop: 20 }}>
+          <ChildSwitcher
+            children={children}
+            activeChildId={activeChild?.id}
+            onSelect={setActiveChildId}
+            onAddChild={onAddChild}
+            canAddChild={children.length < maxChildren}
+            speak={speak}
+          />
+        </div>
+
         {/* HERO */}
-        <div style={{ padding: '52px 0 8px' }}>
+        <div style={{ padding: '20px 0 8px' }}>
           <CloudCard tilt={-1}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.9rem', lineHeight: 1.12 }}>
-                  Hey <span style={{ color: colors.sky }}>{childFirstName(user)}!</span>
+                  Hey <span style={{ color: colors.sky }}>{childDisplayName(activeChild, user)}!</span>
                   <span style={{ display: 'block', fontSize: '2.1rem', color: colors.tang }}>Ready to fly? 🚀</span>
                 </div>
                 <div style={{ fontWeight: 600, color: colors.mutedInk, marginTop: 6, fontSize: '.92rem' }}>

@@ -2,15 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../supabaseClient';
 import { computeNextReviewAt } from '../starKeeper';
 
-export function useWordProgressQuery(userId) {
+// Keyed by child_id (see migration 0011 — child_id is now the actual
+// uniqueness grain, not user_id, so two children under the same parent
+// account get independent mastery).
+export function useWordProgressQuery(childId) {
   return useQuery({
-    queryKey: ['wordProgress', userId],
-    enabled: !!userId,
+    queryKey: ['wordProgress', childId],
+    enabled: !!childId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('word_progress')
         .select('word, mastery, correct_count, attempt_count, last_seen, next_review_at, review_interval_days')
-        .eq('user_id', userId);
+        .eq('child_id', childId);
       if (error) throw error;
       return data ?? [];
     },
@@ -19,15 +22,17 @@ export function useWordProgressQuery(userId) {
 
 // Same cumulative-mastery calculation as the legacy saveWordProgress
 // (src/App.jsx, kept verbatim per docs/mlc-engine-audit.md section 4),
-// plus Star Keeper's next_review_at/review_interval_days bump.
-export function useSaveWordProgressMutation(userId) {
+// plus Star Keeper's next_review_at/review_interval_days bump. Needs both
+// userId (RLS ownership / the parent account) and childId (the actual row
+// key) since a row now belongs to one child, owned by one parent.
+export function useSaveWordProgressMutation(userId, childId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ word, correct }) => {
       const { data: existing } = await supabase
         .from('word_progress')
         .select('correct_count, attempt_count, review_interval_days')
-        .eq('user_id', userId)
+        .eq('child_id', childId)
         .eq('word', word)
         .maybeSingle();
 
@@ -40,6 +45,7 @@ export function useSaveWordProgressMutation(userId) {
         .from('word_progress')
         .upsert({
           user_id: userId,
+          child_id: childId,
           word,
           correct_count: correctCount,
           attempt_count: attemptCount,
@@ -48,14 +54,14 @@ export function useSaveWordProgressMutation(userId) {
           mastery: masteryScore,
           next_review_at: nextReviewAt.toISOString(),
           review_interval_days: intervalDays,
-        }, { onConflict: 'user_id,word' })
+        }, { onConflict: 'child_id,word' })
         .select()
         .single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wordProgress', userId] });
+      queryClient.invalidateQueries({ queryKey: ['wordProgress', childId] });
     },
   });
 }

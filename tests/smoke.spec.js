@@ -102,8 +102,18 @@ test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   await page.getByPlaceholder("••••••••").fill("TestPass!23456");
   await page.locator('button[type="submit"]').click();
 
+  // Phase 2: a brand-new confirmed account has zero child_profiles, so it
+  // lands on ChildOnboardingScreen first (src/screens/
+  // ChildOnboardingScreen.jsx) instead of Home directly.
+  await expect(page.getByText("Let's meet your Star Learner!")).toBeVisible({ timeout: 20000 });
+  await page.getByPlaceholder("e.g. Emma").fill("Emma");
+  await page.getByText("🚀", { exact: true }).click(); // first avatar tile
+  await page.getByText("Dinosaurs").click();
+  await page.getByRole("button", { name: /Let's go/ }).click();
+
   // Home screen (src/screens/HomeScreen.jsx) — hero card + Today's Magic Word.
   await expect(page.getByText("Ready to fly?")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Hey Emma!")).toBeVisible();
   await expect(page.getByText("Today's Magic Word")).toBeVisible();
 
   // Galaxy tab (src/screens/GalaxyScreen.jsx) — full 200-word constellation.
