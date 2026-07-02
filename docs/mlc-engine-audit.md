@@ -38,15 +38,20 @@ of this audit.
   templates appear per level — the 24 brackets are a display/progress-motif
   layer over the same XP total. Phase 1 of Candy Galaxy should preserve this
   same limitation (don't silently promise more than the engine does).
-- **Confirmed live migration blocker** (see CLAUDE.md "Phase 5b progress"
-  item 1 and `4f0a7c3`): a real production account
-  (`brillianceunleashed92@gmail.com`) has `total_xp = 185` written under the
-  old 8-tier table, which recalculates to a different level under the new
-  24-tier table. **This is still unresolved** as of this audit — no migration
-  SQL exists yet for `user_stats` rows with `total_xp > 0`. Carrying the same
-  `LEVELS`/`getLevelInfo` logic into v2 does not fix or worsen this; it's an
-  existing data problem independent of the UI rebuild. Flagging again here so
-  it isn't lost a second time.
+- **Migration blocker — resolved on `v2-candy-galaxy`** (see CLAUDE.md
+  "Phase 5b progress" item 1 and `4f0a7c3`): a real production account
+  (`brillianceunleashed92@gmail.com`) had `total_xp = 185` and
+  `current_level = 2` written under the old 8-tier table, which recalculates
+  to level 3 under the new 24-tier table. Fixed by
+  `supabase/migrations/0004_recalc_user_stats_current_level.sql` — an
+  idempotent `UPDATE` that recomputes `current_level` for every
+  `user_stats` row from `total_xp` using the same 24-tier thresholds as
+  `getLevelInfo()`. Applied live and verified: this account's
+  `current_level` is now `3`. Low blast radius — the app already always
+  recomputes level fresh from `total_xp` for display
+  (`useCandyGalaxyData.js`/`App.jsx` both call `getLevelInfo(total_xp)`
+  rather than reading the stored column), so this only made the stored
+  value consistent with what users already see, not a visible change.
 
 ## 3. XP calculation & persistence (`src/games/GameEngine.jsx` ~1660–1745, `src/App.jsx` ~598–641)
 
