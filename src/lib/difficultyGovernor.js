@@ -32,11 +32,19 @@ export function getRollingSuccessRate() {
   }
 }
 
+// Below 75%: gentler, self-paced or recognition-only activities (no
+// production/spelling demand). Above 85%: activities with a production or
+// mastery-gate demand, to advance faster. Extended to span all 10
+// activity types (Step 2) — the pools are a starting split, easy to
+// retune from one place as real usage data comes in.
+const EASIER_POOL = ['word_match', 'sound_match', 'word_hunt', 'draw_it', 'word_song', 'magic_video'];
+const HARDER_POOL = ['flash_cards', 'word_builder', 'story_builder', 'spell_it_out'];
+
 // Returns a suggested game id to highlight first in the activity picker,
 // or null if there isn't enough history yet to have an opinion.
 export function suggestActivity(rollingRate) {
   if (rollingRate == null) return null;
-  if (rollingRate < 0.75) return 'word_match'; // Tap & Hear — least demanding
-  if (rollingRate > 0.85) return 'flash_cards'; // Quiz Boss — advance early
+  if (rollingRate < 0.75) return EASIER_POOL[0]; // Tap & Hear — least demanding
+  if (rollingRate > 0.85) return HARDER_POOL[0]; // Quiz Boss — advance early
   return null; // in the flow channel — no override, let the child choose
 }

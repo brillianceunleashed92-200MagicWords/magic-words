@@ -19,55 +19,15 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { colors as dawnTokens } from '../design-system/tokens';
 import { wordIcons } from '../design-system/wordIcons';
 import NovaMascot from '../design-system/primitives/NovaMascot';
-
-// ─── Audio cache — text → blob URL, survives React re-renders ────────────────
-const audioCache    = new Map(); // text → blob URL string
-const audioFetching = new Map(); // text → Promise (in-flight dedup)
-
-// Module-level current audio — ensures only one clip plays at a time
-// and audio stops cleanly when the game unmounts.
-let currentAudio = null;
-
-function playAudio(url) {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
-  }
-  if (!url) return null;
-  const audio = new Audio(url);
-  currentAudio = audio;
-  audio.play().catch(() => {});
-  audio.onended = () => { if (currentAudio === audio) currentAudio = null; };
-  return audio;
-}
-
-function fetchAudio(text) {
-  if (!text) return Promise.resolve(null);
-  if (audioCache.has(text)) return Promise.resolve(audioCache.get(text));
-  if (audioFetching.has(text)) return audioFetching.get(text);
-
-  const promise = fetch('/api/speak', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
-    .then(res => (res.ok ? res.blob() : null))
-    .then(blob => {
-      if (!blob) return null;
-      const url = URL.createObjectURL(blob);
-      audioCache.set(text, url);
-      return url;
-    })
-    .catch(() => null)
-    .finally(() => audioFetching.delete(text));
-
-  audioFetching.set(text, promise);
-  return promise;
-}
+import WordBuilder from './WordBuilder';
+import DrawIt from './DrawIt';
+import WordSong from './WordSong';
+import MagicVideo from './MagicVideo';
+import StoryTimeActivity from './StoryTimeActivity';
+import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
+import { T } from './gameTheme';
 
 // ─── Question formatter — correct grammar for every word class ────────────────
 // Client-side fallback for any plan that predates wordClass being added to quizzes
@@ -140,25 +100,6 @@ const RHYME_DECOYS = [
 ];
 
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
-// Dense, low-motion lesson-player palette — Cloud surface per CLAUDE.md's
-// dashboard/lesson-player token assignment. Comet Teal owns "correct";
-// Sunrise Coral is the energetic/attention accent (streaks, "wrong" feedback,
-// CTAs) — not a fixed "correct = coral" rule, see CLAUDE.md token table.
-const T = {
-  bg:      dawnTokens.cloud,
-  teal:    dawnTokens.cometTeal,
-  gold:    dawnTokens.marigold,
-  coral:   dawnTokens.sunriseCoral,
-  pink:    '#FF8B94',
-  purple:  '#7B68EE',
-  white:   dawnTokens.dawnIndigo,
-  muted:   `${dawnTokens.dawnIndigo}99`,
-  card:    `${dawnTokens.dawnIndigo}0a`,
-  cardHov: `${dawnTokens.dawnIndigo}1a`,
-  border:  `${dawnTokens.dawnIndigo}1f`,
-  correct: dawnTokens.cometTeal,
-  wrong:   dawnTokens.sunriseCoral,
-};
 
 // ─── Shared CSS injected once ─────────────────────────────────────────────────
 const GLOBAL_CSS = `
@@ -1638,17 +1579,14 @@ export function GameEngine({
   onSessionEnd,
   onHome,
   onXP,
+  userId,
+  childId,
 }) {
   useEffect(() => { injectCSS(); }, []);
 
   // Stop any audio playing when the game is unmounted (session ends / user goes home)
   useEffect(() => {
-    return () => {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-      }
-    };
+    return () => { stopCurrentAudio(); };
   }, []);
 
   const quizzes        = sessionPlan?.quizzes ?? [];
@@ -1847,6 +1785,21 @@ export function GameEngine({
       )}
       {gameType === 'spell_it_out' && (
         <SpellItOut key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'word_builder' && (
+        <WordBuilder key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'draw_it' && (
+        <DrawIt key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} userId={userId} childId={childId} />
+      )}
+      {gameType === 'word_song' && (
+        <WordSong key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'magic_video' && (
+        <MagicVideo key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'story_time' && (
+        <StoryTimeActivity key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
     </div>
   );

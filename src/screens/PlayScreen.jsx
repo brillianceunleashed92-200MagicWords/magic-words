@@ -25,6 +25,11 @@ const ACTIVITIES = [
   { id: 'story_builder', label: 'Fill the Story', icon: '📖' },
   { id: 'rhyme_time', label: 'Match & Sort', icon: '🎵' },
   { id: 'flash_cards', label: 'Quiz Boss', icon: '👑' },
+  { id: 'word_builder', label: 'Word Builder', icon: '🧩' },
+  { id: 'draw_it', label: 'Draw It', icon: '🎨' },
+  { id: 'story_time', label: 'Story Time', icon: '📚' },
+  { id: 'word_song', label: 'Word Song', icon: '🎶' },
+  { id: 'magic_video', label: 'Magic Video', icon: '🎬' },
 ];
 
 export default function PlayScreen({ focusWord, onExit }) {
@@ -166,6 +171,8 @@ export default function PlayScreen({ focusWord, onExit }) {
       onSessionEnd={handleSessionEnd}
       onHome={onExit}
       onXP={handleXP}
+      userId={user?.id}
+      childId={childId}
     />
   );
 }
