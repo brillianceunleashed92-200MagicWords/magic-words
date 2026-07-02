@@ -25,13 +25,17 @@ async function upsertSubscription(supabase, { userId, customerId, subscription }
     console.error('[stripe-webhook] no user_id in metadata — cannot link subscription', subscription.id);
     return;
   }
+  // API versions 2025-03-31+ moved current_period_end off the subscription
+  // object onto each subscription item (a subscription can now have items on
+  // different billing cycles) — subscription.current_period_end is gone.
+  const currentPeriodEnd = subscription.items?.data?.[0]?.current_period_end;
   const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId,
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     plan: subscription.status === 'active' || subscription.status === 'trialing' ? 'family' : 'free',
     status: subscription.status,
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
   if (error) console.error('[stripe-webhook] subscriptions upsert failed:', error.message);

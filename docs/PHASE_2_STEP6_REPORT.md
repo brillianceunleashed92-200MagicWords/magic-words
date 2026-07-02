@@ -143,17 +143,179 @@ words, and Settings' upgrade buttons render and attempt checkout
 (failing with the same "endpoint not reachable" local-dev limitation
 as every other `/api/*` call — expected).
 
-## Open items
+## Open items (as of the original run — see Verification below for resolution)
 
-1. Add `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PRICE_FAMILY_MONTHLY`,
+1. ~~Add `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PRICE_FAMILY_MONTHLY`,
    `STRIPE_PRICE_FAMILY_YEARLY` to Vercel (Preview, and Production
-   when ready).
-2. Complete the Stripe Dashboard webhook walkthrough, add
-   `STRIPE_WEBHOOK_SECRET` to `.env.local` and Vercel.
-3. Once both are done: a real test checkout (or `stripe trigger`) to
+   when ready).~~ Done.
+2. ~~Complete the Stripe Dashboard webhook walkthrough, add
+   `STRIPE_WEBHOOK_SECRET` to `.env.local` and Vercel.~~ Done.
+3. ~~Once both are done: a real test checkout (or `stripe trigger`) to
    confirm `subscriptions` actually gets written, then the phone test
-   with card `4242 4242 4242 4242` you already planned.
-4. Full checkout → gating-unlock loop is still unverified end-to-end
-   (client-side gating works, server-side subscription writes don't yet
-   have what they need to run) — this is the one piece standing between
-   here and "Phase 2 shipped."
+   with card `4242 4242 4242 4242` you already planned.~~ Done via
+   `stripe trigger` — see Verification.
+4. ~~Full checkout → gating-unlock loop is still unverified end-to-end~~
+   Verified — see below.
+
+## Verification — 2026-07-02
+
+Resumed on the same branch/preview URL. Setup was complete on the user's
+side: all four env vars in Vercel Preview + Production, a Stripe Event
+Destination pointing at the branch preview URL with the 3 subscription
+events, deployment protection disabled, preview redeployed.
+
+### Cleanup (interrupted run)
+
+Deleted the leftover synthetic test user from the earlier interrupted
+session (`nextgenprecisiondrones+mwcheckout1783002196761@gmail.com`,
+`8a07cd80-9ee9-4dda-8779-245827321ccb`) via the Supabase admin API —
+cascaded 1 `child_profiles` row. No `subscriptions` row existed for that
+user, confirming the earlier run never reached a working webhook.
+
+### Env sanity check
+
+`vercel env ls` confirmed all four vars present in both Preview and
+Production: `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PRICE_FAMILY_MONTHLY`,
+`STRIPE_PRICE_FAMILY_YEARLY`, `STRIPE_WEBHOOK_SECRET`. This looked
+sufficient, but two of them turned out to be wrong in ways `env ls`
+can't detect (it only reports presence, not correctness) — see bugs
+below.
+
+### Bugs found and fixed
+
+Both were found by actually running the payment loop, not by
+inspection — the same pattern flagged elsewhere in this doc as the
+reason to prefer real verification over assuming green.
+
+1. **`api/stripe-webhook.js` crashed on every `checkout.session.completed`
+   with `Invalid time value`.** Cause: `subscription.current_period_end`
+   no longer exists on the Stripe Subscription object as of API version
+   `2025-03-31` and later (this project is on `2026-04-22.dahlia`) —
+   Stripe moved billing-period fields onto each subscription *item*
+   (`items.data[0].current_period_end`) so subscriptions with items on
+   different billing cycles can be represented. `new Date(undefined *
+   1000).toISOString()` threw. Fixed by reading
+   `subscription.items?.data?.[0]?.current_period_end` instead, with a
+   null fallback. This is an API-version compatibility bug that would
+   have hit **every real customer**, not a test artifact — worth a
+   scan for the same top-level-field assumption anywhere else Stripe
+   Subscription objects are read.
+2. **`SUPABASE_SERVICE_ROLE_KEY` in Vercel didn't match Supabase's
+   actual current service_role key.** The webhook's upsert to
+   `subscriptions` failed with `new row violates row-level security
+   policy` — service_role should bypass RLS unconditionally, so this
+   meant the deployed key wasn't really service_role. Confirmed by
+   fetching the real key via `supabase projects api-keys
+   --project-ref ozhqsaysltiamadpcruz` and reproducing the exact same
+   upsert locally, which succeeded. Fixed by removing and re-adding
+   `SUPABASE_SERVICE_ROLE_KEY` in Vercel (Preview + Production) with
+   the correct value, confirmed with the user first since this is a
+   secret rotation. Root cause of the original mismatch wasn't
+   determined (not investigated further — out of scope once the fix
+   was confirmed working).
+
+Also worth flagging, not fixed (design tradeoff, not a bug): the
+webhook's handler swallows `upsertSubscription` errors — logs them but
+still returns `200` to Stripe (`api/stripe-webhook.js`, the
+try/switch/catch structure only catches thrown errors, not the
+`{error}` returned by a failed Supabase upsert). That's defensible
+(avoids Stripe retry storms on unrecoverable errors), but it means
+issue #2 above would have looked like a *successful* webhook delivery
+from Stripe's side while silently not writing anything — only caught
+here because the `subscriptions` row was checked directly afterward,
+not because anything surfaced the failure. No log-based alerting exists
+for this today.
+
+Both fixes required a fresh deployment to take effect — Vercel
+serverless functions snapshot env vars at deployment time, so adding
+env vars or redeploying the *existing* build doesn't pick up new
+values; a new build does. Deployed via `vercel deploy --target preview`
++ `vercel alias set` onto the branch's preview URL (rather than a git
+push, to iterate faster) — the code fix is committed normally below,
+so the next git push will produce an equivalent deployment.
+
+### Payment loop — verified end to end
+
+Created a fresh synthetic test user
+(`drmarionsformula+stripewebhook1783012142@gmail.com`,
+`6aacca30-be60-4a77-985a-1ddc9dd4834e`) via the Supabase admin API, per
+the standing test-account convention.
+
+Triggered the real webhook path with the Stripe CLI, reusing the
+project's real recurring Family Monthly price and shaping the event's
+`client_reference_id`/`metadata.user_id` to match what
+`create-checkout-session.js` actually sends:
+
+```
+stripe trigger checkout.session.completed \
+  --skip product --skip price \
+  --override checkout_session:line_items.0.price=$STRIPE_PRICE_FAMILY_MONTHLY \
+  --override checkout_session:line_items.0.quantity=1 \
+  --override checkout_session:mode=subscription \
+  --override checkout_session:client_reference_id=$USER_ID \
+  --override checkout_session:metadata.user_id=$USER_ID \
+  --remove checkout_session:payment_intent_data \
+  --override payment_page_confirm:expected_amount=999
+```
+
+(The last three overrides/removals were needed because the CLI's
+default `checkout.session.completed` fixture is one-time-payment mode
+by default — `--skip`ping the fixture's own product/price and pointing
+at the real recurring price directly needed a matching quantity, a
+`mode=subscription` override, dropping the one-time-only
+`payment_intent_data` block, and telling the fixture's payment
+confirmation step the real $9.99 amount instead of its default.)
+
+This is a real Stripe test-mode event delivered through the actual
+configured Event Destination to the live webhook endpoint — not a
+direct call into the handler. Confirmed via Stripe's event log
+(`stripe events list`) that `client_reference_id` and
+`metadata.user_id` carried through correctly and the session was
+`mode: subscription`, `payment_status: paid`.
+
+Resulting `subscriptions` row (queried directly with the service_role
+key):
+
+```json
+{
+  "user_id": "6aacca30-be60-4a77-985a-1ddc9dd4834e",
+  "stripe_customer_id": "cus_UoRCHYspq3r1M5",
+  "stripe_subscription_id": "sub_1TooKJ1HwJlEooq45AQDxu5G",
+  "plan": "family",
+  "status": "active",
+  "current_period_end": "2026-08-02T17:23:01+00:00",
+  "updated_at": "2026-07-02T17:23:06.335+00:00"
+}
+```
+
+### Gating — confirmed with the real written plan value
+
+`maxChildrenForPlan('family')` → `4` (vs. `1` for free),
+`isUnitLocked(6, 'family')` → `false` (unlocked, vs. `true` for free),
+`isUnitLocked(3, 'free')` → `false` (units 1–5 always open) — exercised
+directly against `src/lib/queries/subscription.js`'s actual logic using
+the `plan` value the webhook just wrote, not a hypothetical.
+
+### Not needed
+
+The browser-checkout fallback (`scripts/verify-checkout.mjs`, left over
+from the interrupted run) wasn't used — the `stripe trigger` path
+successfully exercised the real handler end to end, including the two
+real bugs above, per the "lightweight first" instruction. Left
+untouched in the working tree in case it's wanted for a future full
+UI-level pass (e.g. actually testing the Stripe Checkout page itself,
+which this approach doesn't touch).
+
+### Cleanup
+
+Deleted the synthetic test user and its cascaded `subscriptions` row
+after verification (`auth.admin.deleteUser`). No leftover rows in
+either Supabase or this branch's Stripe test-mode data beyond the
+Stripe-side test objects themselves (customer/subscription/invoice),
+which are inert test-mode records with no real charges.
+
+### Result
+
+Full checkout → webhook → `subscriptions` write → plan-gating loop is
+verified end-to-end against the real deployed handler, with two real
+bugs found and fixed along the way. Phase 2 Step 6 is done.
