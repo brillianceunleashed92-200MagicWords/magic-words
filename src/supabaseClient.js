@@ -3,14 +3,18 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Fail loudly instead of silently falling back to the production project.
+// There used to be a hardcoded prod URL/anon-key fallback here — every local
+// run with no .env configured silently wrote to the live production
+// Supabase project as a result (documented gap, CLAUDE.md "Known soft
+// spot"). Missing env vars are now a hard startup error: set
+// VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY in .env.local (see .env.example),
+// or Vercel Environment Variables in production.
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
+  throw new Error(
     "[supabase] Missing env vars — VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is undefined. " +
-    "Check your .env file locally, or Vercel Environment Variables in production."
+    "Copy .env.example to .env.local and fill in real values, or set Vercel Environment Variables in production."
   );
 }
 
-// Guard against empty-string URL which creates a permanently broken client
-export const supabase = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : createClient("https://ozhqsaysltiamadpcruz.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96aHFzYXlzbHRpYW1hZHBjcnV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTgyMDUsImV4cCI6MjA4OTM3NDIwNX0.zI-rFuZTCoSRUIY6HE-bukia7-IvIgBdwy7HNAJkxBA");
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
