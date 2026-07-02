@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction D: Candy Galaxy</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);overflow-x:hidden;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%)}
+
+  /* parallax blobs + stars */
+  .blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:.4;pointer-events:none;z-index:0;will-change:transform}
+  .fstar{position:fixed;border-radius:50%;background:#fff;pointer-events:none;z-index:0;
+    animation:tw 3s ease-in-out infinite;will-change:transform}
+  @keyframes tw{0%,100%{opacity:.15}50%{opacity:.9}}
+
+  .wrap{position:relative;z-index:1;max-width:500px;margin:0 auto;padding:0 20px 140px}
+  @media(min-width:960px){.wrap{max-width:560px}}
+
+  /* ── HERO ── */
+  .hero{padding:52px 0 8px;position:relative}
+  .hero-card{background:var(--cloud);color:var(--ink);border-radius:34px;padding:26px 24px 26px;
+    position:relative;box-shadow:var(--chunk);transform:rotate(-1deg)}
+  .hero-inner{transform:rotate(1deg)}
+  .wave{font-family:var(--display);font-weight:800;font-size:1.9rem;line-height:1.12}
+  .wave span{color:var(--sky)}
+  .wave .big{display:block;font-size:2.35rem;color:var(--tang)}
+  .hero-sub{font-weight:600;color:#6E67A3;margin-top:6px;font-size:.92rem}
+  .streak-row{display:flex;gap:10px;margin-top:16px}
+  .pill{flex:1;border-radius:20px;padding:11px 6px;text-align:center;font-family:var(--display);
+    font-weight:800;box-shadow:0 6px 0 rgba(0,0,0,.14);transition:transform .15s;cursor:pointer}
+  .pill:active{transform:translateY(4px)}
+  .pill b{display:block;font-size:1.3rem;line-height:1.1}
+  .pill span{font-size:.6rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.8}
+  .p-fire{background:var(--tang);color:#5A2A00}
+  .p-star{background:var(--sun);color:#5C4200}
+  .p-gem{background:var(--mint);color:#00543E}
+
+  .scroll-hint{text-align:center;margin-top:22px;font-family:var(--display);font-weight:800;
+    font-size:.8rem;color:rgba(255,255,255,.8);animation:hop 1.6s ease-in-out infinite}
+  @keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+  /* ── TODAY CARD ── */
+  .sec-title{font-family:var(--display);font-weight:800;font-size:1.3rem;margin:34px 0 14px;
+    display:flex;align-items:center;gap:8px}
+  .play-card{background:linear-gradient(135deg,var(--mint),#2BC9A4);color:#00432F;border-radius:32px;
+    padding:24px;position:relative;overflow:hidden;box-shadow:var(--chunk);cursor:pointer;transition:transform .15s}
+  .play-card:active{transform:translateY(6px)}
+  .play-card::after{content:'✦';position:absolute;right:-18px;top:-28px;font-size:8.5rem;opacity:.12}
+  .play-tag{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+  .play-word{font-family:var(--display);font-size:3.1rem;font-weight:800;line-height:1}
+  .play-def{font-weight:700;font-size:.88rem;opacity:.75;margin-top:4px}
+  .play-btn{display:inline-flex;align-items:center;gap:8px;margin-top:18px;background:var(--cloud);
+    color:var(--ink);font-family:var(--display);font-weight:800;font-size:1rem;padding:13px 28px;
+    border-radius:100px;border:none;cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.15);transition:transform .15s}
+  .play-btn:active{transform:translateY(5px)}
+
+  /* ── GALAXY PATH (scroll-driven) ── */
+  .galaxy{position:relative;margin-top:10px}
+  .galaxy-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .count-chip{background:var(--cloud);color:var(--ink);font-family:var(--display);font-weight:800;
+    font-size:.8rem;padding:8px 16px;border-radius:100px;box-shadow:0 5px 0 rgba(0,0,0,.15)}
+  .count-chip b{color:var(--sky)}
+
+  .path-zone{position:relative;height:1450px}
+  .path-svg{position:absolute;left:50%;transform:translateX(-50%);top:0;width:300px;height:1450px;overflow:visible}
+  .p-base{fill:none;stroke:rgba(255,255,255,.18);stroke-width:14;stroke-linecap:round;stroke-dasharray:.1 26}
+  .p-lit{fill:none;stroke:var(--sun);stroke-width:14;stroke-linecap:round;
+    filter:drop-shadow(0 0 12px rgba(255,197,49,.7));will-change:stroke-dashoffset}
+
+  /* Nova rides the path */
+  .nova{position:absolute;width:88px;height:88px;left:0;top:0;z-index:5;will-change:transform;pointer-events:none}
+  .n-core{position:absolute;inset:14%;border-radius:50% 50% 46% 54%/56% 50% 50% 44%;
+    background:radial-gradient(circle at 36% 30%,#FFF6D8,var(--sun) 55%,#F09A12 100%);
+    box-shadow:0 6px 0 rgba(0,0,0,.16),0 0 34px rgba(255,197,49,.85)}
+  .n-eye{position:absolute;top:36%;width:10%;height:15%;border-radius:50%;background:var(--ink)}
+  .n-eye.l{left:32%}.n-eye.r{right:32%}
+  .n-eye::after{content:'';position:absolute;top:15%;left:15%;width:42%;height:42%;border-radius:50%;background:#fff}
+  .n-smile{position:absolute;top:56%;left:50%;transform:translateX(-50%);width:20%;height:10%;
+    border-radius:0 0 40px 40px;background:var(--ink)}
+  .n-tail{position:absolute;right:-26%;top:38%;width:60%;height:22%;border-radius:60px;
+    background:linear-gradient(90deg,rgba(255,197,49,.95),rgba(255,197,49,0));filter:blur(2px);transform:rotate(-14deg)}
+  .n-dust{position:absolute;border-radius:50%;background:#FFF3C4;opacity:0;animation:dust 1s ease-out infinite}
+  @keyframes dust{0%{opacity:.9;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(18px,10px) scale(.2)}}
+
+  /* nodes */
+  .node{position:absolute;width:96px;height:96px;border-radius:50%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    font-family:var(--display);font-weight:800;cursor:pointer;
+    box-shadow:0 8px 0 rgba(0,0,0,.18);transition:transform .5s cubic-bezier(.2,.9,.3,1.5),opacity .5s;
+    opacity:0;transform:scale(.3)}
+  .node.show{opacity:1;transform:scale(1)}
+  .node:active{transform:translateY(5px) scale(.97)}
+  .node .w{font-size:1.15rem;line-height:1}
+  .node .p{font-size:.58rem;font-weight:800;opacity:.8;margin-top:3px}
+  .node.done{background:var(--sun);color:#5C4200}
+  .node.done::after{content:'⭐';position:absolute;top:-10px;right:-4px;font-size:1.3rem;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,.2))}
+  .node.current{background:var(--bubble);color:#fff;animation:pump 1.8s ease-in-out infinite}
+  @keyframes pump{0%,100%{box-shadow:0 8px 0 rgba(0,0,0,.18),0 0 0 0 rgba(255,111,165,.5)}
+    50%{box-shadow:0 8px 0 rgba(0,0,0,.18),0 0 0 16px rgba(255,111,165,0)}}
+  .node.locked{background:rgba(255,255,255,.16);color:rgba(255,255,255,.65);
+    box-shadow:0 8px 0 rgba(0,0,0,.1);border:3px dashed rgba(255,255,255,.35)}
+  .flag{position:absolute;left:50%;transform:translateX(-50%);background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+    padding:9px 20px;border-radius:100px;box-shadow:0 6px 0 rgba(0,0,0,.16);white-space:nowrap;z-index:4}
+  .flag.f2{background:var(--tang);color:#4A2000}
+
+  /* ── BUBBLES + TROPHIES ── */
+  .rise{opacity:0;transform:translateY(30px) scale(.96);transition:all .6s cubic-bezier(.2,.9,.3,1.3)}
+  .rise.show{opacity:1;transform:none}
+  .bubbles{background:rgba(255,255,255,.1);border:2px dashed rgba(255,255,255,.3);
+    border-radius:30px;padding:18px;display:flex;flex-wrap:wrap;gap:10px}
+  .bub{font-family:var(--display);font-weight:800;font-size:.92rem;padding:10px 18px;border-radius:100px;
+    box-shadow:0 5px 0 rgba(0,0,0,.14);cursor:pointer;transition:all .45s cubic-bezier(.2,.9,.3,1.5);
+    opacity:0;transform:translateY(16px) scale(.5)}
+  .rise.show .bub{opacity:1;transform:none}
+  .bub:active{transform:translateY(4px)}
+  .b-sun{background:var(--sun);color:#5C4200}
+  .b-mint{background:var(--mint);color:#00543E}
+  .b-pink{background:var(--bubble);color:#fff}
+  .b-dim{background:rgba(255,255,255,.16);color:rgba(255,255,255,.6);box-shadow:0 5px 0 rgba(0,0,0,.08)}
+  .shelf{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .shelf::-webkit-scrollbar{display:none}
+  .trophy{flex:0 0 116px;background:var(--cloud);color:var(--ink);border-radius:26px;padding:15px 10px;
+    text-align:center;box-shadow:var(--chunk);opacity:0;transform:translateX(30px);transition:all .5s ease}
+  .rise.show .trophy{opacity:1;transform:none}
+  .rise.show .trophy:nth-child(2){transition-delay:.08s}
+  .rise.show .trophy:nth-child(3){transition-delay:.16s}
+  .rise.show .trophy:nth-child(4){transition-delay:.24s}
+  .trophy .ic{font-size:2rem}
+  .trophy .nm{font-family:var(--display);font-weight:800;font-size:.76rem;margin-top:5px}
+  .trophy .st{font-size:.58rem;font-weight:700;color:#8B84BD}
+  .trophy.locked{background:rgba(255,255,255,.15);color:rgba(255,255,255,.6);box-shadow:0 8px 0 rgba(0,0,0,.08)}
+
+  /* ── NAV ── */
+  .nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;
+    display:flex;gap:4px;background:var(--cloud);border-radius:100px;padding:8px;
+    box-shadow:0 10px 0 rgba(0,0,0,.2);width:min(92%,460px);justify-content:space-around}
+  .nav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.56rem;font-weight:800;
+    color:#8B84BD;text-decoration:none;padding:8px 14px;border-radius:100px;font-family:var(--display)}
+  .nav a.on{background:var(--sky);color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.15)}
+  .nav .ic{font-size:1.25rem}
+  .note{margin-top:36px;text-align:center;color:rgba(255,255,255,.55);font-size:.7rem;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="blob" data-par=".18" style="width:360px;height:360px;background:var(--bubble);top:-70px;left:-120px"></div>
+<div class="blob" data-par=".3" style="width:320px;height:320px;background:var(--mint);top:52%;right:-140px"></div>
+<div class="blob" data-par=".12" style="width:300px;height:300px;background:var(--tang);top:110%;left:-110px"></div>
+<div id="fstars"></div>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-card">
+      <div class="hero-inner">
+        <div class="wave">Hey <span>Emma!</span><span class="big">Ready to fly? 🚀</span></div>
+        <div class="hero-sub">Nova mapped 3 new word-stars for you</div>
+        <div class="streak-row">
+          <div class="pill p-fire"><b>🔥 12</b><span>Streak</span></div>
+          <div class="pill p-star"><b>⭐ 87</b><span>Words</span></div>
+          <div class="pill p-gem"><b>💎 240</b><span>Sparks</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-hint">⌄ scroll — Nova flies with you ⌄</div>
+  </div>
+
+  <!-- TODAY -->
+  <div class="sec-title">✨ Today's Magic Word</div>
+  <div class="play-card">
+    <div class="play-tag">Unit 9 · On the Move</div>
+    <div class="play-word">run</div>
+    <div class="play-def">to move fast on your feet 🏃</div>
+    <button class="play-btn">▶ Let's go!</button>
+  </div>
+
+  <!-- GALAXY PATH -->
+  <div class="galaxy">
+    <div class="galaxy-head">
+      <div class="sec-title" style="margin:34px 0 14px">🌌 Word Galaxy</div>
+      <div class="count-chip"><b id="starCount">0</b> / 200 ⭐</div>
+    </div>
+
+    <div class="path-zone" id="zone">
+      <svg class="path-svg" viewBox="0 0 300 1450" preserveAspectRatio="none">
+        <path id="basePath" class="p-base" d="M150 30 C 40 140, 260 240, 150 360 C 40 480, 260 580, 150 700 C 40 820, 260 920, 150 1040 C 50 1150, 250 1250, 150 1380"/>
+        <path id="litPath" class="p-lit" d="M150 30 C 40 140, 260 240, 150 360 C 40 480, 260 580, 150 700 C 40 820, 260 920, 150 1040 C 50 1150, 250 1250, 150 1380"/>
+      </svg>
+
+      <div class="flag" style="top:-8px">Unit 9 · On the Move</div>
+
+      <div class="node done"    data-at=".08" style="left:calc(50% - 48px);top:90px"><div class="w">dog</div><div class="p">★ 100%</div></div>
+      <div class="node done"    data-at=".2"  style="left:calc(50% - 140px);top:290px"><div class="w">look</div><div class="p">★ 92%</div></div>
+      <div class="node current" data-at=".34" style="left:calc(50% + 40px);top:470px"><div class="w">run</div><div class="p">▶ 45%</div></div>
+      <div class="node locked"  data-at=".48" style="left:calc(50% - 140px);top:650px"><div class="w">one</div><div class="p">🔒</div></div>
+      <div class="node locked"  data-at=".6"  style="left:calc(50% + 40px);top:830px"><div class="w">other</div><div class="p">🔒</div></div>
+
+      <div class="flag f2" style="top:990px">Unit 10 · Fix It!</div>
+
+      <div class="node locked" data-at=".76" style="left:calc(50% - 130px);top:1080px"><div class="w">man</div><div class="p">🔒</div></div>
+      <div class="node locked" data-at=".88" style="left:calc(50% + 30px);top:1260px"><div class="w">good</div><div class="p">🔒</div></div>
+
+      <!-- Nova rides the lit path -->
+      <div class="nova" id="nova">
+        <div class="n-tail"></div><div class="n-core"></div>
+        <div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div>
+        <div class="n-dust" style="left:2px;top:50px;width:7px;height:7px"></div>
+        <div class="n-dust" style="left:-4px;top:38px;width:5px;height:5px;animation-delay:.4s"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUBBLES -->
+  <div class="sec-title">🫧 Your Word Bubbles</div>
+  <div class="bubbles rise">
+    <div class="bub b-sun">cat</div><div class="bub b-sun" style="transition-delay:.05s">eat</div>
+    <div class="bub b-mint" style="transition-delay:.1s">fly</div><div class="bub b-sun" style="transition-delay:.15s">the</div>
+    <div class="bub b-mint" style="transition-delay:.2s">they</div><div class="bub b-pink" style="transition-delay:.25s">big</div>
+    <div class="bub b-mint" style="transition-delay:.3s">jump</div><div class="bub b-dim" style="transition-delay:.35s">with</div>
+    <div class="bub b-dim" style="transition-delay:.4s">+113 more</div>
+  </div>
+
+  <!-- TROPHIES -->
+  <div class="sec-title">🏆 Trophy Shelf</div>
+  <div class="shelf rise">
+    <div class="trophy"><div class="ic">🐸</div><div class="nm">Pond Boss</div><div class="st">Unit 8 ★</div></div>
+    <div class="trophy"><div class="ic">🌟</div><div class="nm">7-Day Flame</div><div class="st">Streak</div></div>
+    <div class="trophy"><div class="ic">🚀</div><div class="nm">Fast Reader</div><div class="st">Speed run</div></div>
+    <div class="trophy locked"><div class="ic">🔒</div><div class="nm">Move Master</div><div class="st">Unit 9</div></div>
+  </div>
+
+  <div class="note">Direction D · Candy Galaxy · scroll-driven path + Nova travel + parallax</div>
+</div>
+
+<nav class="nav">
+  <a class="on" href="#"><span class="ic">🏠</span>Home</a>
+  <a href="#"><span class="ic">🎮</span>Play</a>
+  <a href="#"><span class="ic">🌌</span>Galaxy</a>
+  <a href="#"><span class="ic">🧑‍🤝‍🧑</span>Grown-ups</a>
+</nav>
+
+<script>
+  // floating parallax stars
+  const fs=document.getElementById('fstars');
+  for(let i=0;i<50;i++){const s=document.createElement('div');s.className='fstar';
+    const z=Math.random();s.style.width=s.style.height=(z*2.6+1)+'px';
+    s.style.left=Math.random()*100+'%';s.style.top=Math.random()*100+'%';
+    s.style.animationDelay=(Math.random()*3)+'s';s.dataset.par=(z*.35+.05).toFixed(2);fs.appendChild(s);}
+
+  const lit=document.getElementById('litPath');
+  const zone=document.getElementById('zone');
+  const nova=document.getElementById('nova');
+  const svg=document.querySelector('.path-svg');
+  const total=lit.getTotalLength();
+  lit.style.strokeDasharray=total;
+  lit.style.strokeDashoffset=total;
+
+  const counter=document.getElementById('starCount');
+  let counted=false;
+
+  function frame(){
+    const y=scrollY, vh=innerHeight;
+
+    // parallax
+    document.querySelectorAll('[data-par]').forEach(el=>{
+      el.style.transform=`translateY(${-y*parseFloat(el.dataset.par)}px)`;});
+
+    // scroll progress through the path zone (0 → 1)
+    const r=zone.getBoundingClientRect();
+    const prog=Math.min(1,Math.max(0,(vh*0.75 - r.top)/(r.height*0.9)));
+
+    // draw the golden path
+    lit.style.strokeDashoffset=total*(1-prog);
+
+    // Nova rides the path
+    const pt=lit.getPointAtLength(total*prog);
+    const sr=svg.getBoundingClientRect(), zr=zone.getBoundingClientRect();
+    const scaleX=sr.width/300, scaleY=sr.height/1450;
+    const x=(sr.left-zr.left)+pt.x*scaleX, yPos=pt.y*scaleY;
+    const ahead=lit.getPointAtLength(Math.min(total,total*prog+2));
+    const ang=Math.atan2(ahead.y-pt.y,ahead.x-pt.x)*57.3;
+    nova.style.transform=`translate(${x-44}px,${yPos-44}px) rotate(${Math.max(-22,Math.min(22,ang*.3))}deg)`;
+
+    // pop nodes when Nova passes them
+    document.querySelectorAll('.node').forEach(n=>{
+      if(prog>=parseFloat(n.dataset.at))n.classList.add('show');
+      else n.classList.remove('show');});
+
+    // star counter counts up once path is in view
+    if(prog>0.05&&!counted){counted=true;let c=0;const t=setInterval(()=>{
+      c+=3;if(c>=87){c=87;clearInterval(t)}counter.textContent=c;},24);}
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // rise reveals for bubbles/trophies
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.2});
+  document.querySelectorAll('.rise').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
