@@ -38,6 +38,10 @@
   0%, 100% { transform: rotate(-10deg); }
   50% { transform: rotate(10deg); }
 }
+@keyframes xp-float-up {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
+}
 
 /* Candy Galaxy (v2) — separate namespace from the dawn-token nova-* set above,
    which belongs to the superseded design system and is left untouched. */
@@ -63,8 +67,4 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-@keyframes xp-float-up {
-  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
 }
