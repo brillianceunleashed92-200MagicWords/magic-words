@@ -10,7 +10,7 @@ export function useWordsQuery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('words')
-        .select('id, word, type, unit, sort_order, emoji, definition, audio_url, image_url')
+        .select('id, word, type, teaching_track, unit, sort_order, emoji, definition, audio_url, image_url')
         .order('sort_order', { ascending: true });
       if (error) throw error;
       return data ?? [];
