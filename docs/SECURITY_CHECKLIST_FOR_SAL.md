@@ -60,3 +60,48 @@ assumptions.
 **Code-side finding, already fixed** (see commit `e79cd3b`): the live app had no
 sign-out button at all. Added to Parent Portal → Settings. No dashboard action needed
 for this one.
+
+---
+
+## 🔴 Phase 2 — IDOR (fixed in code, no dashboard action needed)
+
+Found and fixed: `word_progress` had Row Level Security **completely disabled** —
+any signed-in user could read/write any child's progress data. Also found and fixed
+gaps on `learning_plans`, `profiles`, `class_members`, `parent_child_links`,
+`teacher_classes`, `achievements`, plus an unbounded-amount bug in the `earn_sparks()`
+database function, and two Stripe endpoints (`create-checkout-session`,
+`create-portal-session`) that trusted a client-supplied user ID with zero
+verification — letting anyone open another user's Stripe billing portal. Full detail
+in the commit message (`0ca2590`) and `scripts/idor-proof.mjs` (a real cross-account
+attack simulation against the live database — all attempts now correctly fail).
+No dashboard action needed; this was all fixed in migrations/code.
+
+---
+
+## 🟡 Phase 3 — Secrets
+
+- [ ] **See Phase 0 above** — the live Stripe/ElevenLabs key rotation is the
+      actionable item here too; not duplicating it.
+- Frontend bundle audit: clean. Built the app and grepped `dist/` for every secret
+  pattern (`sk_`, `whsec_`, `service_role`, `ANTHROPIC`, `ELEVENLABS`) — none found.
+  Only the intentionally-public Supabase anon key and Stripe publishable key appear,
+  exactly as expected.
+- `.env`/`.env.local` confirmed gitignored and never committed (`git log --all
+  --full-history -- .env .env.local` returns nothing).
+- The `src/supabaseClient.js` hardcoded-production-fallback issue named in this
+  session's brief was **already fixed in an earlier phase** (commit `35248cc`,
+  already on `main`) — it now throws a hard startup error if env vars are missing,
+  rather than silently defaulting to production. No action needed here.
+- Full-history secret scan: manual grep pass found 7 hits, all confirmed false
+  positives (this session's own report text mentioning key *prefixes* as
+  documentation, a `.env.example` placeholder literally named
+  `whsec_YOUR_STRIPE_TEST_WEBHOOK_SECRET`, and the intentionally-public Supabase
+  anon key). Followed up with `gitleaks detect` across the full history (108
+  commits, ~149MB scanned, ~4 minutes): **2 findings, both confirmed false
+  positives** — a cache-key-prefix string (`mw_parent_digest_v1_`) that just
+  happens to look high-entropy to a generic pattern matcher, and the same
+  intentionally-public Supabase anon key found manually. **No real secret found
+  anywhere in git history.** This doesn't contradict the Phase 0 live-key-in-chat
+  incident — that key was pasted into a chat conversation, never into this repo, so
+  it wouldn't show up in a repo scan regardless of rotation status. Rotation is
+  still the open item, tracked in Phase 0 above.
