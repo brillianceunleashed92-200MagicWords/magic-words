@@ -222,7 +222,7 @@ function buildLocalQuiz(targetWord, allWords, artWords = []) {
 // needs to match whichever of these exact 5 words currently have real art.
 function buildOfflineFallbackPlan() {
   const words = ['cat', 'dog', 'bird', 'fish', 'ball'].map((word) => ({ word, word_type: 'noun', mastery: 0 }));
-  const offlineArtWords = ['cat', 'dog', 'bird']; // fish/ball don't have real art yet — update alongside wordArtManifest.json if that changes
+  const offlineArtWords = ['cat', 'dog', 'bird', 'fish', 'ball']; // all 5 offline words now have real art (wordart-batch-1, Unit 1)
   return {
     isFallback: true,
     isOffline: true,

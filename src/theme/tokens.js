@@ -36,6 +36,12 @@ export const wordArtColors = {
   frogFill: '#3EE0B8', frogOutline: '#1C8C6C', frogInner: '#D6FFF3',
   buddyFill: '#FFC531', buddyOutline: '#B8890A', buddyInner: '#FFF1D6',
   blush: '#FF8FA8', dot: '#2A2160',
+  // wordart-batch-1, Unit 1 (fish, bear, ball, book, cup)
+  fishFill: '#4DD4E8', fishOutline: '#1B7A8C', fishInner: '#D6F7FC',
+  bearFill: '#C98A52', bearOutline: '#7A4E24', bearInner: '#F0DAC0',
+  ballFill: '#FF6FA5', ballOutline: '#B8285F', ballInner: '#FFD6E8',
+  bookFill: '#6B5CE0', bookOutline: '#3F35A0', bookInner: '#E0DCFF',
+  cupFill: '#8BC34A', cupOutline: '#4F7A1E', cupInner: '#E4F5D0',
 };
 
 export const fonts = {

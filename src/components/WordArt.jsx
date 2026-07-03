@@ -108,6 +108,85 @@ function FrogArt() {
   );
 }
 
+// ─── Unit 1 objects (ball, book, cup) — inanimate, no face ─────────────────
+// Objects don't get the eyes/blush anthropomorphized-character treatment
+// that every animal below does — a face on a book or a ball reads as
+// confusing, not cute. Same chunky-shape/stroke/fill-outline-inner-triad
+// construction language, just without a character's face.
+
+function FishArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={100} rx={28} ry={6} />
+      <path d="M22 66q-10-8-14-18q10 2 16 10z" fill={c.fishFill} stroke={c.fishOutline} strokeWidth="4" strokeLinejoin="round" />
+      <ellipse cx="66" cy="60" rx="38" ry="26" fill={c.fishFill} stroke={c.fishOutline} strokeWidth="4" />
+      <path d="M56 30q8-8 20-6q-4 8-14 10z" fill={c.fishFill} stroke={c.fishOutline} strokeWidth="3" strokeLinejoin="round" />
+      <ellipse cx="72" cy="64" rx="15" ry="10" fill={c.fishInner} />
+      <Eye cx={86} cy={52} r={6} />
+      <Blush cx={68} cy={64} rx={7} ry={4.5} />
+      <circle cx="16" cy="30" r="3" fill={c.fishInner} opacity=".6" />
+      <circle cx="8" cy="22" r="2" fill={c.fishInner} opacity=".4" />
+    </>
+  );
+}
+
+function BearArt() {
+  return (
+    <>
+      <GroundShadow />
+      <circle cx="30" cy="34" r="14" fill={c.bearFill} stroke={c.bearOutline} strokeWidth="4" />
+      <circle cx="90" cy="34" r="14" fill={c.bearFill} stroke={c.bearOutline} strokeWidth="4" />
+      <circle cx="30" cy="34" r="6" fill={c.bearInner} />
+      <circle cx="90" cy="34" r="6" fill={c.bearInner} />
+      <circle cx="60" cy="62" r="40" fill={c.bearFill} stroke={c.bearOutline} strokeWidth="4" />
+      <ellipse cx="60" cy="76" rx="20" ry="15" fill={c.bearInner} />
+      <Eye cx={45} cy={56} /><Eye cx={75} cy={56} />
+      <ellipse cx="60" cy="74" rx="8" ry="6" fill={c.bearOutline} />
+      <path d="M50 88q10 8 20 0" fill="none" stroke={c.bearOutline} strokeWidth="4" strokeLinecap="round" />
+      <Blush cx={36} cy={70} /><Blush cx={84} cy={70} />
+    </>
+  );
+}
+
+function BallArt() {
+  return (
+    <>
+      <GroundShadow />
+      <circle cx="60" cy="62" r="42" fill={c.ballFill} stroke={c.ballOutline} strokeWidth="4" />
+      <path d="M60 20a42 42 0 0136 63l-36-21z" fill={colors.sun} />
+      <path d="M60 20a42 42 0 00-36 63l36-21z" fill={colors.mint} />
+      <ellipse cx="46" cy="44" rx="11" ry="7" fill="#fff" opacity=".4" />
+    </>
+  );
+}
+
+function BookArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M60 34l-38 8v52l38-8z" fill={c.bookFill} stroke={c.bookOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M60 34l38 8v52l-38-8z" fill={c.bookFill} stroke={c.bookOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M60 34v52" stroke={c.bookOutline} strokeWidth="3" />
+      <rect x="30" y="50" width="18" height="4" rx="2" fill={c.bookInner} />
+      <rect x="30" y="60" width="14" height="4" rx="2" fill={c.bookInner} />
+      <rect x="72" y="50" width="18" height="4" rx="2" fill={c.bookInner} />
+      <rect x="72" y="60" width="14" height="4" rx="2" fill={c.bookInner} />
+    </>
+  );
+}
+
+function CupArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M34 40h44l-4 46q-1 8-9 8h-22q-8 0-9-8z" fill={c.cupFill} stroke={c.cupOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M78 48q16-4 16 10t-16 12" fill="none" stroke={c.cupOutline} strokeWidth="4" strokeLinecap="round" />
+      <ellipse cx="60" cy="42" rx="24" ry="6" fill={c.cupInner} stroke={c.cupOutline} strokeWidth="3" />
+      <path d="M42 56q6 6 0 12" fill="none" stroke={c.cupInner} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+    </>
+  );
+}
+
 // Shared "Buddy" figure for action/adjective words.
 function BuddyBase({ mouth, extra, scale = 1, cx = 60, cy = 62 }) {
   return (
@@ -236,6 +315,12 @@ const REGISTRY = {
   run: RunArt,
   big: BigArt,
   sad: SadArt,
+  // wordart-batch-1, Unit 1
+  fish: FishArt,
+  bear: BearArt,
+  ball: BallArt,
+  book: BookArt,
+  cup: CupArt,
 };
 
 // Deterministic candy-color pick for the typographic tile, so a given word
