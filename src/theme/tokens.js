@@ -42,6 +42,18 @@ export const wordArtColors = {
   ballFill: '#FF6FA5', ballOutline: '#B8285F', ballInner: '#FFD6E8',
   bookFill: '#6B5CE0', bookOutline: '#3F35A0', bookInner: '#E0DCFF',
   cupFill: '#8BC34A', cupOutline: '#4F7A1E', cupInner: '#E4F5D0',
+  // wordart-batch-1, Unit 2 (horse, lion, rabbit, duck, cow, pig, turtle, monkey, shark, ant, bee)
+  horseFill: '#B5794A', horseOutline: '#6B4423', horseInner: '#EFDBC2',
+  lionFill: '#E8A33D', lionOutline: '#8A5A12', lionInner: '#FBE3B0',
+  rabbitFill: '#D8D4E8', rabbitOutline: '#7A729E', rabbitInner: '#F2F0FA',
+  duckFill: '#FFD93D', duckOutline: '#B8930A', duckInner: '#FFF6D0',
+  cowFill: '#F5F0E8', cowOutline: '#8A8478', cowInner: '#4A4038',
+  pigFill: '#FFAEC0', pigOutline: '#B85F76', pigInner: '#FFE3EA',
+  turtleFill: '#6FCF7A', turtleOutline: '#2E7D38', turtleInner: '#DFF5E0',
+  monkeyFill: '#C99B6B', monkeyOutline: '#7A5730', monkeyInner: '#F2E4D0',
+  sharkFill: '#8FA3C4', sharkOutline: '#4A5D80', sharkInner: '#E2E8F5',
+  antFill: '#5C4A38', antOutline: '#2E2318', antInner: '#A8927C',
+  beeFill: '#FFC531', beeOutline: '#8F6A0A', beeInner: '#3A3228',
 };
 
 export const fonts = {
