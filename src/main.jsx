@@ -33,6 +33,8 @@ import './index.css'
 const Landing = lazy(() => import('./pages/landing/Landing.jsx'))
 const CandyGalaxyShell = lazy(() => import('./CandyGalaxyShell.jsx'))
 const App = lazy(() => import('./App.jsx'))
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
+const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -41,6 +43,8 @@ createRoot(document.getElementById('root')).render(
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/app/*" element={<CandyGalaxyShell />} />
             {/* Pre-Candy-Galaxy tree, kept reachable for rollback/comparison
                 during Phase 1 review — not linked from anywhere in the UI. */}

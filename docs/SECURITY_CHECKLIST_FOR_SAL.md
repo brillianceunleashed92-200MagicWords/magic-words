@@ -159,6 +159,35 @@ failure logging, security event logging, `npm audit fix` for 9 of 10 vulnerabili
       Postgres connections to known IPs. Confirmed no direct Postgres connection
       string is ever referenced client-side (grepped), so this is defense-in-depth
       on top of that, not a fix for an active leak.
+---
+
+## 🟢 Phase 7 — COPPA baseline
+
+All code-side work done: `docs/COPPA_DATA_INVENTORY.md` (full data inventory —
+please route to counsel, it's the starting point for review, not a legal
+document), a real account-deletion flow (Settings → "Delete account & all data",
+verified end-to-end against a live test account with 7 tables of seeded data —
+every row and every Storage object confirmed actually gone afterward, not just
+assumed from the code), a parental-consent checkbox at signup (recorded with a
+timestamp in the user's own auth metadata), and `/privacy` + `/terms` pages —
+**both explicitly marked DRAFT** in their own banner, not real policy language.
+
+- [ ] **Legal review of `docs/COPPA_DATA_INVENTORY.md`** and the draft
+      `/privacy` + `/terms` pages before this product takes real payments in
+      live Stripe mode. The inventory doc has specific open items flagged at
+      the bottom (verifiable-parental-consent mechanism, the unused
+      `child_profiles.age` column, whether the self-service delete alone
+      satisfies COPPA's deletion-on-request timing requirements) — start there.
+- Found and fixed in passing while building the deletion flow: several tables
+  (`achievements`, `learning_events`, `learning_plans`, `session_plans`,
+  `user_streaks`, `word_progress`) were missing `ON DELETE CASCADE` on their
+  `child_id`/`user_id` foreign keys — meaning a parent trying to delete their
+  account today would likely have hit a database error partway through, the
+  same bug class migration 0013 found and fixed for `child_profiles.parent_id`
+  back in June. Fixed in migration 0018.
+
+---
+
 - **Not fixed, flagged for manual review**: `npm audit` still reports 1 moderate
   vulnerability (`@anthropic-ai/sdk`, a path-validation issue in its local-filesystem
   "memory tool" feature — this app only uses `messages.create()`, never that
