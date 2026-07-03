@@ -403,6 +403,63 @@ function EatArt() {
   );
 }
 
+// wordart-batch-1, Unit 3 (swim, dance, sing)
+function SwimArt() {
+  return (
+    <g transform="rotate(-8 60 62)">
+      <BuddyBase
+        mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+        extra={
+          <>
+            <path d="M20 70q-14 4-18-8" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
+            <path d="M100 70q14 4 18-8" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
+            <path d="M10 92q14-4 24 2q14-6 24 2q14-6 24 2q14-6 24 2" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".6" />
+          </>
+        }
+      />
+    </g>
+  );
+}
+
+function DanceArt() {
+  // Raised arms alone read as generic excitement, not specifically
+  // "dance" — a circular motion-swirl beneath the feet (a spin trail,
+  // same visual grammar as run's speed lines) is the cue that makes this
+  // read as mid-twirl rather than just "happy."
+  return (
+    <BuddyBase
+      mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+      extra={
+        <>
+          <path d="M30 50q-16-10-10-24" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
+          <path d="M90 50q16-10 10-24" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
+          <path d="M20 20q10 6 8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+          <path d="M100 20q-10 6-8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+          <path d="M30 98q30 14 60 0" fill="none" stroke={colors.bubble} strokeWidth="4" strokeLinecap="round" opacity=".65" />
+          <path d="M22 92q38 20 76 0" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".4" />
+        </>
+      }
+    />
+  );
+}
+
+function SingArt() {
+  return (
+    <BuddyBase
+      mouth={<ellipse cx="60" cy="74" rx="10" ry="9" fill={c.buddyOutline} />}
+      extra={
+        <>
+          <circle cx="96" cy="40" r="5" fill={colors.bubble} />
+          <path d="M101 40v-18" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" />
+          <path d="M101 22q8 0 8 6" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" fill="none" />
+          <circle cx="20" cy="30" r="4" fill={colors.sky} />
+          <path d="M24 30v-14" stroke={colors.sky} strokeWidth="2.5" strokeLinecap="round" />
+        </>
+      }
+    />
+  );
+}
+
 function FlyArt() {
   // Whole figure tilts into a glide; wings attach at the sides (not the
   // top, so they read as wings rather than ears) angled back like an
@@ -499,6 +556,9 @@ const REGISTRY = {
   bird: BirdArt,
   frog: FrogArt,
   eat: EatArt,
+  swim: SwimArt,
+  dance: DanceArt,
+  sing: SingArt,
   fly: FlyArt,
   jump: JumpArt,
   run: RunArt,
