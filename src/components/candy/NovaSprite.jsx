@@ -16,13 +16,18 @@ const REAL_RENDER_BY_STATE = {
 };
 
 export default function NovaSprite({ state = 'idle', size = 88 }) {
+  const file = REAL_RENDER_BY_STATE[state] ?? REAL_RENDER_BY_STATE.idle;
+  const base = file.replace(/\.png$/, '');
   return (
-    <img
-      src={`/nova/${REAL_RENDER_BY_STATE[state] ?? REAL_RENDER_BY_STATE.idle}`}
-      alt="Nova"
-      width={size}
-      height={size}
-      style={{ display: 'block', objectFit: 'cover', borderRadius: '50%' }}
-    />
+    <picture>
+      <source srcSet={`/nova/${base}.webp`} type="image/webp" />
+      <img
+        src={`/nova/${file}`}
+        alt="Nova"
+        width={size}
+        height={size}
+        style={{ display: 'block', objectFit: 'cover', borderRadius: '50%' }}
+      />
+    </picture>
   );
 }

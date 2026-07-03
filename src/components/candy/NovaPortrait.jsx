@@ -13,13 +13,17 @@ const PORTRAITS = {
 
 export default function NovaPortrait({ pose = 'wave', size = 120, rounded = 24, style }) {
   const src = PORTRAITS[pose] ?? PORTRAITS.wave;
+  const webpSrc = src.replace(/\.png$/, '.webp');
   return (
-    <img
-      src={src}
-      alt="Nova"
-      width={size}
-      height={size}
-      style={{ borderRadius: rounded, objectFit: 'cover', display: 'block', ...style }}
-    />
+    <picture>
+      <source srcSet={webpSrc} type="image/webp" />
+      <img
+        src={src}
+        alt="Nova"
+        width={size}
+        height={size}
+        style={{ borderRadius: rounded, objectFit: 'cover', display: 'block', ...style }}
+      />
+    </picture>
   );
 }
