@@ -3,21 +3,29 @@ import { colors } from '../../theme/tokens';
 
 // Nova, CSS-built per mockup D's `.nova`/`.n-core`/`.n-eye`/`.n-smile`/
 // `.n-tail` structure. Swap-in slot: if a Higgsfield render exists at
-// /nova/<state>.png it's used instead — falls back to the CSS sprite via
+// /nova/<file>.png it's used instead — falls back to the CSS sprite via
 // onError since we can't reliably probe public/ contents at build time.
 // state: 'idle' | 'fly' | 'correct' | 'wrong' | 'sleepy'.
+const REAL_RENDER_BY_STATE = {
+  idle: 'nova-base.png',
+  fly: 'nova-base.png',
+  correct: 'nova-celebrate.png',
+  wrong: 'nova-base.png', // errorless scaffold — Nova doesn't look upset, the tile carries the cue
+  sleepy: 'nova-base.png',
+};
+
 export default function NovaSprite({ state = 'idle', size = 88 }) {
   const [imgFailed, setImgFailed] = useState(false);
 
   if (!imgFailed) {
     return (
       <img
-        src={`/nova/${state}.png`}
+        src={`/nova/${REAL_RENDER_BY_STATE[state] ?? REAL_RENDER_BY_STATE.idle}`}
         alt="Nova"
         width={size}
         height={size}
         onError={() => setImgFailed(true)}
-        style={{ display: 'block' }}
+        style={{ display: 'block', objectFit: 'cover', borderRadius: '50%' }}
       />
     );
   }

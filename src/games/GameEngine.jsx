@@ -19,8 +19,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { wordIcons } from '../design-system/wordIcons';
-import NovaMascot from '../design-system/primitives/NovaMascot';
 import WordBuilder from './WordBuilder';
 import DrawIt from './DrawIt';
 import WordSong from './WordSong';
@@ -29,6 +27,10 @@ import StoryTimeActivity from './StoryTimeActivity';
 import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
 import { T } from './gameTheme';
+import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
+import WordArt from '../components/WordArt';
+import { IconClose, IconSpeaker, IconStar } from '../components/icons';
+import { StarProgress, NovaPorthole, AnswerTile, ConfettiStars, LESSON_CHROME_KEYFRAMES } from './lessonChrome';
 
 // ─── Question formatter — correct grammar for every word class ────────────────
 // Client-side fallback for any plan that predates wordClass being added to quizzes
@@ -268,7 +270,7 @@ function injectCSS() {
   if (document.getElementById('mw-game-styles')) return;
   const el = document.createElement('style');
   el.id = 'mw-game-styles';
-  el.textContent = GLOBAL_CSS;
+  el.textContent = GLOBAL_CSS + LESSON_CHROME_KEYFRAMES;
   document.head.appendChild(el);
 }
 
@@ -335,262 +337,142 @@ function SessionProgress({ current, total, correctCount }) {
   );
 }
 
-// ─── Feedback overlay (shows after answer) ────────────────────────────────────
-function FeedbackOverlay({ correct, message, emoji }) {
-  return createPortal(
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: correct
-        ? 'rgba(45,212,191,0.18)'
-        : 'rgba(255,122,89,0.18)',
-      backdropFilter: 'blur(4px)',
-      animation: 'mw-pop 0.3s ease',
-      pointerEvents: 'none',
-    }}>
-      <div style={{ fontSize: '80px', animation: 'mw-celebrate 0.6s ease' }}>{emoji}</div>
-      <div style={{
-        fontFamily: 'Space Grotesk',
-        fontSize: '2rem',
-        color: correct ? T.teal : T.coral,
-        marginTop: '1rem',
-        textAlign: 'center',
-        padding: '0 1rem',
-      }}>{message}</div>
-    </div>,
-    document.body
-  );
-}
+// FeedbackOverlay and WordTile (old full-screen-color-wash feedback and
+// emoji/legacy-icon word rendering) removed — the 5 E2-rebuilt activities
+// use lessonChrome.jsx (tile-level feedback, no full-screen overlay ever,
+// per docs/DESIGN_BRIEF.md §7 "no red error states") and WordArt.jsx
+// instead. SoundMatch/SpellItOut (not in the 5 named Candy Galaxy
+// activities) don't reference either.
 
-// ─── Word tile: illustrated icon if available, emoji fallback otherwise ──────
-function WordTile({ emoji, word }) {
-  const iconUrl = word ? wordIcons[word] : null;
-  if (iconUrl) {
-    return (
-      <img
-        src={iconUrl}
-        alt={word}
-        style={{ width: '4.5rem', height: '4.5rem', display: 'block', margin: '0 auto', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))' }}
-      />
-    );
-  }
-  return (
-    <span style={{ fontSize: '4.5rem', lineHeight: 1, display: 'block', textAlign: 'center', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))' }}>{emoji}</span>
-  );
-}
-
-// ─── GAME 1: Word Match ────────────────────────────────────────────────────────
-// See word → tap the correct emoji. Classic MVP game, polished.
+// ─── ACTIVITY: Tap & Hear (WordMatch) ─────────────────────────────────────
+// See word → tap the matching picture. Flagship activity, matches
+// docs/mockup-E2-no-emoji.html exactly: 2x2 WordArt tiles, Nova porthole +
+// speech bubble, errorless scaffold (wiggle+soften+hint-glow, no red/X).
 function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
-  const [selected,    setSelected]    = useState(null);
   const [answered,    setAnswered]    = useState(false);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [overlayData, setOverlayData] = useState(null);
   const [audioUrl,    setAudioUrl]    = useState(null);
-  const [audioLoading, setAudioLoading] = useState(false);
   const [novaState,   setNovaState]   = useState('idle');
+  const [message,     setMessage]     = useState('');
+  const [confetti,    setConfetti]    = useState(false);
   // Errorless-learning scaffold: a first wrong tap doesn't let the error
-  // complete — it shakes the wrong tile, then highlights the correct one
-  // and lets the child retry immediately (highlight stays until they
-  // answer, not a flickering timed pulse — the cue should still be there
-  // the instant input re-enables). Only a second miss on the same
-  // question lets the error complete (overlay + advance), per CLAUDE.md's
-  // errorless-learning open task.
-  const [wrongTileIdx,   setWrongTileIdx]   = useState(null);
-  const [shaking,        setShaking]        = useState(false);
-  const [revealCorrect,  setRevealCorrect]  = useState(false);
-  const [missedOnce,     setMissedOnce]     = useState(false);
+  // complete — it wiggles+softens the wrong tile, then hint-glows the
+  // correct one and lets the child retry immediately. Only a second miss
+  // on the same question lets the error complete (reveal + advance).
+  const [wrongTileIdx,  setWrongTileIdx]  = useState(null);
+  const [revealCorrect, setRevealCorrect] = useState(false);
+  const [missedOnce,    setMissedOnce]    = useState(false);
+  const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
 
-  // Reset game state immediately — never wait for audio
   useEffect(() => {
-    setSelected(null);
     setAnswered(false);
-    setShowOverlay(false);
-    setOverlayData(null);
     setWrongTileIdx(null);
-    setShaking(false);
     setRevealCorrect(false);
     setMissedOnce(false);
+    setMessage(formatQuestion(quiz?.word, quiz?.wordClass ?? 'noun'));
+    setNovaState('idle');
     startRef.current = Date.now();
   }, [quiz?.word]);
 
-  // Fetch audio for the full question — UI is never blocked if audio is slow
   useEffect(() => {
     const audioText = quiz?.question ?? quiz?.word;
     if (!audioText) return;
     let cancelled = false;
     setAudioUrl(null);
-    setAudioLoading(true);
-    fetchAudio(audioText)
-      .then(url => {
-        if (cancelled) return;
-        setAudioLoading(false);
-        if (url) {
-          setAudioUrl(url);
-          playAudio(url);
-        }
-      })
-      .catch(() => { if (!cancelled) setAudioLoading(false); });
+    fetchAudio(audioText).then(url => {
+      if (cancelled) return;
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
     return () => { cancelled = true; };
   }, [quiz?.word]);
 
-  const replayAudio = useCallback(() => {
-    if (audioUrl) playAudio(audioUrl);
-  }, [audioUrl]);
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   const handleTap = useCallback((idx) => {
-    if (answered || shaking) return;
+    if (answered) return;
     const correct = idx === quiz.correctIndex;
     const responseTimeMs = Date.now() - startRef.current;
 
     if (!correct && !missedOnce) {
-      // First miss on this question: don't let the error complete. Shake
-      // the wrong tile, then highlight the correct one and let the child
-      // retry — no overlay, no advance, no XP/mastery call yet. The
-      // highlight stays until they answer, so the cue is still visible
-      // the instant input re-enables.
       setMissedOnce(true);
-      setNovaState('wrong');
       setWrongTileIdx(idx);
-      setShaking(true);
+      setMessage("Not quite — try the glowing one!");
       setTimeout(() => {
         setWrongTileIdx(null);
-        setNovaState('idle');
-        setShaking(false);
         setRevealCorrect(true);
       }, 450);
       return;
     }
 
-    setSelected(idx);
     setAnswered(true);
-    setNovaState(correct ? 'correct' : 'wrong');
-    setOverlayData({
-      correct,
-      message: correct
-        ? (encouragement ?? 'Great job! ⭐')
-        : `Oops! That's okay — the ${quiz.word} is ${quiz.emoji}`,
-      emoji: correct ? quiz.emoji : '💪',
-    });
-    setShowOverlay(true);
+    if (correct) {
+      setNovaState('correct');
+      setConfetti(true);
+      setMessage(encouragement ?? `That's right! ${quiz.word}!`);
+      setTimeout(() => setConfetti(false), 900);
+    } else {
+      setWrongTileIdx(idx);
+      setMessage(`That's okay — it's "${quiz.word}"!`);
+      const url = audioCache.get(quiz.question ?? quiz.word);
+      if (url) playAudio(url);
+    }
     setTimeout(() => {
-      setShowOverlay(false);
       setNovaState('idle');
-      if (!correct) {
-        // Replay question audio so child hears it again, then advance after 600ms
-        const url = audioCache.get(quiz.question ?? quiz.word);
-        if (url) playAudio(url);
-        setTimeout(() => onAnswer({ correct, responseTimeMs, firstTry: true }), 600);
-      } else {
-        onAnswer({ correct, responseTimeMs, firstTry: true });
-      }
-    }, 1400);
-  }, [answered, shaking, missedOnce, quiz, onAnswer, encouragement]);
+      onAnswer({ correct, responseTimeMs, firstTry: true });
+    }, correct ? 1100 : 1700);
+  }, [answered, missedOnce, quiz, onAnswer, encouragement]);
 
   if (!quiz) return null;
 
   return (
-    <>
-      {showOverlay && overlayData && (
-        <FeedbackOverlay
-          correct={overlayData.correct}
-          message={overlayData.message}
-          emoji={overlayData.emoji}
-        />
-      )}
-      {/* Nova mascot */}
-      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, pointerEvents: 'none' }}>
-        <NovaMascot novaState={novaState} size={40} />
-      </div>
-      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-        {/* Target word + replay button */}
-        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-            <div style={{
-              fontFamily: 'Space Grotesk',
-              fontSize: 'clamp(2.5rem, 8vw, 4rem)',
-              color: T.white,
-              animation: 'mw-word-glow 3s ease-in-out infinite',
-              letterSpacing: '2px',
-            }}>
-              {quiz.word}
-            </div>
-            <button
-              onClick={replayAudio}
-              disabled={!audioUrl}
-              style={{
-                background: 'rgba(45,212,191,0.12)',
-                border: `2px solid ${T.teal}`,
-                borderRadius: '50%',
-                width: '44px',
-                height: '44px',
-                fontSize: '1.25rem',
-                cursor: audioUrl ? 'pointer' : 'default',
-                opacity: !audioUrl ? 0.45 : 1,
-                animation: audioLoading ? 'mw-pulse-glow 1s ease-in-out infinite' : 'none',
-                transition: 'opacity 0.3s',
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              🔊
-            </button>
-          </div>
-          <div style={{
-            fontFamily: 'Atkinson Hyperlegible',
-            fontSize: '1rem',
-            color: T.muted,
-            marginTop: '0.25rem',
-          }}>
-            {formatQuestion(quiz.word, quiz.wordClass ?? 'noun')}
-          </div>
-        </div>
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
+      <ConfettiStars active={confetti} originRef={correctTileRef} />
+      <NovaPorthole novaState={novaState} message={message} />
 
-        {/* Emoji options grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '0.875rem',
-        }}>
-          {quiz.options.map((opt, idx) => {
-            let className = 'mw-option-btn';
-            const isCorrectTile = idx === quiz.correctIndex;
-            if (answered) {
-              if (isCorrectTile)         className += ' correct revealed';
-              else if (idx === selected) className += ' wrong';
-            }
-            if (idx === wrongTileIdx) className += ' wrong';
-            // Hint — pulse on correct tile after 1 consecutive wrong question
-            // (session-level), OR persistently once this question's own
-            // first miss has been modeled (errorless-learning scaffold —
-            // stays lit until answered, see handleTap).
-            const showPulse = (revealCorrect || (showHint && !answered)) && isCorrectTile;
-            const hintStyle = showPulse
-              ? { animation: 'mw-pulse-glow 0.8s ease-in-out infinite', borderColor: 'rgba(45,212,191,0.5)' }
-              : {};
-            return (
-              <button
-                key={idx}
-                className={className}
-                onClick={() => handleTap(idx)}
-                disabled={answered || shaking}
-                style={{
-                  ...(showPulse ? {} : { animationDelay: (idx * 0.07) + 's' }),
-                  cursor: (answered || shaking) ? 'default' : 'pointer',
-                  ...hintStyle,
-                }}
-              >
-                <WordTile emoji={opt.emoji} word={opt.word} />
-              </button>
-            );
-          })}
+      <div style={{ textAlign: 'center', margin: '8px 0 34px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 'clamp(1.6rem,6vw,2.2rem)', color: colors.cloud }}>
+            Tap the picture of <span style={{ color: colors.sun }}>{quiz.word}</span>
+          </div>
+          <button
+            onClick={replayAudio}
+            disabled={!audioUrl}
+            aria-label="Hear the word again"
+            style={{
+              width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5,
+            }}
+          >
+            <IconSpeaker size={20} color={colors.cloud} />
+          </button>
         </div>
       </div>
-    </>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, maxWidth: 560, margin: '0 auto' }}>
+        {quiz.options.map((opt, idx) => {
+          const isCorrectTile = idx === quiz.correctIndex;
+          let state;
+          if (idx === wrongTileIdx) state = 'wiggle-soften';
+          else if ((revealCorrect || (showHint && !answered)) && isCorrectTile) state = 'hint-glow';
+          else if (answered && isCorrectTile) state = 'correct-flash';
+          return (
+            <AnswerTile
+              key={idx}
+              index={idx}
+              onTap={() => handleTap(idx)}
+              disabled={answered}
+              state={state}
+            >
+              <div ref={isCorrectTile ? correctTileRef : undefined}>
+                <WordArt word={opt.word} size={92} />
+              </div>
+              <div style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.ink, fontSize: '1.05rem' }}>{opt.word}</div>
+            </AnswerTile>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -722,32 +604,34 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
   );
 }
 
-// ─── GAME NEW-A: Word Hunt ────────────────────────────────────────────────────
-// Show the emoji at the top — find the correct WORD from 4 options.
-// Inverse of WordMatch: emoji-first instead of word-first.
+// ─── ACTIVITY: Word Hunt ───────────────────────────────────────────────────
+// Show the picture at the top — find the correct WORD from 4 options.
+// Inverse of Tap & Hear: picture-first instead of word-first. Same shared
+// chrome + errorless scaffold as WordMatch.
 function WordHunt({ quiz, onAnswer, encouragement }) {
-  const [selected,    setSelected]    = useState(null);
-  const [answered,    setAnswered]    = useState(false);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [overlayData, setOverlayData] = useState(null);
-  const [novaState,   setNovaState]   = useState('idle');
+  const [answered,  setAnswered]  = useState(false);
+  const [novaState, setNovaState] = useState('idle');
+  const [message,   setMessage]   = useState('Which word matches this picture?');
+  const [confetti,  setConfetti]  = useState(false);
+  const [wrongTileIdx,  setWrongTileIdx]  = useState(null);
+  const [revealCorrect, setRevealCorrect] = useState(false);
+  const [missedOnce,    setMissedOnce]    = useState(false);
+  const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
 
   useEffect(() => {
-    setSelected(null);
     setAnswered(false);
-    setShowOverlay(false);
-    setOverlayData(null);
+    setWrongTileIdx(null);
+    setRevealCorrect(false);
+    setMissedOnce(false);
+    setMessage('Which word matches this picture?');
     setNovaState('idle');
     startRef.current = Date.now();
   }, [quiz?.word]);
 
-  // Speak the full prompt — never just the bare word, so the child isn't told the answer
   useEffect(() => {
     let cancelled = false;
-    fetchAudio('Which word matches this picture?').then(url => {
-      if (!cancelled && url) playAudio(url);
-    });
+    fetchAudio('Which word matches this picture?').then(url => { if (!cancelled && url) playAudio(url); });
     return () => { cancelled = true; };
   }, [quiz?.word]);
 
@@ -755,71 +639,69 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
     if (answered) return;
     const correct = idx === quiz.correctIndex;
     const responseTimeMs = Date.now() - startRef.current;
-    setSelected(idx);
+
+    if (!correct && !missedOnce) {
+      setMissedOnce(true);
+      setWrongTileIdx(idx);
+      setMessage('Not quite — try the glowing one!');
+      setTimeout(() => { setWrongTileIdx(null); setRevealCorrect(true); }, 450);
+      return;
+    }
+
     setAnswered(true);
-    setNovaState(correct ? 'correct' : 'wrong');
-    setOverlayData({
-      correct,
-      message: correct ? (encouragement ?? 'Found it! ⭐') : `It's "${quiz.word}"!`,
-      emoji: correct ? quiz.emoji : '💪',
-    });
-    setShowOverlay(true);
-    setTimeout(() => {
-      setShowOverlay(false);
-      setNovaState('idle');
-      onAnswer({ correct, responseTimeMs, firstTry: true });
-    }, 1400);
+    if (correct) {
+      setNovaState('correct');
+      setConfetti(true);
+      setMessage(encouragement ?? 'Found it!');
+      setTimeout(() => setConfetti(false), 900);
+    } else {
+      setWrongTileIdx(idx);
+      setMessage(`That's okay — it's "${quiz.word}"!`);
+    }
+    setTimeout(() => { setNovaState('idle'); onAnswer({ correct, responseTimeMs, firstTry: true }); }, correct ? 1100 : 1700);
   };
 
   if (!quiz) return null;
 
   return (
-    <>
-      {showOverlay && overlayData && (
-        <FeedbackOverlay correct={overlayData.correct} message={overlayData.message} emoji={overlayData.emoji} />
-      )}
-      <div style={{ position: 'fixed', top: 70, left: 16, zIndex: 200, pointerEvents: 'none' }}>
-        <NovaMascot novaState={novaState} size={40} />
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
+      <ConfettiStars active={confetti} originRef={correctTileRef} />
+      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
+        <WordArt word={quiz.word} size={110} style={{ margin: '0 auto' }} />
       </div>
-      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-          <div style={{ fontSize: '80px', animation: 'mw-bounce 2s ease-in-out infinite', lineHeight: 1 }}>
-            {quiz.emoji}
-          </div>
-          <div style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '1rem', color: T.muted, marginTop: '0.75rem' }}>
-            Which word matches this picture? 🔍
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
-          {quiz.options.map((opt, idx) => {
-            let className = 'mw-option-btn';
-            if (answered) {
-              if (idx === quiz.correctIndex) className += ' correct revealed';
-              else if (idx === selected)     className += ' wrong';
-            }
-            return (
-              <button key={idx} className={className} onClick={() => handleTap(idx)} disabled={answered}
-                style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 90 }}>
-                <span style={{ fontFamily: 'Space Grotesk', fontSize: '1.7rem', color: T.white }}>{opt.word}</span>
-                {answered && idx === quiz.correctIndex && (
-                  <span style={{ fontSize: '1.2rem', marginTop: 4 }}>{opt.emoji}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, maxWidth: 560, margin: '0 auto' }}>
+        {quiz.options.map((opt, idx) => {
+          const isCorrectTile = idx === quiz.correctIndex;
+          let state;
+          if (idx === wrongTileIdx) state = 'wiggle-soften';
+          else if (revealCorrect && isCorrectTile) state = 'hint-glow';
+          else if (answered && isCorrectTile) state = 'correct-flash';
+          return (
+            <AnswerTile key={idx} index={idx} onTap={() => handleTap(idx)} disabled={answered} state={state} minHeight={90}>
+              <div ref={isCorrectTile ? correctTileRef : undefined} style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.ink, fontSize: '1.4rem' }}>
+                {opt.word}
+              </div>
+            </AnswerTile>
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 }
 
-// ─── GAME NEW-B: Rhyme Time ───────────────────────────────────────────────────
-// Show a word at the top — tap the word that RHYMES with it.
+// ─── ACTIVITY: Match & Sort (RhymeTime) ────────────────────────────────────
+// Show a word at the top — tap the word that RHYMES with it. Same shared
+// chrome + errorless scaffold as WordMatch/WordHunt.
 function RhymeTime({ quiz, onAnswer, encouragement }) {
-  const [answered,    setAnswered]    = useState(false);
-  const [selected,    setSelected]    = useState(null);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [overlayData, setOverlayData] = useState(null);
+  const [answered,  setAnswered]  = useState(false);
+  const [novaState, setNovaState] = useState('idle');
+  const [message,   setMessage]   = useState('Which word rhymes with this?');
+  const [confetti,  setConfetti]  = useState(false);
+  const [wrongTileIdx,  setWrongTileIdx]  = useState(null);
+  const [revealCorrect, setRevealCorrect] = useState(false);
+  const [missedOnce,    setMissedOnce]    = useState(false);
+  const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
 
   const rhymeAnswer = RHYME_MAP[quiz?.word] ?? null;
@@ -838,19 +720,18 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
 
   useEffect(() => {
     setAnswered(false);
-    setSelected(null);
-    setShowOverlay(false);
-    setOverlayData(null);
+    setWrongTileIdx(null);
+    setRevealCorrect(false);
+    setMissedOnce(false);
+    setMessage('Which word rhymes with this?');
+    setNovaState('idle');
     startRef.current = Date.now();
   }, [quiz?.word]);
 
-  // Speak the full prompt — "Which word rhymes with cat?" not just "cat"
   useEffect(() => {
     if (!quiz?.word) return;
     let cancelled = false;
-    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => {
-      if (!cancelled && url) playAudio(url);
-    });
+    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => { if (!cancelled && url) playAudio(url); });
     return () => { cancelled = true; };
   }, [quiz?.word]);
 
@@ -858,18 +739,26 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
     if (answered) return;
     const isCorrect = idx === correctIdx;
     const responseTimeMs = Date.now() - startRef.current;
-    setSelected(idx);
+
+    if (!isCorrect && !missedOnce) {
+      setMissedOnce(true);
+      setWrongTileIdx(idx);
+      setMessage('Not quite — try the glowing one!');
+      setTimeout(() => { setWrongTileIdx(null); setRevealCorrect(true); }, 450);
+      return;
+    }
+
     setAnswered(true);
-    setOverlayData({
-      correct: isCorrect,
-      message: isCorrect ? (encouragement ?? '🎵 You found the rhyme!') : `"${quiz.word}" rhymes with "${rhymeAnswer ?? options?.[correctIdx]?.word}"`,
-      emoji: isCorrect ? '🎵' : '💪',
-    });
-    setShowOverlay(true);
-    setTimeout(() => {
-      setShowOverlay(false);
-      onAnswer({ correct: isCorrect, responseTimeMs, firstTry: true });
-    }, 1400);
+    if (isCorrect) {
+      setNovaState('correct');
+      setConfetti(true);
+      setMessage(encouragement ?? 'You found the rhyme!');
+      setTimeout(() => setConfetti(false), 900);
+    } else {
+      setWrongTileIdx(idx);
+      setMessage(`"${quiz.word}" rhymes with "${rhymeAnswer ?? options?.[correctIdx]?.word}"`);
+    }
+    setTimeout(() => { setNovaState('idle'); onAnswer({ correct: isCorrect, responseTimeMs, firstTry: true }); }, isCorrect ? 1100 : 1700);
   };
 
   if (!quiz) return null;
@@ -877,43 +766,38 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   const displayOptions = options ?? quiz.options.map((o, i) => ({ word: o.word, correct: i === quiz.correctIndex }));
 
   return (
-    <>
-      {showOverlay && overlayData && (
-        <FeedbackOverlay correct={overlayData.correct} message={overlayData.message} emoji={overlayData.emoji} />
-      )}
-      <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-        <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-          <div style={{ fontFamily: 'Space Grotesk', fontSize: 'clamp(2.5rem, 10vw, 4rem)', color: T.gold,
-            textShadow: `0 0 30px ${T.gold}88`, animation: 'mw-word-glow 3s ease-in-out infinite' }}>
-            {quiz.word}
-          </div>
-          <div style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.95rem', color: T.muted, marginTop: '0.5rem' }}>
-            🎵 Which word rhymes with this?
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
-          {displayOptions.map((opt, idx) => {
-            let bg = T.card, border = T.border;
-            if (answered) {
-              if (idx === correctIdx)    { bg = 'rgba(45,212,191,0.2)'; border = T.teal; }
-              else if (idx === selected) { bg = 'rgba(255,122,89,0.2)'; border = T.coral; }
-            }
-            return (
-              <button key={idx} onClick={() => handleTap(idx)} disabled={answered}
-                className={`mw-option-btn${answered && idx === correctIdx ? ' correct revealed' : ''}${answered && idx === selected && idx !== correctIdx ? ' wrong' : ''}`}
-                style={{ animationDelay: (idx * 0.07) + 's', cursor: answered ? 'default' : 'pointer', minHeight: 80 }}>
-                <span style={{ fontFamily: 'Space Grotesk', fontSize: '1.6rem', color: T.white }}>{opt.word}</span>
-              </button>
-            );
-          })}
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
+      <ConfettiStars active={confetti} originRef={correctTileRef} />
+      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
+        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 'clamp(2rem,8vw,3rem)', color: colors.sun }}>
+          {quiz.word}
         </div>
       </div>
-    </>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, maxWidth: 560, margin: '0 auto' }}>
+        {displayOptions.map((opt, idx) => {
+          const isCorrectTile = idx === correctIdx;
+          let state;
+          if (idx === wrongTileIdx) state = 'wiggle-soften';
+          else if (revealCorrect && isCorrectTile) state = 'hint-glow';
+          else if (answered && isCorrectTile) state = 'correct-flash';
+          return (
+            <AnswerTile key={idx} index={idx} onTap={() => handleTap(idx)} disabled={answered} state={state} minHeight={80}>
+              <div ref={isCorrectTile ? correctTileRef : undefined} style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.ink, fontSize: '1.4rem' }}>
+                {opt.word}
+              </div>
+            </AnswerTile>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-// ─── GAME NEW-C: Flash Card Challenge ────────────────────────────────────────
-// Show emoji face-up — tap to reveal the word, then self-rate: know it or need practice.
+// ─── ACTIVITY: Quiz Boss (FlashCardChallenge) ──────────────────────────────
+// Show the picture face-up — tap to reveal the word, then self-rate: know
+// it or need practice. Self-rated, not right/wrong-graded, so no errorless
+// scaffold applies — but still candy tokens, chunk shadow, no emoji.
 function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   const [revealed, setRevealed] = useState(false);
   const [answered, setAnswered] = useState(false);
@@ -953,69 +837,61 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   if (!quiz) return null;
 
   return (
-    <div style={{ padding: '0 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      minHeight: '60vh', justifyContent: 'center', animation: 'mw-slide-up 0.35s ease' }}>
-      <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, fontSize: '0.9rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-        Flash Card Challenge ⚡
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '60vh', justifyContent: 'center' }}>
+      <div style={{ fontFamily: fonts.display, fontWeight: 700, color: 'rgba(255,255,255,.8)', fontSize: '.9rem', marginBottom: 20, textAlign: 'center' }}>
+        Quiz Boss
       </div>
-      {/* The flash card */}
-      <div onClick={handleReveal} style={{
-        width: '100%', maxWidth: 320, minHeight: 200,
-        background: revealed
-          ? `linear-gradient(135deg, ${T.teal}33, ${T.teal}1a)`
-          : `linear-gradient(135deg, ${T.gold}26, ${T.gold}1a)`,
-        border: `2px solid ${revealed ? T.teal : T.gold}`,
-        borderRadius: 24, padding: '2rem',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        cursor: revealed ? 'default' : 'pointer',
-        transition: 'all 0.3s',
-        boxShadow: `0 8px 30px ${revealed ? `${T.teal}33` : `${T.gold}33`}`,
-        animation: 'mw-pop 0.3s ease',
+      <button onClick={handleReveal} style={{
+        width: '100%', maxWidth: 300, minHeight: 220, background: colors.cloud, border: 'none',
+        borderRadius: 32, padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', cursor: revealed ? 'default' : 'pointer', gap: 12,
+        boxShadow: shadows.chunk,
       }}>
-        <div style={{ fontSize: '80px', marginBottom: '0.75rem' }}>{quiz.emoji}</div>
+        <WordArt word={quiz.word} size={90} />
         {revealed ? (
-          <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.teal,
-            textShadow: `0 0 20px ${T.teal}55`, animation: 'mw-pop 0.25s ease' }}>
-            {quiz.word}
-          </div>
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '2rem', color: colors.ink }}>{quiz.word}</div>
         ) : (
-          <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.gold, fontSize: '1rem', fontWeight: 700 }}>
-            Tap to reveal! 👆
-          </div>
+          <div style={{ fontFamily: fonts.display, color: colors.mintDeep, fontSize: '1rem', fontWeight: 700 }}>Tap to reveal!</div>
         )}
-      </div>
-      {/* Self-rating buttons appear after reveal */}
+      </button>
       {revealed && !answered && (
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', animation: 'mw-slide-up 0.3s ease' }}>
+        <div style={{ display: 'flex', gap: 14, marginTop: 24 }}>
           <button onClick={() => handleKnow(false)} style={{
-            fontFamily: 'Space Grotesk', fontSize: '1rem',
-            background: 'rgba(255,122,89,0.15)', border: `2px solid ${T.coral}`,
-            color: T.coral, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
-          }}>Need practice 💪</button>
+            fontFamily: fonts.display, fontWeight: 700, fontSize: '.95rem',
+            background: colors.sun, color: colors.starText, border: 'none',
+            borderRadius: 100, padding: '13px 20px', cursor: 'pointer', boxShadow: shadows.chunkSm,
+          }}>Need practice</button>
           <button onClick={() => handleKnow(true)} style={{
-            fontFamily: 'Space Grotesk', fontSize: '1rem',
-            background: 'rgba(45,212,191,0.15)', border: `2px solid ${T.teal}`,
-            color: T.teal, borderRadius: '50px', padding: '0.875rem 1.25rem', cursor: 'pointer',
-          }}>I know it! ⭐</button>
+            fontFamily: fonts.display, fontWeight: 700, fontSize: '.95rem',
+            background: colors.mint, color: colors.mintDeep, border: 'none',
+            borderRadius: 100, padding: '13px 20px', cursor: 'pointer', boxShadow: shadows.chunkSm,
+          }}>I know it!</button>
         </div>
       )}
     </div>
   );
 }
 
-// ─── GAME 3: Story Builder ────────────────────────────────────────────────────
-// A sentence with a blank — drag or tap the correct word to fill it.
-// Uses tap-to-select (mobile-friendly) rather than pure drag-and-drop.
+// ─── ACTIVITY: Fill the Story (StoryBuilder) ───────────────────────────────
+// A sentence with a blank — tap a word chip to select it, tap again to
+// confirm. Errorless-adjacent: a wrong confirm softens the chip and glows
+// the correct one rather than a red flash, matching the other 4 activities.
 function StoryBuilder({ quiz, onAnswer }) {
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
   const [filled,   setFilled]   = useState(false);
+  const [novaState, setNovaState] = useState('idle');
+  const [message,   setMessage]   = useState('Tap a word to choose it');
+  const [confetti,  setConfetti]  = useState(false);
+  const correctChipRef = useRef(null);
   const startRef = useRef(Date.now());
 
   useEffect(() => {
     setSelected(null);
     setAnswered(false);
     setFilled(false);
+    setNovaState('idle');
+    setMessage('Tap a word to choose it');
     startRef.current = Date.now();
   }, [quiz?.word]);
 
@@ -1026,16 +902,10 @@ function StoryBuilder({ quiz, onAnswer }) {
   const handleWordTap = (idx) => {
     if (answered) return;
     if (selected === idx) {
-      // Second tap on selected = confirm
       confirmAnswer(idx);
     } else {
       setSelected(idx);
-    }
-  };
-
-  const handleDropZoneTap = () => {
-    if (selected !== null && !answered) {
-      confirmAnswer(selected);
+      setMessage('Tap again to place it');
     }
   };
 
@@ -1044,76 +914,67 @@ function StoryBuilder({ quiz, onAnswer }) {
     const responseTimeMs = Date.now() - startRef.current;
     setFilled(true);
     setAnswered(true);
-    setTimeout(() => onAnswer({ correct, responseTimeMs }), 1600);
+    if (correct) {
+      setNovaState('correct');
+      setConfetti(true);
+      setMessage('That fits perfectly!');
+      setTimeout(() => setConfetti(false), 900);
+    } else {
+      setMessage(`Let's try "${quiz.options[quiz.correctIndex]?.word}" here instead.`);
+    }
+    setTimeout(() => { setNovaState('idle'); onAnswer({ correct, responseTimeMs }); }, 1600);
   };
 
   const parts = (quiz?.sentence ?? '').split('___');
 
   return (
-    <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-      {/* Sentence with blank */}
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
+      <ConfettiStars active={confetti} originRef={correctChipRef} />
+      <NovaPorthole novaState={novaState} message={message} />
+
       <div style={{
-        textAlign: 'center',
-        margin: '1.5rem 0',
-        fontFamily: 'Space Grotesk',
-        fontSize: 'clamp(1.3rem, 4vw, 1.8rem)',
-        color: T.white,
-        lineHeight: 1.8,
+        textAlign: 'center', margin: '8px 0 24px', fontFamily: fonts.display, fontWeight: 700,
+        fontSize: 'clamp(1.2rem,4vw,1.6rem)', color: colors.cloud, lineHeight: 1.8,
       }}>
         <span>{parts[0]}</span>
-        <span
-          className={`mw-drop-zone ${selected !== null && !filled ? 'over' : ''} ${filled ? 'filled' : ''}`}
-          onClick={handleDropZoneTap}
-        >
-          {filled && selected !== null
-            ? quiz.options[selected]?.word
-            : '\u00A0\u00A0\u00A0\u00A0'}
+        <span style={{
+          display: 'inline-block', minWidth: 90, padding: '2px 10px', borderRadius: 12,
+          borderBottom: `3px solid ${filled ? colors.sun : colors.mint}`,
+          color: filled ? colors.sun : colors.mint,
+        }}>
+          {filled && selected !== null ? quiz.options[selected]?.word : '    '}
         </span>
         <span>{parts[1]}</span>
       </div>
 
-      {/* Instruction */}
-      <p style={{
-        textAlign: 'center',
-        fontFamily: 'Atkinson Hyperlegible',
-        color: T.muted,
-        fontSize: '0.9rem',
-        margin: '0 0 1.5rem',
-      }}>
-        {selected === null ? 'Tap a word to choose it' : 'Tap again to place it ↑'}
-      </p>
-
-      {/* Word choices */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        justifyContent: 'center',
-      }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', maxWidth: 560, margin: '0 auto' }}>
         {quiz.options.map((opt, idx) => {
-          const isSelected = selected === idx;
-          const isCorrect  = answered && idx === quiz.correctIndex;
-          const isWrong    = answered && idx === selected && !isCorrect;
-
+          const isSelected = selected === idx && !answered;
+          const isCorrectChip = answered && idx === quiz.correctIndex;
+          const isWrongChip = answered && idx === selected && !isCorrectChip;
           return (
             <button
               key={idx}
-              className={`mw-drag-word ${answered && idx === selected ? 'used' : ''}`}
               onClick={() => handleWordTap(idx)}
               disabled={answered}
               style={{
-                borderColor: isSelected  ? T.teal
-                           : isCorrect   ? T.teal
-                           : isWrong     ? T.coral
-                           : T.border,
-                background:  isSelected  ? 'rgba(45,212,191,0.2)'
-                           : isCorrect   ? 'rgba(45,212,191,0.15)'
-                           : isWrong     ? 'rgba(255,122,89,0.15)'
-                           : T.card,
-                transform: isSelected && !answered ? 'scale(1.08) translateY(-4px)' : undefined,
+                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 100,
+                border: 'none', cursor: answered ? 'default' : 'pointer',
+                fontFamily: fonts.display, fontWeight: 700, fontSize: '1.05rem', color: colors.ink,
+                background: colors.cloud,
+                boxShadow: isCorrectChip
+                  ? `${shadows.chunkSm}, 0 0 0 4px rgba(62,224,184,.55), 0 0 20px rgba(62,224,184,.6)`
+                  : shadows.chunkSm,
+                opacity: isWrongChip ? 0.55 : 1,
+                filter: isWrongChip ? 'saturate(.55)' : 'none',
+                transform: isSelected ? 'translateY(-4px) scale(1.05)' : 'none',
+                transition: 'all .2s',
               }}
             >
-              {opt.emoji} {opt.word}
+              <span ref={isCorrectChip ? correctChipRef : undefined}>
+                <WordArt word={opt.word} size={28} />
+              </span>
+              {opt.word}
             </button>
           );
         })}
@@ -1719,32 +1580,58 @@ export function GameEngine({
     );
   }
 
+  // The 5 E2-rebuilt activities self-manage their own confetti/stage
+  // background (candy sky gradient, see docs/mockup-E2-no-emoji.html) and
+  // would double-fire confetti if the orchestrator also triggered it.
+  // Un-rebuilt game types (SoundMatch, SpellItOut, etc.) still fall back to
+  // the orchestrator-level ConfettiBurst + Cloud background.
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards'].includes(gameType);
+
   return (
     <div style={{
       minHeight: '100vh',
-      background: T.bg,
+      background: isE2Activity ? skyGradient : T.bg,
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: "'Atkinson Hyperlegible', sans-serif",
+      fontFamily: fonts.body,
     }}>
-      <ConfettiBurst active={showConfetti} />
+      {!isE2Activity && <ConfettiBurst active={showConfetti} />}
       {xpToast && (
         <div key={xpToast.id} style={{
           position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
-          fontFamily: 'Space Grotesk', fontSize: '1.5rem', color: '#FFE66D',
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.sun,
           zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
           pointerEvents: 'none', textShadow: '0 0 20px rgba(255,184,77,0.8)',
           whiteSpace: 'nowrap',
         }}>
-          +{xpToast.amount} XP ⭐
+          +{xpToast.amount} XP <IconStar size={20} color={colors.sun} />
         </div>
       )}
 
-      <SessionProgress
-        current={currentIdx + 1}
-        total={totalQuizzes}
-        correctCount={correctCount}
-      />
+      {isE2Activity ? (
+        <div style={{ maxWidth: 780, margin: '0 auto', width: '100%', padding: '28px 24px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              onClick={onHome}
+              aria-label="Close lesson"
+              style={{
+                width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+              }}
+            >
+              <IconClose size={20} color={colors.cloud} />
+            </button>
+            <StarProgress current={currentIdx + 1} total={totalQuizzes} />
+          </div>
+        </div>
+      ) : (
+        <SessionProgress
+          current={currentIdx + 1}
+          total={totalQuizzes}
+          correctCount={correctCount}
+        />
+      )}
 
       {/* Render the correct game component */}
       {gameType === 'word_match' && (

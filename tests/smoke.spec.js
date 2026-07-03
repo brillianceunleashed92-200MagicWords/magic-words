@@ -107,7 +107,7 @@ test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   // ChildOnboardingScreen.jsx) instead of Home directly.
   await expect(page.getByText("Let's meet your Star Learner!")).toBeVisible({ timeout: 20000 });
   await page.getByPlaceholder("e.g. Emma").fill("Emma");
-  await page.getByText("🚀", { exact: true }).click(); // first avatar tile
+  await page.getByRole("button", { name: "Rocket Kid" }).click(); // first avatar tile (SVG icon, matched by aria-label per the no-emoji UI sweep)
   await page.getByText("Dinosaurs").click();
   await page.getByRole("button", { name: /Let's go/ }).click();
 

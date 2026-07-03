@@ -277,10 +277,15 @@ function TypographicWord({ word }) {
 }
 
 // word: the lowercase word string. teachingTrack: 'content' | 'sight' from
-// the words table (see supabase/migrations/0014_words_teaching_track.sql).
+// the words table (see supabase/migrations/0014_words_teaching_track.sql) —
+// optional. The registry only ever contains genuinely content-track words
+// (see docs/DESIGN_BRIEF.md §1), so registry membership alone is already a
+// safe signal; teachingTrack is an explicit override for the (currently
+// nonexistent) case of a sight-track word colliding with a registry key,
+// not a required prop every call site must correctly thread through.
 export default function WordArt({ word, teachingTrack, size = 96, style }) {
   const key = (word || '').toLowerCase();
-  const Illustration = teachingTrack === 'content' ? REGISTRY[key] : undefined;
+  const Illustration = teachingTrack === 'sight' ? undefined : REGISTRY[key];
 
   return (
     <div style={{ width: size, height: size, ...style }}>
