@@ -54,13 +54,13 @@ export default function WordRise() {
           ))}
         </div>
 
-        <motion.div
-          style={{ scale: novaScale, opacity: novaOpacity }}
-          className="text-5xl"
-          aria-hidden="true"
-        >
-          🧑‍🚀
-        </motion.div>
+        <motion.img
+          src="/nova/nova-base.png"
+          alt="Nova"
+          width={96}
+          height={96}
+          style={{ scale: novaScale, opacity: novaOpacity, borderRadius: "50%" }}
+        />
 
         <p className="font-body text-cloud/70 text-center max-w-md">
           Two kinds of words, working together — one set carries the meaning,
