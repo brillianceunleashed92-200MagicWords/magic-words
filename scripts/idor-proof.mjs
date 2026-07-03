@@ -114,6 +114,17 @@ async function main() {
       'create-portal-session: A\'s own verified token is accepted (not 401)',
       ownRes.status !== 401 && (ownRes.status === 200 || /no stripe customer/i.test(ownBody.error ?? ''))
     );
+
+    // 8. session-generator (Sprint 2 Part B): A attempts to generate a
+    // session plan for B's child by passing B's childId in the body — the
+    // endpoint must verify child_profiles.parent_id === the verified
+    // caller before touching word_progress/subscriptions, not just trust
+    // whatever childId shows up in the request.
+    const forgedChildRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: b.childId }),
+    });
+    check('session-generator: A cannot generate a session plan for B\'s child (403)', forgedChildRes.status === 403);
   } else {
     console.log('  SKIP: create-portal-session/create-checkout-session live endpoint checks (set DEPLOY_BASE_URL to run them)');
   }
