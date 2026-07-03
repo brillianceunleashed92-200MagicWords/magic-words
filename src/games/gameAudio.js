@@ -4,6 +4,8 @@
 // breaks Fast Refresh — react-refresh/only-export-components). Behavior
 // is unchanged, just relocated.
 
+import { supabase } from '../supabaseClient';
+
 // Audio cache — text → blob URL, survives React re-renders.
 export const audioCache    = new Map(); // text → blob URL string
 export const audioFetching = new Map(); // text → Promise (in-flight dedup)
@@ -31,11 +33,15 @@ export function fetchAudio(text) {
   if (audioCache.has(text)) return Promise.resolve(audioCache.get(text));
   if (audioFetching.has(text)) return audioFetching.get(text);
 
-  const promise = fetch('/api/speak', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
+  const promise = supabase.auth.getSession()
+    .then(({ data }) => fetch('/api/speak', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    }))
     .then(res => (res.ok ? res.blob() : null))
     .then(blob => {
       if (!blob) return null;

@@ -9,6 +9,7 @@
 // Output: { digest: string, dinnerCards: string[3] }
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { requireAuthAndRateLimit } = require('./_lib/security');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -29,9 +30,12 @@ function fallback(childName, wordsThisWeek) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const verifiedUser = await requireAuthAndRateLimit(req, res, 'parent-digest', 4, 1440);
+  if (!verifiedUser) return;
 
   const childName = typeof req.body?.childName === 'string' ? req.body.childName.slice(0, 30) : 'your child';
   const wordsThisWeek = Array.isArray(req.body?.wordsThisWeek) ? req.body.wordsThisWeek.slice(0, 50) : [];

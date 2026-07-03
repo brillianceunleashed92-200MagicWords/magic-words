@@ -13,6 +13,7 @@
 //           validation: { attempts, passed, rejectedWords[] } }
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { requireAuthAndRateLimit } = require('./_lib/security');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -175,9 +176,15 @@ const MAX_ATTEMPTS = 3;
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // 4/day is intentionally tight — a real story generation loop is
+  // several Claude calls (MAX_ATTEMPTS retries), the most expensive
+  // endpoint in this app per invocation.
+  const verifiedUser = await requireAuthAndRateLimit(req, res, 'story-engine', 4, 1440);
+  if (!verifiedUser) return;
 
   const childName = safeName(req.body?.childName);
   const interests = Array.isArray(req.body?.interests) ? req.body.interests : [];

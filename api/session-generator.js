@@ -8,6 +8,7 @@
 // Output: { plan: { quizzes[], wordSequence[], encouragements[], difficultyLevel, sessionGoal } }
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { requireAuthAndRateLimit } = require('./_lib/security');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -158,15 +159,19 @@ module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId } = req.body || {};
+  // Requires a real signed-in caller before anything else — this endpoint
+  // calls Claude on every request, real money per call. Anonymous access
+  // used to be possible with just a truthy userId in the body.
+  const verifiedUser = await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
+  if (!verifiedUser) return;
+  const userId = verifiedUser.id;
+
   const rawProgress = req.body?.progress;
   const rawFocusWord = req.body?.focusWord;
-
-  if (!userId) return res.status(400).json({ error: 'userId required' });
 
   // Defensive input validation — this data flows directly into a Claude
   // prompt below (wordHistory/sessionWords), and progress used to be

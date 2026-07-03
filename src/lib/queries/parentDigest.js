@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '../../supabaseClient';
 
 const CACHE_KEY_PREFIX = 'mw_parent_digest_v1_';
 const STALE_DAYS = 7;
@@ -44,9 +45,14 @@ export function useParentDigest(childId, summary) {
     setLoading(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
       const response = await fetch('/api/parent-digest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify(summary),
       });
       if (!response.ok) throw new Error(`parent-digest returned ${response.status}`);
