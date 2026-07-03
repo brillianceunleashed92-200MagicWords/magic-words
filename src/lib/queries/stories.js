@@ -36,9 +36,14 @@ export function useGenerateStoryMutation(childId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ childName, interests, masteredWords, targetWord }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
       const response = await fetch('/api/story-engine', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({ childName, interests, masteredWords, targetWord }),
       });
       if (!response.ok) throw new Error(`story-engine returned ${response.status}`);

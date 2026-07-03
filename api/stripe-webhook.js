@@ -20,9 +20,26 @@ function readRawBody(req) {
   });
 }
 
+// Failures here mean a customer may have paid Stripe with no matching
+// subscriptions row ever written — genuinely alert-worthy, not just a log
+// line to scroll past. logWebhookFailure gives it a durable, queryable
+// home (webhook_failures, migration 0017) in addition to the distinctive
+// console.error prefix a log drain would actually watch for.
+async function logWebhookFailure(supabase, { eventId, error, payload }) {
+  console.error(`[stripe-webhook:CRITICAL] ${error} (event ${eventId})`);
+  const { error: logErr } = await supabase.from('webhook_failures').insert({
+    source: 'stripe', event_id: eventId ?? null, error, payload: payload ?? null,
+  });
+  if (logErr) console.error('[stripe-webhook:CRITICAL] failed to even log the failure:', logErr.message);
+}
+
 async function upsertSubscription(supabase, { userId, customerId, subscription }) {
   if (!userId) {
-    console.error('[stripe-webhook] no user_id in metadata — cannot link subscription', subscription.id);
+    await logWebhookFailure(supabase, {
+      eventId: subscription.id,
+      error: 'no user_id in metadata — cannot link subscription',
+      payload: { customerId, subscriptionId: subscription.id },
+    });
     return;
   }
   // API versions 2025-03-31+ moved current_period_end off the subscription
@@ -38,7 +55,13 @@ async function upsertSubscription(supabase, { userId, customerId, subscription }
     current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
-  if (error) console.error('[stripe-webhook] subscriptions upsert failed:', error.message);
+  if (error) {
+    await logWebhookFailure(supabase, {
+      eventId: subscription.id,
+      error: `subscriptions upsert failed: ${error.message}`,
+      payload: { userId, customerId, subscriptionId: subscription.id, status: subscription.status },
+    });
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -86,7 +109,13 @@ module.exports = async function handler(req, res) {
             status: subscription.status,
             updated_at: new Date().toISOString(),
           }).eq('user_id', userId);
-          if (error) console.error('[stripe-webhook] cancellation update failed:', error.message);
+          if (error) {
+            await logWebhookFailure(supabase, {
+              eventId: subscription.id,
+              error: `cancellation update failed: ${error.message}`,
+              payload: { userId, subscriptionId: subscription.id },
+            });
+          }
         }
         break;
       }

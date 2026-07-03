@@ -8,6 +8,7 @@
 // Output: { plan: { quizzes[], wordSequence[], encouragements[], difficultyLevel, sessionGoal } }
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { requireAuthAndRateLimit } = require('./_lib/security');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -158,13 +159,37 @@ module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, progress = [], focusWord = null } = req.body || {};
+  // Requires a real signed-in caller before anything else — this endpoint
+  // calls Claude on every request, real money per call. Anonymous access
+  // used to be possible with just a truthy userId in the body.
+  const verifiedUser = await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
+  if (!verifiedUser) return;
+  const userId = verifiedUser.id;
 
-  if (!userId) return res.status(400).json({ error: 'userId required' });
+  const rawProgress = req.body?.progress;
+  const rawFocusWord = req.body?.focusWord;
+
+  // Defensive input validation — this data flows directly into a Claude
+  // prompt below (wordHistory/sessionWords), and progress used to be
+  // trusted as "an array of the right shape" with no check at all (a
+  // malformed body, e.g. `progress: "x"`, would throw inside .map()).
+  const progress = Array.isArray(rawProgress)
+    ? rawProgress
+        .filter((p) => p && typeof p === 'object')
+        .slice(0, 200)
+        .map((p) => ({
+          word: typeof p.word === 'string' ? p.word.slice(0, 40) : '',
+          mastery: Number.isFinite(p.mastery) ? Math.max(0, Math.min(100, p.mastery)) : 0,
+          attempt_count: Number.isFinite(p.attempt_count) ? Math.max(0, p.attempt_count) : 0,
+          correct_count: Number.isFinite(p.correct_count) ? Math.max(0, p.correct_count) : 0,
+          last_seen: typeof p.last_seen === 'string' ? p.last_seen.slice(0, 40) : null,
+        }))
+    : [];
+  const focusWord = typeof rawFocusWord === 'string' && /^[a-z']{1,40}$/i.test(rawFocusWord) ? rawFocusWord : null;
 
   // Select session words (fast, no AI)
   const sessionWords    = selectSessionWords(progress, focusWord);

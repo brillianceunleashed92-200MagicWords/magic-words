@@ -72,6 +72,9 @@ test("sign up shows the post-signup confirmation screen", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).first().click();
   await page.getByPlaceholder("you@example.com").fill(email);
   await page.getByPlaceholder("••••••••").fill("TestPass!23456");
+  // Security-hardening Phase 7 added a required parental-consent checkbox
+  // (COPPA baseline) — the submit button stays disabled until it's checked.
+  await page.getByRole("checkbox").check();
   await page.locator('button[type="submit"]').click();
 
   try {

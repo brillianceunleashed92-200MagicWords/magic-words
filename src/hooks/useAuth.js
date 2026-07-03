@@ -1,5 +1,23 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { queryClient } from '../lib/queryClient';
+
+// Every piece of app-specific browser storage this codebase writes uses
+// this prefix (session plan cache, per-child time-limit counters, parent
+// digest cache, difficulty-governor log — see grep across src/lib for
+// `mw_*` key constants). Swept on sign-out so a second family member
+// signing in on the same shared device never has a stale trace of the
+// previous account's cached data sitting in storage.
+const APP_STORAGE_PREFIX = 'mw_';
+
+function clearAppStorage(storage) {
+  const keys = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key?.startsWith(APP_STORAGE_PREFIX)) keys.push(key);
+  }
+  keys.forEach((k) => storage.removeItem(k));
+}
 
 export function useAuth() {
   const [session, setSession]         = useState(undefined);
@@ -34,8 +52,12 @@ export function useAuth() {
         }
         if (!newSession) {
           setProfile(null);
-          sessionStorage.removeItem('mw_session_plan_v2');
-          sessionStorage.removeItem('mw_session_plan');
+          // Fires on explicit sign-out AND on session expiry/invalidation —
+          // both cases mean "this browser no longer represents this user,"
+          // so both must clear cached data the same way.
+          clearAppStorage(sessionStorage);
+          clearAppStorage(localStorage);
+          queryClient.clear();
         }
       }
     );

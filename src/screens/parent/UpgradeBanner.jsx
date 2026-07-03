@@ -12,7 +12,7 @@ export default function UpgradeBanner({ variant = 'subtle' }) {
 
   function upgrade(interval) {
     if (!user) return;
-    checkout.mutate({ userId: user.id, email: user.email, interval });
+    checkout.mutate({ email: user.email, interval });
   }
 
   const prominent = variant === 'prominent';

@@ -14,6 +14,7 @@ export default function LoginScreen({ authError }) {
   const [localError, setLocalError] = useState("");
   const [busy, setBusy] = useState(false);
   const [signedUpEmail, setSignedUpEmail] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,8 +24,21 @@ export default function LoginScreen({ authError }) {
       const email = authEmail.trim();
       const password = authPassword;
       if (!email || !password) { setLocalError("Please enter an email and password."); return; }
+      if (authMode === "sign_up" && !consentChecked) {
+        setLocalError("Please confirm you're the parent/guardian to continue.");
+        return;
+      }
       const res = authMode === "sign_up"
-        ? await supabase.auth.signUp({ email, password })
+        ? await supabase.auth.signUp({
+            email, password,
+            // Records that a parental-consent checkbox was checked and when —
+            // a code-level starting point, not a substitute for whatever
+            // specific verifiable-parental-consent mechanism COPPA requires
+            // for this product (see docs/COPPA_DATA_INVENTORY.md's open
+            // items). user_metadata is the simplest durable place for this;
+            // no new table needed for a single boolean + timestamp.
+            options: { data: { parental_consent: true, parental_consent_at: new Date().toISOString() } },
+          })
         : await supabase.auth.signInWithPassword({ email, password });
       if (res.error) setLocalError(res.error.message);
       else if (authMode === "sign_up") setSignedUpEmail(email);
@@ -115,6 +129,22 @@ export default function LoginScreen({ authError }) {
             </div>
           ))}
 
+          {authMode === "sign_up" && (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, fontSize: 12, opacity: 0.85, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={e => setConsentChecked(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                I am the parent or guardian of the child who will use this app, and I
+                consent to the data collection described in our{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#4ECDC4" }}>Privacy Policy</a>.
+              </span>
+            </label>
+          )}
+
           {err && (
             <div style={{
               marginTop: 12, background: "rgba(255,107,107,0.14)",
@@ -125,10 +155,12 @@ export default function LoginScreen({ authError }) {
             </div>
           )}
 
-          <button disabled={busy} type="submit" style={{
+          <button disabled={busy || (authMode === "sign_up" && !consentChecked)} type="submit" style={{
             marginTop: 14, width: "100%", padding: "12px 14px", borderRadius: 16, border: "none",
             background: "linear-gradient(135deg, #FFE66D, #FFB347)", color: "#0F0A1E",
-            fontWeight: 900, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1,
+            fontWeight: 900,
+            cursor: (busy || (authMode === "sign_up" && !consentChecked)) ? "not-allowed" : "pointer",
+            opacity: (busy || (authMode === "sign_up" && !consentChecked)) ? 0.7 : 1,
           }}>
             {busy ? "Working…" : authMode === "sign_up" ? "Create account" : "Sign in"}
           </button>

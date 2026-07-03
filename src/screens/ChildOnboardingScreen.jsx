@@ -32,8 +32,9 @@ export default function ChildOnboardingScreen({ onDone }) {
   }
 
   async function handleCreate() {
-    if (!name.trim()) return;
-    const child = await createChild.mutateAsync({ name: name.trim(), avatar, interests });
+    const trimmed = name.trim().slice(0, 40);
+    if (!trimmed) return;
+    const child = await createChild.mutateAsync({ name: trimmed, avatar, interests });
     setActiveChildId(child.id);
     onDone?.(child);
   }
@@ -53,6 +54,7 @@ export default function ChildOnboardingScreen({ onDone }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Emma"
+          maxLength={40}
           style={{
             width: '100%', marginTop: 8, marginBottom: 24, padding: '14px 16px', borderRadius: 20,
             border: 'none', fontFamily: fonts.body, fontSize: '1rem', boxSizing: 'border-box',
