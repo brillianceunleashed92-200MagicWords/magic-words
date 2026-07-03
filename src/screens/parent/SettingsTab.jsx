@@ -36,7 +36,7 @@ export default function SettingsTab() {
             </div>
           )}
           <button
-            onClick={() => user && portalSession.mutate({ userId: user.id })}
+            onClick={() => user && portalSession.mutate()}
             disabled={portalSession.isPending}
             style={{
               background: 'rgba(0,0,0,.06)', border: 'none', borderRadius: 100, padding: '8px 16px',

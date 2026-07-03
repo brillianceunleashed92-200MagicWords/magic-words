@@ -1,21 +1,42 @@
 // api/create-checkout-session.js
 // Phase 2 Step 6 — creates a Stripe Checkout Session for the Family plan.
-// Client sends { userId, email, interval }; server resolves the actual
-// price ID server-side (STRIPE_PRICE_FAMILY_MONTHLY/_YEARLY) so no price
-// ID needs to be exposed to or trusted from the client.
+// Client sends { email, interval }; server resolves the actual price ID
+// server-side (STRIPE_PRICE_FAMILY_MONTHLY/_YEARLY) so no price ID needs
+// to be exposed to or trusted from the client.
+//
+// Security hardening: the userId this checkout gets attached to (via
+// client_reference_id / metadata.user_id, which api/stripe-webhook.js
+// later trusts to decide whose `subscriptions` row to write) used to come
+// straight from the request body — meaning anyone could attach a paid
+// subscription to an arbitrary account by just knowing/guessing its
+// UUID. It's now derived from the caller's verified Supabase JWT only.
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+async function getVerifiedUserId(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return null;
+  const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, email, interval } = req.body ?? {};
-  if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
+  const user = await getVerifiedUserId(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const userId = user.id;
+  const email = user.email;
+
+  const { interval } = req.body ?? {};
   if (interval !== 'month' && interval !== 'year') return res.status(400).json({ error: 'interval must be "month" or "year"' });
 
   const stripeKey = process.env.STRIPE_SECRET_KEY;
