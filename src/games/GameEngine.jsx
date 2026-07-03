@@ -571,7 +571,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
         </div>
       </div>
 
-      {/* Image/emoji options — same grid as WordMatch */}
+      {/* Picture options — same grid as WordMatch */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
         {quiz.options.map((opt, idx) => {
           let className = 'mw-option-btn';
@@ -587,7 +587,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
               disabled={answered || !audioPlayed}
               style={{ opacity: audioPlayed ? 1 : 0.4, transition: 'opacity 0.3s' }}
             >
-              <span style={{ fontSize: '3rem', lineHeight: 1 }}>{opt.emoji}</span>
+              <WordArt word={opt.word} size={72} />
               {answered && (
                 <span style={{
                   fontSize: '0.875rem',
@@ -1443,6 +1443,15 @@ export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
   );
 }
 
+// Sprint 2 Part B — activity/word capability check. Word Match, Sound
+// Match, Word Hunt, and Rhyme Time all present a word as "the picture" —
+// wrong for a word with no real illustration (server already only builds
+// picture-eligible distractor sets for these, but a session can still mix
+// eligible/ineligible target words across its quiz list depending on
+// what's due for review). Story Builder, Flash Cards, and Say It don't
+// depend on a picture, so they get the full quiz list unfiltered.
+const PICTURE_MATCH_GAME_TYPES = new Set(['word_match', 'sound_match', 'word_hunt', 'rhyme_time']);
+
 // ─── Main GameEngine ──────────────────────────────────────────────────────────
 export function GameEngine({
   sessionPlan,
@@ -1462,7 +1471,14 @@ export function GameEngine({
     return () => { stopCurrentAudio(); };
   }, []);
 
-  const quizzes        = sessionPlan?.quizzes ?? [];
+  const allQuizzes = sessionPlan?.quizzes ?? [];
+  // Fall back to the unfiltered list only if filtering would leave nothing
+  // to play (e.g. a session drawn entirely from function words) — an
+  // empty session is a worse outcome than one non-ideal picture quiz.
+  const pictureFiltered = allQuizzes.filter((q) => q.pictureEligible);
+  const quizzes = PICTURE_MATCH_GAME_TYPES.has(gameType)
+    ? (pictureFiltered.length > 0 ? pictureFiltered : allQuizzes)
+    : allQuizzes;
   const encouragements = sessionPlan?.encouragements ?? ['Great job!'];
 
   const [currentIdx,        setCurrentIdx]        = useState(0);
@@ -1476,6 +1492,7 @@ export function GameEngine({
   const [xpToast,           setXpToast]           = useState(null);
   const sessionStartRef = useRef(Date.now());
   const sessionXPRef    = useRef(0);
+  const xpToastIdRef    = useRef(0);
 
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
@@ -1503,7 +1520,7 @@ export function GameEngine({
       if (firstTry) xpEarned += 5;
       if (responseTimeMs < 3000) xpEarned += 5;
       sessionXPRef.current += xpEarned;
-      const toastId = Date.now();
+      const toastId = ++xpToastIdRef.current;
       setXpToast({ id: toastId, amount: xpEarned });
       setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 900);
     }

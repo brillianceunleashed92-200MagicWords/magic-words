@@ -13,12 +13,16 @@
 // below explicitly lists which suffixes produce a real inflected form,
 // not just "is this a verb."
 //
-// Coverage: the 18-word list api/session-generator.js's ALL_WORDS actually
-// selects sessions from (the only source WordBuilder's `quiz.word` can ever
-// come from today — see docs/WORDBUILDER_FIX_REPORT.md for why that list is
-// itself much smaller than the real 200-word curriculum, a separate,
-// pre-existing gap not fixed here). Any word not in this map is treated as
-// non-inflectable — the safe default is "no suffix," never a guess.
+// Coverage: as of Sprint 2 Part B (word-list unification), sessions are
+// generated from the real 200-word Supabase table, not the old 18-word
+// hardcoded list this file used to be scoped to — so `quiz.word` in
+// WordBuilder can now be any of the 200 curriculum words, most of which
+// aren't in this map yet. That's a safe gap, not a wrong one: any word
+// not listed here is treated as non-inflectable (the safe default is "no
+// suffix," never a guess), so WordBuilder just offers fewer inflection
+// options for words not yet classified here, rather than ever producing
+// an invalid form. Expanding this map to the full 200 words is a
+// follow-up, not required for word-selection correctness.
 
 export const WORD_CLASS = {
   cat: 'noun', dog: 'noun', bird: 'noun', frog: 'noun',

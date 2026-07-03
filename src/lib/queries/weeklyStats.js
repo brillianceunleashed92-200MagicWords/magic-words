@@ -14,6 +14,17 @@ export function useWeeklyStatsQuery(childId, words) {
   const eventsQ = useQuery({
     queryKey: ['learningEventsWeek', childId],
     enabled: !!childId,
+    // learning_events rows are written via a fire-and-forget insert during
+    // gameplay (PlayScreen.jsx's handleProgress), not a useMutation, so
+    // nothing ever invalidates this query's cache when new events land.
+    // A parent who plays a round then immediately checks the Dashboard
+    // could see a stale/empty read if this query's very first fetch on
+    // mount raced an in-flight insert (confirmed live: first Dashboard
+    // visit after gameplay showed 0/0 despite the events already existing
+    // in the DB moments later). refetchOnMount: 'always' means every time
+    // a parent opens this tab it re-checks the DB rather than trusting a
+    // stale/empty cached result from a previous mount.
+    refetchOnMount: 'always',
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - 6);

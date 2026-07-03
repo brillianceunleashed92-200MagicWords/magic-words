@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { colors, fonts, skyGradient, shadows } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabaseClient';
@@ -42,7 +42,7 @@ const ACTIVITIES = [
 
 export default function PlayScreen({ focusWord, onExit }) {
   const { user } = useAuth();
-  const { words, currentWord, unitsById, childId, activeChild } = useCandyGalaxyData();
+  const { words, currentWord, unitsById, childId, activeChild, plan } = useCandyGalaxyData();
   const [gameType, setGameType] = useState(null);
   const [sessionResult, setSessionResult] = useState(null);
   const { speak } = useSpeak();
@@ -50,11 +50,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   const parentSettingsQ = useParentSettingsQuery(user?.id);
   const { minutesToday, limitReached } = useSessionTimeLimit(childId, parentSettingsQ.data?.daily_minutes_limit);
 
-  const wordProgressForPlan = useMemo(
-    () => words.map((w) => ({ word: w.word, mastery: w.mastery, last_practiced: null })),
-    [words]
-  );
-  const { sessionPlan, planLoading, planError, generatePlanForWord } = useSessionPlan(user, words.length ? wordProgressForPlan : null);
+  const { sessionPlan, planLoading, planError, generatePlanForWord } = useSessionPlan(user, childId, plan);
 
   // A word tapped directly on the Home path/Galaxy map should drive the
   // session, not whatever the default sequencing would pick.
