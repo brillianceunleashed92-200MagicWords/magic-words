@@ -106,7 +106,7 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
           color: '#00332E', fontFamily: 'Space Grotesk', fontWeight: 700, cursor: saving ? 'default' : 'pointer',
           opacity: saving ? 0.7 : 1,
         }}>
-          {saving ? 'Saving…' : 'Done! ✨'}
+          {saving ? 'Saving…' : 'Done!'}
         </button>
       </div>
     </div>

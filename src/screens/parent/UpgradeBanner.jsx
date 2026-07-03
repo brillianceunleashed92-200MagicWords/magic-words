@@ -26,7 +26,7 @@ export default function UpgradeBanner({ variant = 'subtle' }) {
       boxShadow: prominent ? shadows.chunkSm : undefined,
     }}>
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: prominent ? '1.1rem' : '.95rem', color: prominent ? colors.starText : colors.ink, marginBottom: 6 }}>
-        {prominent ? '🎉 Unlock everything with Family' : 'Upgrade to Family'}
+        {prominent ? 'Unlock everything with Family' : 'Upgrade to Family'}
       </div>
       <div style={{ color: prominent ? colors.starText : colors.mutedInk, fontSize: '.85rem', marginBottom: 14, opacity: prominent ? 0.9 : 1 }}>
         {prominent

@@ -2,14 +2,21 @@ import { useRef, useState } from 'react';
 import { colors, fonts, shadows } from '../../theme/tokens';
 import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
 import { useMagicMomentsQuery, useMarkMomentSharedMutation } from '../../lib/queries/magicMoments';
+import { IconStar, IconTrophy, IconFlame, IconSpark } from '../../components/icons';
+import { InterestArt } from '../../components/icons/InterestGlyphs';
 
+// Icon is a component reference, not an emoji string — rendered both in
+// the moments list and inside the hidden html2canvas share-image frame
+// below (html2canvas rasterizes real DOM/SVG fine, so this works for the
+// downloaded/shared PNG too, not just on-screen).
 const KIND_LABELS = {
-  star_ignition: { icon: '⭐', title: (p) => `"${p.word}" star ignited!` },
-  drawing: { icon: '🎨', title: (p) => `Drew a ${p.word}` },
-  audio_reading: { icon: '📖', title: (p) => `Read "${p.title}"` },
-  milestone: { icon: '🏆', title: (p) => p.title ?? 'Milestone reached!' },
-  streak: { icon: '🔥', title: (p) => `${p.streak}-day streak!` },
+  star_ignition: { Icon: IconStar, title: (p) => `"${p.word}" star ignited!` },
+  drawing: { Icon: InterestArt, title: (p) => `Drew a ${p.word}` },
+  audio_reading: { Icon: IconSpark, title: (p) => `Read "${p.title}"` },
+  milestone: { Icon: IconTrophy, title: (p) => p.title ?? 'Milestone reached!' },
+  streak: { Icon: IconFlame, title: (p) => `${p.streak}-day streak!` },
 };
+const DEFAULT_KIND = { Icon: IconSpark, title: () => 'A Magic Moment' };
 
 // Magic Moments feed (blueprint 4.2 — "the viral engine"). Each card can
 // generate a branded share image via html2canvas, then either the native
@@ -25,9 +32,9 @@ export default function MomentsTab() {
   const [frameContent, setFrameContent] = useState(null);
 
   async function handleShare(moment) {
-    const meta = KIND_LABELS[moment.kind] ?? { icon: '✨', title: () => 'A Magic Moment' };
+    const meta = KIND_LABELS[moment.kind] ?? DEFAULT_KIND;
     setSharingId(moment.id);
-    setFrameContent({ icon: meta.icon, title: meta.title(moment.payload), imageUrl: moment.payload?.image_url });
+    setFrameContent({ Icon: meta.Icon, title: meta.title(moment.payload), imageUrl: moment.payload?.image_url });
 
     // Wait a tick for the hidden frame to render with the new content.
     await new Promise((r) => setTimeout(r, 50));
@@ -66,13 +73,13 @@ export default function MomentsTab() {
           width: 360, padding: 32, background: colors.cloud, textAlign: 'center',
           fontFamily: fonts.body, border: `4px solid ${colors.sun}`, borderRadius: 24,
         }}>
-          <div style={{ fontSize: '3rem' }}>{frameContent?.icon}</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{frameContent?.Icon && <frameContent.Icon size={48} color={colors.sky} />}</div>
           {frameContent?.imageUrl && <img src={frameContent.imageUrl} alt="" style={{ width: '100%', borderRadius: 16, margin: '12px 0' }} crossOrigin="anonymous" />}
           <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', color: colors.ink, margin: '12px 0' }}>
             {frameContent?.title}
           </div>
           <div style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.sky, fontSize: '.9rem' }}>
-            ✨ 200 Magic Words
+            200 Magic Words
           </div>
         </div>
       </div>
@@ -89,13 +96,13 @@ export default function MomentsTab() {
 
       <div style={{ display: 'grid', gap: 10 }}>
         {moments.map((m) => {
-          const meta = KIND_LABELS[m.kind] ?? { icon: '✨', title: () => 'A Magic Moment' };
+          const meta = KIND_LABELS[m.kind] ?? DEFAULT_KIND;
           return (
             <div key={m.id} style={{ background: colors.cloud, borderRadius: 20, padding: 14, boxShadow: shadows.chunkSm, display: 'flex', alignItems: 'center', gap: 12 }}>
               {m.payload?.image_url ? (
                 <img src={m.payload.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover' }} />
               ) : (
-                <span style={{ fontSize: '1.8rem' }}>{meta.icon}</span>
+                <span style={{ display: 'flex' }}><meta.Icon size={26} color={colors.ink} /></span>
               )}
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.ink, fontSize: '.9rem' }}>

@@ -111,7 +111,7 @@ export default function StoryReader({ story, onComplete, words }) {
 
         {answered && (
           <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.2rem', color: colors.mintDeep }}>
-            Great reading! ⭐
+            Great reading!
           </div>
         )}
       </div>

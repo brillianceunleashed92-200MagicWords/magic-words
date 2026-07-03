@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { colors, fonts, shadows, touchTarget } from '../../theme/tokens';
+import { IconStar } from '../icons';
 
 // One tile in Today's Quest (5 activities). done=true shows a completed
 // checkmark state; current=true is the next thing to play.
@@ -27,7 +28,7 @@ export default function QuestTile({ icon, label, done, current, onTap, speak }) 
         position: 'relative',
       }}
     >
-      <span style={{ fontSize: '1.6rem' }}>{done ? '⭐' : icon}</span>
+      <span style={{ fontSize: '1.6rem', display: 'flex' }}>{done ? <IconStar size={22} color={colors.starText} /> : icon}</span>
       <span style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: '.65rem', textAlign: 'center' }}>
         {label}
       </span>

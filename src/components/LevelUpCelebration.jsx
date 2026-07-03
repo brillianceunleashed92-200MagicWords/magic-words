@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { dawnGradientStops, colors as tokens } from "../design-system/tokens";
+import { IconStar } from "./icons";
 
 // The one moment allowed to be cinematic. Per the Interaction Design
 // addendum (CLAUDE.md item c): routine per-question feedback stays
@@ -68,18 +69,30 @@ export default function LevelUpCelebration({ levelInfo, words = [], onDismiss })
                   : { border: `2px solid ${tokens.marigold}`, color: tokens.dawnIndigo, fontWeight: 600, borderRadius: 999, padding: "6px 14px", fontSize: 14 }
               }
             >
-              {w.emoji} {w.word}
+              {w.word}
             </motion.span>
           ))}
         </div>
 
+        {/* Numbered badge, not a per-level emoji — a consistent, legible
+            "Level N" badge reads better across 24 levels than 24 unrelated
+            pictograms (several of which weren't even tied to that level's
+            actual grammar milestone). */}
         <motion.div
           initial={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, duration: 0.5 }}
-          style={{ fontSize: 64 }}
+          style={{
+            width: 84, height: 84, borderRadius: '50%', margin: '0 auto',
+            background: `linear-gradient(135deg, ${tokens.marigold}, #FFD98A)`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 0 rgba(0,0,0,.16)',
+          }}
         >
-          {levelInfo.emoji}
+          <IconStar size={22} color={tokens.dawnIndigo} />
+          <span className="font-display" style={{ fontSize: 22, fontWeight: 800, color: tokens.dawnIndigo, lineHeight: 1 }}>
+            {levelInfo.level}
+          </span>
         </motion.div>
 
         <motion.div
@@ -88,7 +101,7 @@ export default function LevelUpCelebration({ levelInfo, words = [], onDismiss })
           transition={{ delay: 1, duration: 0.5 }}
         >
           <div className="font-display" style={{ fontSize: "2rem", color: tokens.sunriseCoralDeep, margin: "0.75rem 0 0.5rem" }}>
-            LEVEL UP! 🎉
+            LEVEL UP!
           </div>
           <div className="font-display" style={{ fontSize: "1.25rem", color: tokens.cometTealDeep }}>
             Level {levelInfo.level} · {levelInfo.title}

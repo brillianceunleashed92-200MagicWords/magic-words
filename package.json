@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:no-emoji": "node scripts/check-no-emoji.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

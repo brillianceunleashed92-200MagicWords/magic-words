@@ -31,6 +31,7 @@ import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt from '../components/WordArt';
 import { IconClose, IconSpeaker, IconStar } from '../components/icons';
 import { StarProgress, NovaPorthole, AnswerTile, ConfettiStars, LESSON_CHROME_KEYFRAMES } from './lessonChrome';
+import { AvatarRocket } from '../components/icons/AvatarGlyphs';
 
 // ─── Question formatter — correct grammar for every word class ────────────────
 // Client-side fallback for any plan that predates wordClass being added to quizzes
@@ -1148,7 +1149,9 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
       <ConfettiBurst active={confettiActive} />
 
       {/* Rocket bounce */}
-      <div style={{ fontSize: '72px', animation: 'mw-bounce 1s ease 0.2s both' }}>🚀</div>
+      <div style={{ animation: 'mw-bounce 1s ease 0.2s both', display: 'flex', justifyContent: 'center' }}>
+        <svg viewBox="0 0 120 120" width="72" height="72"><AvatarRocket /></svg>
+      </div>
 
       <h2 style={{
         fontFamily: 'Space Grotesk',
@@ -1162,7 +1165,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
 
       {childName && (
         <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '1rem', color: T.muted, margin: '0 0 0.75rem' }}>
-          Great work, {childName}! 🌟
+          Great work, {childName}!
         </p>
       )}
 
@@ -1170,10 +1173,11 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.75rem 0' }}>
         {[1, 2, 3].map(s => (
           <span key={s} style={{
-            fontSize: '2.5rem',
             opacity: s <= stars ? 1 : 0.15,
             animation: s <= stars ? `mw-pop 0.4s ease ${s * 0.15}s both` : 'none',
-          }}>⭐</span>
+          }}>
+            <IconStar size={40} color={T.gold} />
+          </span>
         ))}
       </div>
 
@@ -1205,7 +1209,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
               alignItems: 'center',
               gap: '0.35rem',
             }}>
-              <span>{wp.emoji}</span>
+              <WordArt word={wp.word} size={20} />
               <span>{wp.word}</span>
             </div>
           ))}
@@ -1230,7 +1234,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
             cursor: 'pointer',
           }}
         >
-          Keep Going! 🚀
+          Keep Going!
         </button>
         <button
           onClick={onHome}
@@ -1245,7 +1249,7 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
             cursor: 'pointer',
           }}
         >
-          Home 🏠
+          Home
         </button>
       </div>
     </div>
@@ -1459,7 +1463,7 @@ export function GameEngine({
   }, []);
 
   const quizzes        = sessionPlan?.quizzes ?? [];
-  const encouragements = sessionPlan?.encouragements ?? ['Great job! ⭐'];
+  const encouragements = sessionPlan?.encouragements ?? ['Great job!'];
 
   const [currentIdx,        setCurrentIdx]        = useState(0);
   const [correctCount,      setCorrectCount]      = useState(0);

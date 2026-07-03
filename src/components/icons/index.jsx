@@ -118,6 +118,34 @@ export function IconGrownUps({ size = 20, color = 'currentColor' }) {
   );
 }
 
+export function IconMic({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="9" y="2" width="6" height="12" rx="3" fill={color} />
+      <path d="M6 11a6 6 0 0012 0" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <path d="M12 17v4M9 21h6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconBook({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4 5a2 2 0 012-2h6v16H6a2 2 0 00-2 2V5z" fill={color} />
+      <path d="M20 5a2 2 0 00-2-2h-6v16h6a2 2 0 012 2V5z" fill={color} opacity=".65" />
+    </svg>
+  );
+}
+
+export function IconSearch({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="10" cy="10" r="6.5" stroke={color} strokeWidth="2.2" fill="none" />
+      <path d="M19 19l-4.5-4.5" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconTrophy({ size = 20, color = 'currentColor' }) {
   return (
     <svg {...base(size)}>

@@ -28,7 +28,7 @@ export default function SettingsTab() {
       {plan === 'family' ? (
         <div style={{ background: colors.cloud, borderRadius: 20, padding: 16, marginBottom: 24, boxShadow: shadows.chunkSm }}>
           <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.ink, marginBottom: 4 }}>
-            ✨ Family plan — {subscriptionQ.data?.status === 'active' ? 'active' : subscriptionQ.data?.status}
+            Family plan — {subscriptionQ.data?.status === 'active' ? 'active' : subscriptionQ.data?.status}
           </div>
           {subscriptionQ.data?.current_period_end && (
             <div style={{ color: colors.mutedInk, fontSize: '.85rem', marginBottom: 12 }}>

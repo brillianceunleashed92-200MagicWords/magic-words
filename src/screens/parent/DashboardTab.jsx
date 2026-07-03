@@ -55,7 +55,7 @@ export default function DashboardTab() {
         <div className="dinner-cards-print">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink }}>
-              🍽️ Dinner Table Cards
+              Dinner Table Cards
             </div>
             <button onClick={() => window.print()} style={{ background: 'none', border: `1px solid ${colors.mutedInk}`, borderRadius: 100, padding: '4px 12px', fontSize: '.75rem', cursor: 'pointer', color: colors.mutedInk }}>
               Print

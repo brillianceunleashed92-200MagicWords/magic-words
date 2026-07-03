@@ -37,7 +37,6 @@ export default function LoginScreen({ authError }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dawn-indigo px-5">
         <div className="w-full max-w-md bg-cloud rounded-3xl p-8 text-center">
-          <div className="text-4xl mb-4" aria-hidden="true">📬</div>
           <h2 className="font-display text-dawn-indigo text-2xl font-semibold mb-3">
             Check your email
           </h2>
@@ -73,7 +72,7 @@ export default function LoginScreen({ authError }) {
         boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
       }}>
         <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D55" }}>
-          ✨ Magic Words
+          Magic Words
         </div>
         <div style={{ opacity: 0.75, marginTop: 6, fontSize: 13 }}>Sign in to save and sync word mastery.</div>
 

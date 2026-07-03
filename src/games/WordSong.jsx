@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { T } from './gameTheme';
+import { InterestMusic } from '../components/icons/InterestGlyphs';
 
 const CHANT_DURATION_MS = 20000;
 
@@ -57,7 +58,9 @@ export default function WordSong({ quiz, onAnswer }) {
 
   return (
     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '0.5rem', animation: 'mw-pop 0.5s ease' }}>🎵</div>
+      <div style={{ marginBottom: '0.5rem', animation: 'mw-pop 0.5s ease', display: 'flex', justifyContent: 'center' }}>
+        <InterestMusic size={64} />
+      </div>
       <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '1rem' }}>
         {quiz.word} {quiz.emoji}
       </div>
