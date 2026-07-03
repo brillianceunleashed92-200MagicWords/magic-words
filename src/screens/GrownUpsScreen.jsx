@@ -5,6 +5,7 @@ import DashboardTab from './parent/DashboardTab';
 import MomentsTab from './parent/MomentsTab';
 import MasteryMapTab from './parent/MasteryMapTab';
 import SettingsTab from './parent/SettingsTab';
+import { IconGrownUps, IconStar, IconLock } from '../components/icons';
 
 const HOLD_MS = 3000;
 
@@ -34,21 +35,22 @@ function HoldGate({ onPassed }) {
 
   return (
     <div style={{ textAlign: 'center', color: colors.cloud, fontFamily: fonts.body }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🧑‍🤝‍🧑</div>
+      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconGrownUps size={40} color={colors.cloud} /></div>
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', marginBottom: 6 }}>Grown-Ups Only</div>
       <div style={{ opacity: 0.85, marginBottom: 24 }}>Press and hold the star for 3 seconds</div>
       <button
+        aria-label="Hold to unlock"
         onPointerDown={startHold}
         onPointerUp={cancelHold}
         onPointerLeave={cancelHold}
         style={{
           width: 120, height: 120, borderRadius: '50%', border: 'none', cursor: 'pointer',
           background: `conic-gradient(${colors.sun} ${progress * 360}deg, rgba(255,255,255,.2) 0deg)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: shadows.chunk, transition: holding ? 'none' : 'background .2s',
         }}
       >
-        ⭐
+        <IconStar size={44} color={colors.starText} />
       </button>
     </div>
   );
@@ -133,8 +135,8 @@ export default function GrownUpsScreen() {
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '52px 20px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.ink }}>Grown-Ups</div>
-          <button onClick={lockGrownUps} style={{ background: 'none', border: 'none', color: colors.mutedInk, fontFamily: fonts.body, fontWeight: 700, cursor: 'pointer' }}>
-            Lock 🔒
+          <button onClick={lockGrownUps} style={{ background: 'none', border: 'none', color: colors.mutedInk, fontFamily: fonts.body, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            Lock <IconLock size={14} color={colors.mutedInk} />
           </button>
         </div>
 

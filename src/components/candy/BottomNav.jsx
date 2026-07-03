@@ -1,10 +1,11 @@
 import { colors, fonts, shadows } from '../../theme/tokens';
+import { IconHome, IconPlay, IconGalaxy, IconGrownUps } from '../icons';
 
 const TABS = [
-  { id: 'home', icon: '🏠', label: 'Home' },
-  { id: 'play', icon: '🎮', label: 'Play' },
-  { id: 'galaxy', icon: '🌌', label: 'Galaxy' },
-  { id: 'grownups', icon: '🧑‍🤝‍🧑', label: 'Grown-ups' },
+  { id: 'home', Icon: IconHome, label: 'Home' },
+  { id: 'play', Icon: IconPlay, label: 'Play' },
+  { id: 'galaxy', Icon: IconGalaxy, label: 'Galaxy' },
+  { id: 'grownups', Icon: IconGrownUps, label: 'Grown-ups' },
 ];
 
 // Bottom pill nav (mockup D `.nav`) — 64px minimum touch targets.
@@ -52,7 +53,7 @@ export default function BottomNav({ active, onSelect, speak }) {
               cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: '1.25rem' }}>{tab.icon}</span>
+            <tab.Icon size={20} color={isActive ? '#fff' : colors.mutedInkLight} />
             {tab.label}
           </button>
         );

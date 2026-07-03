@@ -92,10 +92,17 @@ export function IconPlay({ size = 20, color = 'currentColor' }) {
 }
 
 export function IconGalaxy({ size = 20, color = 'currentColor' }) {
+  // A spiral (not a symmetric ring around a center dot, which reads as an
+  // eye at small sizes) with a few star dots — unambiguously a galaxy.
   return (
     <svg {...base(size)}>
-      <circle cx="12" cy="12" r="3.4" fill={color} />
-      <ellipse cx="12" cy="12" rx="10" ry="4" stroke={color} strokeWidth="2" fill="none" transform="rotate(-18 12 12)" />
+      <path
+        d="M12 3a9 9 0 106.5 15.3 6 6 0 10-8.8-8.1 3 3 0 104.1 4.2"
+        stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"
+      />
+      <circle cx="12" cy="12" r="1.6" fill={color} />
+      <circle cx="4" cy="5" r="1" fill={color} opacity=".8" />
+      <circle cx="20" cy="7" r="1.3" fill={color} opacity=".6" />
     </svg>
   );
 }
@@ -107,6 +114,30 @@ export function IconGrownUps({ size = 20, color = 'currentColor' }) {
       <path d="M2 20c0-4 3-6.5 6-6.5s6 2.5 6 6.5" stroke={color} strokeWidth="2.4" strokeLinecap="round" fill="none" />
       <circle cx="17" cy="8" r="2.4" fill={color} opacity=".7" />
       <path d="M13.5 20c.3-3 2.4-5 5-5s4.3 1.7 4.7 4.4" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none" opacity=".7" />
+    </svg>
+  );
+}
+
+export function IconTrophy({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M6 4h12v5a6 6 0 01-12 0V4z" fill={color} />
+      <path d="M6 5H3a3 3 0 003 3M18 5h3a3 3 0 01-3 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <rect x="10.5" y="15" width="3" height="4" fill={color} />
+      <rect x="7" y="19" width="10" height="2.4" rx="1.2" fill={color} />
+    </svg>
+  );
+}
+
+export function IconBubble({ size = 20, color = 'currentColor' }) {
+  // Three overlapping circles, no connecting line — reads as bubbles, not
+  // a magnifying glass (which a 2-circle "lens + handle" shape becomes at
+  // small sizes).
+  return (
+    <svg {...base(size)}>
+      <circle cx="9" cy="10" r="7" fill="none" stroke={color} strokeWidth="2" />
+      <circle cx="18" cy="7" r="3.6" fill="none" stroke={color} strokeWidth="1.8" />
+      <circle cx="17" cy="18" r="2.6" fill="none" stroke={color} strokeWidth="1.6" />
     </svg>
   );
 }

@@ -1,17 +1,20 @@
 import { motion } from 'motion/react';
 import { colors, fonts, shadows } from '../../theme/tokens';
+import { IconFlame, IconStar, IconSpark } from '../icons';
 
 const VARIANTS = {
-  fire: { bg: colors.tang, text: colors.fireText },
-  star: { bg: colors.sun, text: colors.starText },
-  gem: { bg: colors.mint, text: colors.gemText },
-  dim: { bg: 'rgba(255,255,255,.16)', text: 'rgba(255,255,255,.6)' },
+  fire: { bg: colors.tang, text: colors.fireText, Icon: IconFlame },
+  star: { bg: colors.sun, text: colors.starText, Icon: IconStar },
+  gem: { bg: colors.mint, text: colors.gemText, Icon: IconSpark },
+  dim: { bg: 'rgba(255,255,255,.16)', text: 'rgba(255,255,255,.6)', Icon: null },
 };
 
 // Streak-row style stat pill (mockup D `.pill`). Speaks its value+label on
-// tap per the audio-first accessibility rule.
-export default function Pill({ icon, value, label, variant = 'star', onTap, speak }) {
+// tap per the audio-first accessibility rule. `variant` selects both the
+// color and the icon (fire/star/gem) — no icon prop needed from callers.
+export default function Pill({ value, label, variant = 'star', onTap, speak }) {
   const v = VARIANTS[variant] ?? VARIANTS.star;
+  const Icon = v.Icon;
   return (
     <motion.div
       role="button"
@@ -36,8 +39,8 @@ export default function Pill({ icon, value, label, variant = 'star', onTap, spea
         justifyContent: 'center',
       }}
     >
-      <b style={{ display: 'block', fontSize: '1.3rem', lineHeight: 1.1 }}>
-        {icon} {value}
+      <b style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: '1.3rem', lineHeight: 1.1 }}>
+        {Icon && <Icon size={16} color={v.text} />} {value}
       </b>
       <span style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', opacity: .8 }}>
         {label}
