@@ -495,6 +495,104 @@ function SitArt() {
   );
 }
 
+// wordart-batch-1, Unit 5 (small, hot, cold, happy, fast, slow) — adjective
+// pairs drawn with deliberately parallel compositions so the contrast
+// itself teaches. small pairs with the existing big; happy pairs with the
+// existing sad; hot/cold are the same mug silhouette in opposite palettes
+// with steam vs. ice; fast/slow contrast an energetic motion-blur Buddy
+// against a static snail, not two poses of the same figure (avoids
+// reusing "rabbit," already a Unit-2 noun in this same batch).
+
+function SmallArt() {
+  // Mirrors BigArt's exact composition with the emphasis flipped: a big
+  // buddy (faded, reduced detail — the same treatment BigArt gave its
+  // tiny reference) sits behind a fully-detailed small buddy in front.
+  return (
+    <>
+      <ellipse cx="82" cy="66" rx="34" ry="8" fill="rgba(0,0,0,.08)" />
+      <circle cx="82" cy="30" r="30" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" opacity=".4" />
+      <Eye cx={73} cy={24} r={4} /><Eye cx={91} cy={24} r={4} />
+      <path d="M70 36q12 7 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="3" strokeLinecap="round" opacity=".6" />
+
+      <ellipse cx="42" cy="106" rx="16" ry="4" fill="rgba(0,0,0,.12)" />
+      <circle cx="42" cy="90" r="18" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <Eye cx={36} cy={86} r={3.5} /><Eye cx={48} cy={86} r={3.5} />
+      <path d="M35 94q7 4 14 0" fill="none" stroke={c.buddyOutline} strokeWidth="3" strokeLinecap="round" />
+      <Blush cx={28} cy={90} rx={4} ry={2.6} /><Blush cx={56} cy={90} rx={4} ry={2.6} />
+    </>
+  );
+}
+
+function HappyArt() {
+  return (
+    <BuddyBase
+      mouth={<path d="M46 72q14 14 28 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+      extra={
+        <>
+          <path d="M30 34l4 10-10-2z" fill={colors.sun} opacity=".85" />
+          <path d="M92 30l3 8-8-2z" fill={colors.sun} opacity=".85" />
+        </>
+      }
+    />
+  );
+}
+
+function HotArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M40 56h40l-3 34q-1 8-9 8h-16q-8 0-9-8z" fill={colors.tang} stroke="#B35A28" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 62q14-3 14 9t-14 11" fill="none" stroke="#B35A28" strokeWidth="4" strokeLinecap="round" />
+      <ellipse cx="60" cy="58" rx="20" ry="5" fill="#FFD9BE" />
+      <path d="M50 46q-4-10 4-16M60 44q-4-10 4-16M70 46q-4-10 4-16" fill="none" stroke={colors.tang} strokeWidth="3.5" strokeLinecap="round" opacity=".7" />
+    </>
+  );
+}
+
+function ColdArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M40 56h40l-3 34q-1 8-9 8h-16q-8 0-9-8z" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 62q14-3 14 9t-14 11" fill="none" stroke={c.birdOutline} strokeWidth="4" strokeLinecap="round" />
+      <ellipse cx="60" cy="58" rx="20" ry="5" fill={c.birdInner} />
+      <path d="M60 30v16M53 34l14 8M67 34l-14 8" stroke={c.birdOutline} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+      <circle cx="42" cy="40" r="3" fill={c.birdInner} /><circle cx="78" cy="36" r="2.5" fill={c.birdInner} />
+    </>
+  );
+}
+
+function FastArt() {
+  return (
+    <g transform="rotate(12 60 62)">
+      <BuddyBase
+        mouth={<path d="M48 74q12 8 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+        extra={
+          <>
+            <path d="M-10 40h26" stroke={colors.tang} strokeWidth="5" strokeLinecap="round" opacity=".8" />
+            <path d="M-6 54h22" stroke={colors.tang} strokeWidth="4" strokeLinecap="round" opacity=".55" />
+            <path d="M-2 68h18" stroke={colors.tang} strokeWidth="3" strokeLinecap="round" opacity=".35" />
+          </>
+        }
+      />
+    </g>
+  );
+}
+
+function SlowArt() {
+  return (
+    <>
+      <GroundShadow cx={62} cy={98} rx={30} ry={6} />
+      <ellipse cx="50" cy="88" rx="34" ry="14" fill={c.snailFill} stroke={c.snailOutline} strokeWidth="4" />
+      <circle cx="72" cy="56" r="26" fill={c.snailFill} stroke={c.snailOutline} strokeWidth="4" />
+      <path d="M72 56m-16 0a16 16 0 1132 0a12 12 0 11-24 0a8 8 0 1116 0a4 4 0 11-8 0" fill="none" stroke={c.snailOutline} strokeWidth="2.5" opacity=".5" />
+      <path d="M20 76q-6-10 2-16M30 74q-4-12 4-18" fill="none" stroke={c.snailOutline} strokeWidth="3" strokeLinecap="round" />
+      <Eye cx={62} cy={50} r={5.5} />
+      <Blush cx={54} cy={62} rx={5} ry={3.5} />
+    </>
+  );
+}
+
 function FlyArt() {
   // Whole figure tilts into a glide; wings attach at the sides (not the
   // top, so they read as wings rather than ears) angled back like an
@@ -601,6 +699,12 @@ const REGISTRY = {
   run: RunArt,
   big: BigArt,
   sad: SadArt,
+  small: SmallArt,
+  happy: HappyArt,
+  hot: HotArt,
+  cold: ColdArt,
+  fast: FastArt,
+  slow: SlowArt,
   // wordart-batch-1, Unit 1
   fish: FishArt,
   bear: BearArt,

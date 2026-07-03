@@ -54,6 +54,11 @@ export const wordArtColors = {
   sharkFill: '#8FA3C4', sharkOutline: '#4A5D80', sharkInner: '#E2E8F5',
   antFill: '#5C4A38', antOutline: '#2E2318', antInner: '#A8927C',
   beeFill: '#FFC531', beeOutline: '#8F6A0A', beeInner: '#3A3228',
+  // wordart-batch-1, Unit 5 (small, hot, cold, happy, fast, slow) — hot
+  // reuses the cat/tang warm palette, cold reuses the bird cool palette
+  // (same mug silhouette, temperature read via color+steam/ice, not a
+  // second unrelated hex triad); snail (slow) gets its own.
+  snailFill: '#A8C64A', snailOutline: '#5C7A1E', snailInner: '#E8F2C8',
 };
 
 export const fonts = {
