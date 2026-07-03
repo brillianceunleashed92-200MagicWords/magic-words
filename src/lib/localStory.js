@@ -19,12 +19,11 @@ function hashPick(word, pool, count) {
 
 export function buildLocalStory(quiz) {
   const w = quiz.word;
-  const emoji = quiz.emoji ?? '';
   const distractors = hashPick(w, DISTRACTOR_POOL, 2);
   return {
     title: `The ${w}`,
     sentences: [
-      `I see a ${w}. ${emoji}`,
+      `I see a ${w}.`,
       `The ${w} is fun.`,
       `I like the ${w}!`,
     ],

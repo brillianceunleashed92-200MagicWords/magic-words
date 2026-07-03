@@ -1,5 +1,13 @@
 # UI Polish Report — `ui-candy-polish`
 
+> **Correction added after this report was written**: the "What's explicitly out of
+> scope" section below incorrectly claimed `word_builder` was unreachable by
+> conflating it with the genuinely-unreachable `SpellItOut`. It is a completely
+> separate file (`src/games/WordBuilder.jsx`) that IS live and reachable, and was
+> never actually audited. This was caught from real screenshots of the deployed
+> preview, not by this pass's own testing. See `docs/WORDBUILDER_FIX_REPORT.md` for
+> the fix and the full account of what went wrong in this report's verification.
+
 Branch: `ui-candy-polish`, off `main`, **not merged**. 8 commits, each self-verified
 (lint + build + `check:no-emoji` + Playwright) and confirmed green on its own preview
 deployment before the next step started. Preview alias:
@@ -92,7 +100,10 @@ a seam).
   live entry point into `GameEngine`) never offers `sound_match`/`spell_it_out`, and
   `GameTypeSelector`/`UpgradeModal` are imported only by legacy `App.jsx` (grepped, not
   assumed). Not rebuilt to E2 standard, and their leftover emoji are explicitly exempted
-  in `check-no-emoji.mjs` with that reasoning inline.
+  in `check-no-emoji.mjs` with that reasoning inline. **Correction**: `word_builder` was
+  originally (incorrectly) assumed to be covered by this same exclusion via `SpellItOut`.
+  It isn't — `word_builder` renders `src/games/WordBuilder.jsx`, a separate file, and is
+  directly offered by `PlayScreen.jsx`'s activity list. See `docs/WORDBUILDER_FIX_REPORT.md`.
 - **Landing page** (`pages/landing/`) — a separate, previously-approved dawn-gradient
   design system that predates this redesign. Two small data files there still have emoji;
   out of scope for the candy-galaxy `DESIGN_BRIEF.md` this pass enforces.

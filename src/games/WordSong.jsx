@@ -62,7 +62,7 @@ export default function WordSong({ quiz, onAnswer }) {
         <InterestMusic size={64} />
       </div>
       <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '1rem' }}>
-        {quiz.word} {quiz.emoji}
+        {quiz.word}
       </div>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem' }}>
         Sing along with Nova!

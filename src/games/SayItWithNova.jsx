@@ -90,7 +90,7 @@ export default function SayItWithNova({ quiz, onAnswer }) {
       <div style={{ padding: '1.5rem', textAlign: 'center' }}>
         <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}><IconMic size={56} color={T.teal} /></div>
         <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '0.75rem' }}>
-          {quiz.word} {quiz.emoji}
+          {quiz.word}
         </div>
         <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem', maxWidth: 280, margin: '0 auto 1.5rem' }}>
           {status === 'denied'
@@ -113,7 +113,7 @@ export default function SayItWithNova({ quiz, onAnswer }) {
         {status === 'correct' ? <IconStar size={56} color={T.gold} /> : <IconMic size={56} color={T.teal} />}
       </div>
       <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '0.75rem' }}>
-        {quiz.word} {quiz.emoji}
+        {quiz.word}
       </div>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem' }}>
         {status === 'listening' && "Nova is listening…"}

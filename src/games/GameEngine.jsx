@@ -1520,7 +1520,7 @@ export function GameEngine({
       setConsecutiveCorrect(0);
     }
 
-    const newWordsPlayed = [...wordsPlayed, { word: currentQuiz.word, emoji: currentQuiz.emoji, correct }];
+    const newWordsPlayed = [...wordsPlayed, { word: currentQuiz.word, correct }];
     setWordsPlayed(newWordsPlayed);
 
     // Report progress to parent (saves to Supabase)

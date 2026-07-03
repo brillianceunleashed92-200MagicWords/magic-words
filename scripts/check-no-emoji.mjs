@@ -1,8 +1,24 @@
 #!/usr/bin/env node
 // Proves the "zero emoji in UI" rule from docs/DESIGN_BRIEF.md §7. Scans
-// every .js/.jsx file under src/ for emoji-range Unicode characters and
-// fails (non-zero exit) if any are found outside the documented exceptions
-// below. Run: node scripts/check-no-emoji.mjs (or `npm run check:no-emoji`).
+// every .js/.jsx file under src/ AND api/ for emoji-range Unicode
+// characters and fails (non-zero exit) if any are found outside the
+// documented exceptions below. Run: node scripts/check-no-emoji.mjs (or
+// `npm run check:no-emoji`).
+//
+// api/ was added after docs/WORDBUILDER_FIX_REPORT.md found the original
+// src/-only version had a real blind spot: api/session-generator.js's
+// ALL_WORDS list had a literal `emoji: '🐸'`-style field per word, which
+// flowed into `quiz.emoji` and was rendered as a real emoji character by
+// several client components — a bug this test's first version could never
+// have caught since none of those literal characters were in `src/`.
+//
+// Important limitation, stated plainly rather than implied: this is a
+// static source grep. It cannot catch emoji that only exists at runtime —
+// e.g. Claude-generated encouragement text. That's why
+// api/session-generator.js's AI prompt was also fixed to explicitly
+// instruct "no emojis," a different kind of fix this script can't verify
+// or substitute for. This test proves "no literal emoji character shipped
+// in source," not "no emoji can ever appear on screen."
 //
 // Deliberately does NOT include the Arrows block (U+2190-U+21FF) — that
 // range is almost entirely plain typographic arrows (→ ← used in prose/
@@ -12,7 +28,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const ROOT = new URL('../src', import.meta.url).pathname;
+const ROOTS = [
+  { root: new URL('../src', import.meta.url).pathname, label: 'src' },
+  { root: new URL('../api', import.meta.url).pathname, label: 'api' },
+];
 
 // Files intentionally excluded, each with a specific, load-bearing reason —
 // not a general escape hatch. Any new exception added here must come with
@@ -31,6 +50,13 @@ const EXCEPTIONS = new Set([
   // test enforces. Not touched by this redesign's scope.
   'pages/landing/data/sampleWords.js',
   'pages/landing/sections/WordRise.jsx',
+  // api/ai-helper.js — confirmed zero consumers anywhere in src/ (grepped),
+  // dead server code superseded by api/session-generator.js.
+  '__api__/ai-helper.js',
+  // api/health-check.js — an internal diagnostics endpoint (used only by
+  // this session's own deployment-verification checks, never rendered to
+  // a child), not part of the app's UI surface this rule governs.
+  '__api__/health-check.js',
 ]);
 
 // Within games/GameEngine.jsx specifically: SoundMatch, SpellItOut,
@@ -90,22 +116,25 @@ function inAnyRange(offset, ranges) {
 }
 
 let failures = 0;
-for (const file of walk(ROOT)) {
-  const relPath = relative(ROOT, file);
-  if (isExempt(relPath)) continue;
+for (const { root, label } of ROOTS) {
+  for (const file of walk(root)) {
+    const relPath = relative(root, file);
+    const exceptionKey = label === 'api' ? `__api__/${relPath}` : relPath;
+    if (isExempt(exceptionKey)) continue;
 
-  const content = readFileSync(file, 'utf8');
-  const isGameEngine = relPath === 'games/GameEngine.jsx';
-  const exemptRanges = isGameEngine ? findGameEngineExemptRanges(content) : [];
+    const content = readFileSync(file, 'utf8');
+    const isGameEngine = label === 'src' && relPath === 'games/GameEngine.jsx';
+    const exemptRanges = isGameEngine ? findGameEngineExemptRanges(content) : [];
 
-  let match;
-  const lineStarts = [0, ...[...content.matchAll(/\n/g)].map((m) => m.index + 1)];
-  EMOJI_PATTERN.lastIndex = 0;
-  while ((match = EMOJI_PATTERN.exec(content))) {
-    if (isGameEngine && inAnyRange(match.index, exemptRanges)) continue;
-    const lineNo = lineStarts.filter((s) => s <= match.index).length;
-    console.error(`src/${relPath}:${lineNo}: emoji character "${match[0]}" found`);
-    failures++;
+    let match;
+    const lineStarts = [0, ...[...content.matchAll(/\n/g)].map((m) => m.index + 1)];
+    EMOJI_PATTERN.lastIndex = 0;
+    while ((match = EMOJI_PATTERN.exec(content))) {
+      if (isGameEngine && inAnyRange(match.index, exemptRanges)) continue;
+      const lineNo = lineStarts.filter((s) => s <= match.index).length;
+      console.error(`${label}/${relPath}:${lineNo}: emoji character "${match[0]}" found`);
+      failures++;
+    }
   }
 }
 
