@@ -162,9 +162,29 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, progress = [], focusWord = null } = req.body || {};
+  const { userId } = req.body || {};
+  const rawProgress = req.body?.progress;
+  const rawFocusWord = req.body?.focusWord;
 
   if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  // Defensive input validation — this data flows directly into a Claude
+  // prompt below (wordHistory/sessionWords), and progress used to be
+  // trusted as "an array of the right shape" with no check at all (a
+  // malformed body, e.g. `progress: "x"`, would throw inside .map()).
+  const progress = Array.isArray(rawProgress)
+    ? rawProgress
+        .filter((p) => p && typeof p === 'object')
+        .slice(0, 200)
+        .map((p) => ({
+          word: typeof p.word === 'string' ? p.word.slice(0, 40) : '',
+          mastery: Number.isFinite(p.mastery) ? Math.max(0, Math.min(100, p.mastery)) : 0,
+          attempt_count: Number.isFinite(p.attempt_count) ? Math.max(0, p.attempt_count) : 0,
+          correct_count: Number.isFinite(p.correct_count) ? Math.max(0, p.correct_count) : 0,
+          last_seen: typeof p.last_seen === 'string' ? p.last_seen.slice(0, 40) : null,
+        }))
+    : [];
+  const focusWord = typeof rawFocusWord === 'string' && /^[a-z']{1,40}$/i.test(rawFocusWord) ? rawFocusWord : null;
 
   // Select session words (fast, no AI)
   const sessionWords    = selectSessionWords(progress, focusWord);
