@@ -167,4 +167,133 @@ stale state, then confirmed it fired correctly post-reload).
   now uses. Only their emoji leak was fixed here — a full visual rebuild
   of those four was out of scope for this specific bug report.
 
+## Round 2 (2026-07-03) — live audit against the deployed preview
+
+A follow-up report described emoji still visible on the primary quiz
+screen (a "dog" quiz showing ✅/🐶/✈️/📖 as answer options, including a
+checkmark as a nonsense answer), a `fly.png` 404 in the console, emoji in
+the bottom nav (🎮🌌🧑‍🤝‍🧑) and `SessionComplete`'s word chips, and Nova
+still showing a CSS placeholder instead of the real PNG art — all
+allegedly slipping past `check:no-emoji` because its exemption list was
+hiding real violations.
+
+### What actually happened, and how it was found
+
+Rather than trust the round-1 report's exemption reasoning or the
+screenshots' visual appearance, this round did a live audit: signed into
+the actual deployed `ui-candy-polish` preview with a real provisioned
+account, played a full `WordMatch` session end to end (6 rounds,
+including a genuine "dog" quiz and a genuine "fly" quiz — the exact
+scenarios named in the report), and inspected the rendered DOM directly
+rather than eyeballing screenshots.
+
+**None of the four specific bugs reproduced on `ui-candy-polish`.** Every
+element that looked emoji-like in a screenshot turned out, on direct DOM
+inspection, to be a real hand-drawn SVG (`WordArt`'s `CatArt`, `HomeScreen`'s
+`RocketInline`/`AvatarRocket`) — visually similar to an emoji by design
+(they're meant to read as friendly cartoon icons), but confirmed via
+`querySelector('svg')` child-count matching the source component exactly,
+not a literal character. The "dog" quiz, played live, showed real
+`WordArt` illustrations and typographic chips for every option — no
+checkmark, no emoji. No `fly.png` reference exists anywhere in this
+codebase (`WordArt.jsx` has zero external image references at all — grepped
+directly); the "fly" quiz round, played live, showed the `FlyArt` SVG
+correctly with zero network 404s for the entire session (confirmed via
+`performance.getEntriesByType('resource')`). The bottom nav and
+`SessionComplete` chips were confirmed via `document.body.innerText` to
+contain zero emoji-range characters. Nova's real PNG art was confirmed
+loading successfully (not falling back) in the quiz porthole, Home hero,
+and story card via network resource timing (first load at full ~1.5MB
+size, cached on repeat) and a zoomed screenshot of the actual rendered
+pixels.
+
+**Strong evidence points to the screenshots being taken against
+`200magicwordsapp.com` instead of the `ui-candy-polish` preview.** That
+domain has `gitBranch: null` in its Vercel config, meaning it serves
+whatever is deployed to Production — which is `main`, untouched by any of
+this branch's work (explicitly never merged, per the original
+instruction). The very first tab open in this session's browser was that
+domain, showing a completely different Home screen layout (round avatar
+image, differently-structured hero card) with exactly the emoji described
+in the report (🚀🔥⭐💎 stat cards, 🎮🌌🧑‍🤝‍🧑 bottom nav) — none of which
+match any component in this branch's source. This is stated plainly
+rather than glossed over: **test against the actual preview URL for this
+branch, not the production custom domain, to keep future reports
+accurate.**
+
+### What the audit found that WAS real, and fixed
+
+Pushing back on a report doesn't mean nothing was wrong — the audit found
+two genuine issues the round-1 `check:no-emoji` had missed, both for a
+reason worth understanding:
+
+1. **`WordRise.jsx` (landing page) had a real, live emoji** — a placeholder
+   astronaut (🧑‍🚀) in the word-rise-into-Nova sequence, plus 5 dead
+   `emoji` fields in `sampleWords.js` that were never actually read by
+   their only consumer. Round 1's `check-no-emoji.mjs` exempted the whole
+   landing page with a category error, not a factual one: "separate,
+   previously-approved design system" was treated as sufficient grounds
+   for an exemption, but the landing page IS reachable — it's the root
+   route, the first thing every visitor sees. Fixed: the placeholder now
+   renders the real Nova PNG (CLAUDE.md already documented the emoji as
+   "placeholder... until Higgsfield final version" — this fulfills that
+   exact intent), and the dead `emoji` fields were removed rather than
+   left as inert data carrying a literal character.
+2. **`check-no-emoji.mjs`'s exemptions were asserted in comments, never
+   proven.** Rewrote it so `assertUnreachable()` mechanically walks the
+   actual same-repo import graph from the real live entry points
+   (`Landing.jsx`, `CandyGalaxyShell.jsx`) at run time and throws if an
+   "exempt" file turns out to be reachable — verified this actually works
+   by temporarily wiring `App.jsx` into `Landing.jsx` and confirming the
+   check failed loudly, then reverting. A future change that accidentally
+   makes legacy code reachable again now fails automatically instead of
+   depending on someone noticing.
+
+Also added `tests/no-emoji-live.spec.js` — a genuinely different kind of
+proof than the source grep, requested explicitly: drives the real running
+app in a headless browser, plays a full quiz session, and asserts zero
+emoji-range characters in `document.body.innerText` and zero image 404s
+at every screen, with automatic screenshots on failure. Verified this
+catches real violations by planting one in `HomeScreen.jsx`, confirming
+the test failed with the right screen name and a saved screenshot, then
+reverting.
+
+### Nova: already wired, fallback removed anyway
+
+The PNGs were already correctly wired to `NovaSprite.jsx`/`NovaPortrait.jsx`
+and loading successfully (see audit findings above) — the "still shows
+CSS placeholder" half of the report didn't reproduce. What WAS real:
+`NovaSprite.jsx` had a silent `onError` fallback to a CSS-built sprite,
+which the report's own request called out as worth removing regardless
+("a missing image fails visibly instead of silently showing the
+placeholder") — a legitimate defensive improvement independent of current
+pass/fail state. Removed it, along with the 3 CSS keyframes that existed
+only to animate it (confirmed zero other consumers before deleting).
+
+### Nova PNG compression
+
+Real and needed: the 4 PNGs were 1024×1024 (Higgsfield's native output)
+despite rendering at 88–130px everywhere they're used — 8–11× oversized.
+Resized to 256×256 (still 2×-retina-safe): 1.29–1.51MB → 37–45KB per file.
+Added WebP versions alongside (7.7–11.4KB, preserving transparency) served
+via `<picture><source type="image/webp">` with the compressed PNG as
+fallback. Verified in a real browser that Chrome actually requests the
+`.webp` (not the PNG), and that a zoomed screenshot of the rendered pixels
+shows no visible quality loss at display size.
+
+### Round 2 verification
+
+- `npm run lint` — 99/100 (100 includes the new Playwright test file,
+  which adds one instance of an already-existing `process`-in-tests
+  ESLint gap shared with `smoke.spec.js` — confirmed via diffing against
+  the file removed, not assumed).
+- `npm run check:no-emoji` — clean, with the new mechanical reachability
+  proof passing (and verified to actually fail when reachability is
+  simulated).
+- `npm run build` — clean at every commit.
+- Full Playwright suite (4/4, including the new live-DOM test) — passes
+  against real Supabase, at every commit that touched a tested surface.
+- 5 commits, each pushed individually and confirmed `READY` on its own
+  preview deployment (matched by `githubCommitSha`).
+
 **Not merged to `main`.**
