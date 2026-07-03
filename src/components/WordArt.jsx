@@ -377,12 +377,12 @@ function BeeArt() {
 }
 
 // Shared "Buddy" figure for action/adjective words.
-function BuddyBase({ mouth, extra, scale = 1, cx = 60, cy = 62 }) {
+function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   return (
     <g transform={scale !== 1 ? `translate(${cx},${cy}) scale(${scale}) translate(${-cx},${-cy})` : undefined}>
       <GroundShadow />
       <circle cx={cx} cy={cy} r="38" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
-      <Eye cx={cx - 14} cy={cy - 6} /><Eye cx={cx + 14} cy={cy - 6} />
+      {eyes ?? (<><Eye cx={cx - 14} cy={cy - 6} /><Eye cx={cx + 14} cy={cy - 6} /></>)}
       {mouth}
       <Blush cx={cx - 22} cy={cy + 8} /><Blush cx={cx + 22} cy={cy + 8} />
       {extra}
@@ -455,6 +455,41 @@ function SingArt() {
           <circle cx="20" cy="30" r="4" fill={colors.sky} />
           <path d="M24 30v-14" stroke={colors.sky} strokeWidth="2.5" strokeLinecap="round" />
         </>
+      }
+    />
+  );
+}
+
+// wordart-batch-1, Unit 4 (sleep, sit)
+function SleepArt() {
+  return (
+    <BuddyBase
+      eyes={
+        <>
+          <path d="M40 56q6 4 12 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M68 56q6 4 12 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+        </>
+      }
+      mouth={<ellipse cx="60" cy="74" rx="6" ry="4" fill={c.buddyOutline} />}
+      extra={
+        <>
+          {/* ascending drift-off-to-sleep bubbles — deliberately plain circles, not the letter "Z" (no letterforms in illustrations) */}
+          <circle cx="92" cy="28" r="4" fill={colors.sky} opacity=".8" />
+          <circle cx="102" cy="18" r="6" fill={colors.sky} opacity=".6" />
+          <circle cx="114" cy="6" r="8" fill={colors.sky} opacity=".4" />
+        </>
+      }
+    />
+  );
+}
+
+function SitArt() {
+  return (
+    <BuddyBase
+      cy={54}
+      mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+      extra={
+        <path d="M40 88q0 14 8 14h24q8 0 8-14" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
       }
     />
   );
@@ -559,6 +594,8 @@ const REGISTRY = {
   swim: SwimArt,
   dance: DanceArt,
   sing: SingArt,
+  sleep: SleepArt,
+  sit: SitArt,
   fly: FlyArt,
   jump: JumpArt,
   run: RunArt,
