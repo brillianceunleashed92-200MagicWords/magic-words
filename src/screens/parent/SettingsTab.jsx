@@ -11,7 +11,7 @@ const TIME_LIMIT_OPTIONS = [null, 10, 15, 20, 30];
 // Real DB-backed settings now (migration 0009), enforced in the child app
 // via src/lib/useSessionTimeLimit.js's soft Nova lockout.
 export default function SettingsTab() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const settingsQ = useParentSettingsQuery(user?.id);
   const updateSettings = useUpdateParentSettingsMutation(user?.id);
   const subscriptionQ = useSubscriptionQuery(user?.id);
@@ -98,6 +98,20 @@ export default function SettingsTab() {
         <span style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.ink, fontSize: '.85rem' }}>
           {weekendPause ? 'On' : 'Off'}
         </span>
+      </button>
+
+      <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8, marginTop: 24 }}>
+        Account
+      </div>
+      <button
+        onClick={() => signOut()}
+        style={{
+          padding: '10px 16px', borderRadius: 100, border: 'none', cursor: 'pointer',
+          background: 'rgba(0,0,0,.06)', color: colors.ink,
+          fontFamily: fonts.display, fontWeight: 700, fontSize: '.85rem',
+        }}
+      >
+        Sign out
       </button>
     </div>
   );
