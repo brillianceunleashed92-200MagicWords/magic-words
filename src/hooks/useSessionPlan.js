@@ -6,13 +6,21 @@
 //   Login → check sessionStorage for fresh plan → if stale/missing → call /api/session-generator
 //   → store plan in sessionStorage → app reads from plan, no more AI calls per tap
 //
-// The plan includes: quiz sequence, word order, encouragements, difficulty level
+// Sprint 2 Part B: the server now selects session words directly from the
+// real 200-word Supabase table (see api/session-generator.js) — this hook
+// no longer sends a client-computed progress array; it sends only
+// { childId, focusWord }, and the server looks up progress/plan itself
+// (never trusts client-supplied mastery data). The offline/API-failure
+// fallback below was rewritten the same way: it queries `words` directly
+// instead of a 10-word hardcoded list, so even a degraded session still
+// draws from the real curriculum.
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
-const PLAN_CACHE_KEY   = 'mw_session_plan_v2'; // bump to bust stale plans missing wordClass
+const PLAN_CACHE_KEY   = 'mw_session_plan_v3'; // bumped: quizzes now carry word_type-derived wordClass + pictureEligible from the real words table, not the old 18-word list
 const PLAN_TTL_MINUTES = 60; // regenerate if older than 1 hour
+const FREE_TIER_MAX_UNIT = 5; // mirrors src/lib/queries/subscription.js — client-side fallback only; the server enforces this independently
 
 function getCachedPlan() {
   try {
@@ -39,15 +47,14 @@ function cachePlan(plan) {
   }
 }
 
-export function useSessionPlan(user, wordProgress) {
+export function useSessionPlan(user, childId, plan = 'free') {
   const [sessionPlan, setSessionPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError]     = useState(null);
 
   const generatePlan = useCallback(async (force = false, focusWord = null) => {
-    if (!user) return;
+    if (!user || !childId) return;
 
-    // Use cache if available and not forcing refresh (skip cache if focusWord given)
     if (!force && !focusWord) {
       const cached = getCachedPlan();
       if (cached) {
@@ -60,15 +67,6 @@ export function useSessionPlan(user, wordProgress) {
     setPlanError(null);
 
     try {
-      // Build the prompt context — include cumulative counts for adaptive AI
-      const progressSummary = (wordProgress || []).map(wp => ({
-        word:          wp.word,
-        mastery:       wp.mastery,
-        correct_count: wp.correct_count  ?? 0,
-        attempt_count: wp.attempt_count  ?? 0,
-        last_seen:     wp.last_seen      ?? wp.last_practiced ?? null,
-      }));
-
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
@@ -78,110 +76,154 @@ export function useSessionPlan(user, wordProgress) {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({
-          userId:    user.id,
-          progress:  progressSummary,
-          focusWord: focusWord ?? undefined,
-        }),
+        body: JSON.stringify({ childId, focusWord: focusWord ?? undefined }),
       });
 
       if (!response.ok) throw new Error(`Session generator returned ${response.status}`);
 
-      const { plan } = await response.json();
-      cachePlan(plan);
-      setSessionPlan(plan);
+      const { plan: newPlan } = await response.json();
+      cachePlan(newPlan);
+      setSessionPlan(newPlan);
     } catch (err) {
       console.error('[useSessionPlan] Generation failed:', err.message);
       setPlanError(err.message);
-      // Fallback: build a basic plan from existing word progress without AI
-      setSessionPlan(buildFallbackPlan(wordProgress));
+      const fallback = await buildSupabaseFallbackPlan(childId, plan);
+      setSessionPlan(fallback);
     } finally {
       setPlanLoading(false);
     }
-  }, [user, wordProgress]);
+  }, [user, childId, plan]);
 
-  // Auto-generate when user logs in and wordProgress is loaded
   useEffect(() => {
-    if (user && wordProgress !== null) {
-      generatePlan();
-    }
-  }, [user?.id, wordProgress !== null]); // eslint-disable-line
+    if (user && childId) generatePlan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, childId]);
 
   return {
     sessionPlan,
     planLoading,
     planError,
-    regeneratePlan:        () => generatePlan(true),
-    generatePlanForWord:   (word) => generatePlan(true, word),
+    regeneratePlan:      () => generatePlan(true),
+    generatePlanForWord: (word) => generatePlan(true, word),
   };
 }
 
-// Fallback plan when AI is unavailable — uses local logic only, zero API calls.
-// No `emoji` field on these words — WordArt.jsx (the illustration system
-// every rebuilt activity now uses) derives its art purely from the word
-// string, so this data never needed emoji in the first place.
-function buildFallbackPlan(wordProgress = []) {
-  const WORDS = [
-    { word: 'cat',  mastery: 0 },
-    { word: 'dog',  mastery: 0 },
-    { word: 'bird', mastery: 0 },
-    { word: 'eat',  mastery: 0 },
-    { word: 'jump', mastery: 0 },
-    { word: 'the',  mastery: 0 },
-    { word: 'can',  mastery: 0 },
-    { word: 'big',  mastery: 0 },
-    { word: 'run',  mastery: 0 },
-    { word: 'fly',  mastery: 0 },
-  ];
+// ─── Fallback: only used when /api/session-generator itself fails (network
+// error, 5xx, rate limit) — queries the real words table directly so even
+// a degraded session draws from the actual 200-word curriculum, not a
+// stale hardcoded list. RLS-scoped (child ownership), same as any other
+// client query. This is intentionally simpler than the server's version —
+// no AI-personalized copy, no spaced-repetition due-date pass, no
+// full 45-word hand-written function-word sentence set — a degraded
+// fallback path doesn't need full parity, it needs to not be empty or
+// wrong.
+async function buildSupabaseFallbackPlan(childId, plan) {
+  try {
+    const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
+    const { data: words, error: wordsErr } = await supabase
+      .from('words')
+      .select('word, unit, sort_order, word_type')
+      .lte('unit', maxUnit)
+      .order('sort_order');
+    if (wordsErr || !words?.length) throw wordsErr ?? new Error('no words available');
 
-  // Prioritize low-mastery words
-  const progressMap = Object.fromEntries((wordProgress || []).map(w => [w.word, w.mastery]));
-  const sorted = [...WORDS]
-    .map(w => ({ ...w, mastery: progressMap[w.word] ?? 0 }))
-    .sort((a, b) => a.mastery - b.mastery);
+    const { data: progress } = await supabase
+      .from('word_progress')
+      .select('word, mastery')
+      .eq('child_id', childId);
+    const masteryMap = new Map((progress ?? []).map((p) => [p.word, p.mastery]));
 
-  const focusWords = sorted.slice(0, 5);
+    const withMastery = words.map((w) => ({ ...w, mastery: masteryMap.get(w.word) ?? 0 }));
+    const units = [...new Set(withMastery.map((w) => w.unit))].sort((a, b) => a - b);
+    let currentUnit = units[0] ?? 1;
+    for (const unit of units) {
+      const hasUnmastered = withMastery.some((w) => w.unit === unit && w.mastery < 80);
+      currentUnit = unit;
+      if (hasUnmastered) break;
+    }
 
-  return {
-    isFallback: true,
-    difficultyLevel: 'emerging',
-    wordSequence: focusWords,
-    quizzes: focusWords.map(w => buildLocalQuiz(w, WORDS)),
-    encouragements: [
-      "Great job!",
-      "You're doing amazing!",
-      "Keep going, star learner!",
-      "Wow, you're so smart!",
-      "That's right! You're a reading star!",
-    ],
-    sessionGoal: `Practice ${focusWords.map(w => w.word).join(', ')}`,
-  };
+    const focusWords = withMastery
+      .filter((w) => w.unit === currentUnit)
+      .sort((a, b) => a.mastery - b.mastery)
+      .slice(0, 6);
+
+    return {
+      isFallback: true,
+      difficultyLevel: 'emerging',
+      currentUnit,
+      wordSequence: focusWords,
+      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery)),
+      encouragements: [
+        'Great job!',
+        "You're doing amazing!",
+        'Keep going, star learner!',
+        "Wow, you're so smart!",
+        "That's right! You're a reading star!",
+      ],
+      sessionGoal: `Practice ${focusWords.map((w) => w.word).join(', ')}`,
+    };
+  } catch (err) {
+    console.error('[useSessionPlan] Supabase fallback also failed, using true-offline plan:', err.message);
+    return buildOfflineFallbackPlan();
+  }
 }
+
+const PICTURE_ART_WORDS = ['dog', 'cat', 'bird', 'frog', 'eat', 'fly', 'jump', 'run', 'big', 'sad'];
+const PICTURE_ART_SET = new Set(PICTURE_ART_WORDS);
+// Small subset of function words that already read naturally in a fill-
+// blank sentence — everything else in a true-fallback session gets the
+// generic default, an acceptable degradation for the rare true-offline
+// path (see file header).
+const FALLBACK_FUNCTION_SENTENCES = {
+  the: 'I read ___ big book.',
+  can: 'I ___ do it myself!',
+  is: 'This ___ my favorite word.',
+  they: '___ love to read together.',
+  not: 'I am ___ going to give up.',
+  and: 'Cats ___ dogs are friends.',
+  with: 'Play ___ me at recess.',
+  do: 'What can you ___?',
+};
 
 function buildLocalQuiz(targetWord, allWords) {
-  const ACTION_WORDS = ['jump', 'run', 'fly', 'eat', 'swim', 'dance', 'play', 'sing'];
-  const isAction = ACTION_WORDS.includes(targetWord.word);
+  const pictureEligible = targetWord.word_type !== 'function' && PICTURE_ART_SET.has(targetWord.word);
 
-  const distractors = allWords
-    .filter(w => w.word !== targetWord.word)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
+  let distractorWords;
+  if (pictureEligible) {
+    distractorWords = [...PICTURE_ART_WORDS].filter((w) => w !== targetWord.word).sort(() => Math.random() - 0.5).slice(0, 3);
+  } else {
+    distractorWords = allWords
+      .filter((w) => w.word !== targetWord.word)
+      .map((w) => w.word)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+  }
 
-  const options = [...distractors, targetWord].sort(() => Math.random() - 0.5);
-  const correctIndex = options.findIndex(o => o.word === targetWord.word);
+  const options = [...distractorWords, targetWord.word].sort(() => Math.random() - 0.5).map((word) => ({ word }));
+  const correctIndex = options.findIndex((o) => o.word === targetWord.word);
 
   return {
-    word:         targetWord.word,
-    question:     isAction
-      ? `Which picture shows someone ${targetWord.word}ing?`
-      : `Which picture shows a ${targetWord.word}?`,
-    // Generic fallback for StoryBuilder when offline — mirrors the
-    // same fallback-of-fallback line the real session generator uses
-    // (api/session-generator.js's STORY_TEMPLATES default) so Story
-    // Builder doesn't render a sentence-less blank if this local quiz
-    // builder is ever used for that game type.
-    sentence:     `I know the word ___.`,
-    options:      options.map(o => ({ word: o.word })),
+    word: targetWord.word,
+    wordClass: targetWord.word_type,
+    pictureEligible,
+    sentence: FALLBACK_FUNCTION_SENTENCES[targetWord.word] ?? 'I know the word ___.',
+    options,
     correctIndex,
+  };
+}
+
+// True-offline last resort — Supabase itself is unreachable (not just the
+// AI endpoint). 5 Unit-1 words only, clearly not the full curriculum;
+// exists so the app never renders a completely empty session.
+function buildOfflineFallbackPlan() {
+  const words = ['cat', 'dog', 'bird', 'fish', 'ball'].map((word) => ({ word, word_type: 'noun', mastery: 0 }));
+  return {
+    isFallback: true,
+    isOffline: true,
+    difficultyLevel: 'emerging',
+    wordSequence: words,
+    quizzes: words.map((w) => buildLocalQuiz(w, words)),
+    encouragements: ['Great job!', "You're doing amazing!", 'Keep going, star learner!'],
+    sessionGoal: 'Practice a few magic words!',
   };
 }
