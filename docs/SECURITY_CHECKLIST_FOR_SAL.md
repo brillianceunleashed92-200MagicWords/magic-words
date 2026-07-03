@@ -134,3 +134,35 @@ response caching) all fixed — see commit `01fc135`. Two items need Sal:
         warnings).
   - [ ] **Vercel** → Project Settings → set a spend/usage alert if on a plan that
         supports it (function invocation count, bandwidth).
+
+---
+
+## 🟢 Phase 6 — Deployment, headers & monitoring
+
+All code-side (security headers + CSP in Report-Only mode, restored the SPA rewrite
+that had been silently deleted since March, fixed the health-check info leak, webhook
+failure logging, security event logging, `npm audit fix` for 9 of 10 vulnerabilities)
+— see commit for this phase. Two items need Sal:
+
+- [ ] **Switch the CSP from Report-Only to enforcing.** `vercel.json` currently ships
+      `Content-Security-Policy-Report-Only` — it logs violations to the browser
+      console without blocking anything, deliberately, so a misconfigured policy
+      can't break the live app silently. Verified during this session's own testing
+      that the policy as written doesn't fire any violations for the real app flows
+      exercised (sign-in, play a session, audio, Parent Portal, Stripe checkout
+      redirect) — see the session's closing report for exactly what was checked. If
+      nothing new turns up after a few days of real traffic, flip the header key from
+      `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in
+      `vercel.json` to actually start blocking violations, not just logging them.
+- [ ] **Database network restrictions** (if your Supabase plan supports it) —
+      Dashboard → Settings → Database → Network Restrictions → restrict direct
+      Postgres connections to known IPs. Confirmed no direct Postgres connection
+      string is ever referenced client-side (grepped), so this is defense-in-depth
+      on top of that, not a fix for an active leak.
+- **Not fixed, flagged for manual review**: `npm audit` still reports 1 moderate
+  vulnerability (`@anthropic-ai/sdk`, a path-validation issue in its local-filesystem
+  "memory tool" feature — this app only uses `messages.create()`, never that
+  feature). Fixing it requires `npm audit fix --force`, a 30-version jump
+  (0.80.0 → 0.110.0) that very likely has breaking API changes — outside this
+  session's "non-breaking only" scope. Worth a deliberate upgrade + test pass later,
+  not an urgent risk given the unused feature surface.

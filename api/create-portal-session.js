@@ -13,6 +13,7 @@
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { logSecurityEvent } = require('./_lib/security');
 
 async function getVerifiedUserId(req) {
   const authHeader = req.headers.authorization || '';
@@ -32,7 +33,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const userId = await getVerifiedUserId(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!userId) {
+    logSecurityEvent('auth_verification_failed', { endpoint: 'create-portal-session' });
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });

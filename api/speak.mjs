@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { getVerifiedUser, checkRateLimit } from './_lib/security.js';
+import { getVerifiedUser, checkRateLimit, logSecurityEvent } from './_lib/security.js';
 
 const CACHE_BUCKET = 'tts-cache';
 
@@ -20,7 +20,10 @@ export default async function handler(req, res) {
   // real money (ElevenLabs), and this endpoint previously had no auth
   // check at all.
   const user = await getVerifiedUser(req);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) {
+    logSecurityEvent('auth_verification_failed', { endpoint: 'speak' });
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   const { word, text } = req.body ?? {};
   const raw = text ?? word;
@@ -62,6 +65,7 @@ export default async function handler(req, res) {
 
   const { allowed, retryAfterSeconds } = await checkRateLimit(user.id, 'speak', 60, 1);
   if (!allowed) {
+    logSecurityEvent('rate_limit_exceeded', { userId: user.id, endpoint: 'speak' });
     res.setHeader('Retry-After', String(retryAfterSeconds));
     return res.status(429).json({ error: 'Too many requests', retryAfterSeconds });
   }

@@ -13,6 +13,7 @@
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { logSecurityEvent } = require('./_lib/security');
 
 async function getVerifiedUserId(req) {
   const authHeader = req.headers.authorization || '';
@@ -32,7 +33,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const user = await getVerifiedUserId(req);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) {
+    logSecurityEvent('auth_verification_failed', { endpoint: 'create-checkout-session' });
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   const userId = user.id;
   const email = user.email;
 
