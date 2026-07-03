@@ -63,7 +63,7 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
           await supabase.from('magic_moments').insert({
             child_id: childId,
             kind: 'drawing',
-            payload: { word: quiz.word, emoji: quiz.emoji, image_path: path, image_url: signed?.signedUrl ?? null },
+            payload: { word: quiz.word, image_path: path, image_url: signed?.signedUrl ?? null },
           });
         }
       }
@@ -79,7 +79,7 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
   return (
     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '0.5rem' }}>
-        Draw a {quiz.word}! {quiz.emoji}
+        Draw a {quiz.word}!
       </div>
       <canvas
         ref={canvasRef}
@@ -106,7 +106,7 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
           color: '#00332E', fontFamily: 'Space Grotesk', fontWeight: 700, cursor: saving ? 'default' : 'pointer',
           opacity: saving ? 0.7 : 1,
         }}>
-          {saving ? 'Saving…' : 'Done! ✨'}
+          {saving ? 'Saving…' : 'Done!'}
         </button>
       </div>
     </div>

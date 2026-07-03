@@ -16,6 +16,9 @@ import { logSessionResult, getRollingSuccessRate, suggestActivity } from '../lib
 import { useParentSettingsQuery } from '../lib/queries/parentSettings';
 import { useSessionTimeLimit } from '../lib/useSessionTimeLimit';
 import NovaPortrait from '../components/candy/NovaPortrait';
+import WordArt from '../components/WordArt';
+import { IconSpeaker, IconSearch, IconBook, IconMic, IconSpark, IconArrow, IconTrophy } from '../components/icons';
+import { InterestMusic, InterestArt } from '../components/icons/InterestGlyphs';
 
 const MASTERED_THRESHOLD = 80;
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
@@ -24,17 +27,17 @@ const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 // game components (kept as-is, not rewritten — see docs/mlc-engine-audit.md
 // section 5/6 for why each mapping was chosen).
 const ACTIVITIES = [
-  { id: 'word_match', label: 'Tap & Hear', icon: '👂' },
-  { id: 'word_hunt', label: 'Word Hunt', icon: '🔍' },
-  { id: 'story_builder', label: 'Fill the Story', icon: '📖' },
-  { id: 'rhyme_time', label: 'Match & Sort', icon: '🎵' },
-  { id: 'flash_cards', label: 'Quiz Boss', icon: '👑' },
-  { id: 'word_builder', label: 'Word Builder', icon: '🧩' },
-  { id: 'draw_it', label: 'Draw It', icon: '🎨' },
-  { id: 'story_time', label: 'Story Time', icon: '📚' },
-  { id: 'word_song', label: 'Word Song', icon: '🎶' },
-  { id: 'magic_video', label: 'Magic Video', icon: '🎬' },
-  { id: 'say_it', label: 'Say It with Nova', icon: '🎤' },
+  { id: 'word_match', label: 'Tap & Hear', Icon: IconSpeaker },
+  { id: 'word_hunt', label: 'Word Hunt', Icon: IconSearch },
+  { id: 'story_builder', label: 'Fill the Story', Icon: IconBook },
+  { id: 'rhyme_time', label: 'Match & Sort', Icon: InterestMusic },
+  { id: 'flash_cards', label: 'Quiz Boss', Icon: IconTrophy },
+  { id: 'word_builder', label: 'Word Builder', Icon: IconSpark },
+  { id: 'draw_it', label: 'Draw It', Icon: InterestArt },
+  { id: 'story_time', label: 'Story Time', Icon: IconBook },
+  { id: 'word_song', label: 'Word Song', Icon: InterestMusic },
+  { id: 'magic_video', label: 'Magic Video', Icon: IconSpark },
+  { id: 'say_it', label: 'Say It with Nova', Icon: IconMic },
 ];
 
 export default function PlayScreen({ focusWord, onExit }) {
@@ -128,7 +131,7 @@ export default function PlayScreen({ focusWord, onExit }) {
       <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
         <NovaPortrait pose="wave" size={120} />
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', color: colors.cloud, marginTop: '1rem' }}>
-          Time for a break! ✨
+          Time for a break!
         </div>
         <div style={{ color: 'rgba(255,255,255,.85)', marginTop: 8, maxWidth: 280 }}>
           You've played {minutesToday} minutes today — Nova will be here tomorrow!
@@ -149,15 +152,16 @@ export default function PlayScreen({ focusWord, onExit }) {
         <button onClick={onExit} style={{
           background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 100, color: colors.cloud,
           padding: '10px 18px', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer', marginBottom: '1rem',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
         }}>
-          ← Home
+          <IconArrow size={14} direction="left" color={colors.cloud} /> Home
         </button>
-        <h2 style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.cloud, textAlign: 'center', margin: '0.5rem 0 1.5rem' }}>
-          Today's Quest ✨
+        <h2 style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.cloud, textAlign: 'center', margin: '0.5rem 0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <IconSpark size={20} color={colors.sun} /> Today's Quest
         </h2>
         {currentWord && (
-          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.85)', fontWeight: 600, marginBottom: '1.5rem' }}>
-            Focus word: <strong>{currentWord.word}</strong> {currentWord.emoji}
+          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.85)', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            Focus word: <strong>{currentWord.word}</strong> <WordArt word={currentWord.word} teachingTrack={currentWord.teaching_track} size={28} />
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem', maxWidth: 420, margin: '0 auto' }}>
@@ -173,7 +177,7 @@ export default function PlayScreen({ focusWord, onExit }) {
                 borderRadius: 26, boxShadow: shadows.chunk, cursor: 'pointer',
               }}
             >
-              <span style={{ fontSize: '2.2rem' }}>{a.icon}</span>
+              <span style={{ display: 'flex' }}><a.Icon size={30} color={colors.ink} /></span>
               <span style={{ fontFamily: fonts.display, fontWeight: 700 }}>{a.label}</span>
               {suggestedActivity === a.id && (
                 <span style={{ fontSize: '.65rem', fontWeight: 800, color: colors.tang }}>RECOMMENDED</span>
@@ -183,7 +187,7 @@ export default function PlayScreen({ focusWord, onExit }) {
         </div>
         {planError && (
           <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.7)', marginTop: '1.5rem', fontSize: '.85rem' }}>
-            ⚠️ Offline mode — your progress still saves normally.
+            Offline mode — your progress still saves normally.
           </div>
         )}
       </div>

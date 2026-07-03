@@ -10,6 +10,7 @@
 
 import { useEffect, useRef } from 'react';
 import { colors as tokens } from '../design-system/tokens';
+import { IconStar } from './icons';
 
 // Animated star field for the loading screen — pure CSS, no libraries
 function StarField() {
@@ -113,7 +114,7 @@ function GalaxyLoader({ message = "Loading your galaxy…" }) {
           justifyContent: 'center',
           fontSize: '56px',
           animation: 'float 3s ease-in-out infinite',
-        }}>⭐</div>
+        }}><IconStar size={56} color={tokens.marigold} /></div>
         {/* Orbiting dot */}
         <div style={{
           position: 'absolute',

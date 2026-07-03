@@ -6,8 +6,7 @@
 // <ErrorBoundary screen="Learn"><LearnScreen /></ErrorBoundary>
 
 import { Component } from 'react';
-
-const COSMO_SAD = '🌟'; // Replace with actual Cosmo SVG once mascot is built
+import { IconStar } from './icons';
 
 const styles = {
   container: {
@@ -126,7 +125,7 @@ class ErrorBoundary extends Component {
           }
         `}</style>
 
-        <div style={styles.cosmo}>{COSMO_SAD}</div>
+        <div style={styles.cosmo}><IconStar size={48} color="#4ECDC4" /></div>
         <h2 style={styles.title}>{msg.title}</h2>
         <p style={styles.subtitle}>{msg.body}</p>
 
@@ -136,7 +135,7 @@ class ErrorBoundary extends Component {
           onMouseEnter={e => e.target.style.background = '#3DBDB5'}
           onMouseLeave={e => e.target.style.background = '#4ECDC4'}
         >
-          Try Again ✨
+          Try Again
         </button>
 
         {/* Dev-only: show the actual error */}

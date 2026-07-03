@@ -91,7 +91,7 @@ export default function GalaxyPath({ words, onNodeTap, speak }) {
             key={w.word}
             word={w.word}
             status={w.status}
-            progressLabel={w.progressLabel}
+            percent={w.percent}
             x={`calc(${(pt.x / viewWidth) * 100}% - 48px)`}
             y={pt.y - 48}
             show={i <= effectiveShownCount}

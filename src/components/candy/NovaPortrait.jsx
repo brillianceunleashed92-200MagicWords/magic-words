@@ -5,20 +5,25 @@
 // inline/path sprite (see NovaSprite.jsx) — at 88px these opaque backgrounds
 // would show as a visible blue square rather than blend with surrounding UI.
 const PORTRAITS = {
-  wave: '/nova/wave.png',       // idle/home greeting
-  celebrate: '/nova/celebrate.png', // quest complete / streak milestone / boss defeat
-  read: '/nova/read.png',        // story-related moments (Fill the Story, Phase 2 Story Engine)
+  wave: '/nova/nova-wave.png',       // idle/home greeting
+  celebrate: '/nova/nova-celebrate.png', // quest complete / streak milestone / boss defeat
+  read: '/nova/nova-read.png',        // story-related moments (Fill the Story, Phase 2 Story Engine)
+  base: '/nova/nova-base.png',        // neutral idle, used by the lesson-screen porthole
 };
 
 export default function NovaPortrait({ pose = 'wave', size = 120, rounded = 24, style }) {
   const src = PORTRAITS[pose] ?? PORTRAITS.wave;
+  const webpSrc = src.replace(/\.png$/, '.webp');
   return (
-    <img
-      src={src}
-      alt="Nova"
-      width={size}
-      height={size}
-      style={{ borderRadius: rounded, objectFit: 'cover', display: 'block', ...style }}
-    />
+    <picture>
+      <source srcSet={webpSrc} type="image/webp" />
+      <img
+        src={src}
+        alt="Nova"
+        width={size}
+        height={size}
+        style={{ borderRadius: rounded, objectFit: 'cover', display: 'block', ...style }}
+      />
+    </picture>
   );
 }

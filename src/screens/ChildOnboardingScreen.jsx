@@ -6,6 +6,9 @@ import { INTERESTS, MAX_INTERESTS } from '../lib/interests';
 import { useAuth } from '../hooks/useAuth';
 import { useCreateChildProfileMutation } from '../lib/queries/childProfiles';
 import { useUIStore } from '../stores/useUIStore';
+import { AvatarIcon } from '../components/icons/AvatarGlyphs';
+import { InterestIcon } from '../components/icons/InterestGlyphs';
+import { IconStar, IconPlay } from '../components/icons';
 
 // Shown whenever the signed-in parent has zero child_profiles rows yet —
 // first-run for a brand-new account, or right after tapping "+ Add child"
@@ -15,7 +18,7 @@ import { useUIStore } from '../stores/useUIStore';
 export default function ChildOnboardingScreen({ onDone }) {
   const { user } = useAuth();
   const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState(AVATARS[0].emoji);
+  const [avatar, setAvatar] = useState(AVATARS[0].id);
   const [interests, setInterests] = useState([]);
   const createChild = useCreateChildProfileMutation(user?.id);
   const setActiveChildId = useUIStore((s) => s.setActiveChildId);
@@ -38,8 +41,8 @@ export default function ChildOnboardingScreen({ onDone }) {
   return (
     <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, padding: '2rem 1.25rem', fontFamily: fonts.body }}>
       <div style={{ maxWidth: 440, margin: '0 auto' }}>
-        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.6rem', color: colors.cloud, textAlign: 'center', marginBottom: 6 }}>
-          Let's meet your Star Learner! ⭐
+        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.6rem', color: colors.cloud, textAlign: 'center', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          Let's meet your Star Learner! <IconStar size={22} color={colors.sun} />
         </div>
         <div style={{ color: 'rgba(255,255,255,.8)', textAlign: 'center', marginBottom: 24 }}>
           A few quick things so Nova can get to know them.
@@ -60,16 +63,18 @@ export default function ChildOnboardingScreen({ onDone }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
           {AVATARS.map((a) => (
             <button
-              key={a.emoji}
-              onClick={() => setAvatar(a.emoji)}
+              key={a.id}
+              onClick={() => setAvatar(a.id)}
+              aria-label={a.name}
               style={{
-                minHeight: 64, fontSize: '1.8rem', borderRadius: 20, cursor: 'pointer',
-                background: avatar === a.emoji ? colors.sun : colors.cloud,
-                border: avatar === a.emoji ? `3px solid ${colors.tang}` : 'none',
+                minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 20, cursor: 'pointer',
+                background: avatar === a.id ? colors.sun : colors.cloud,
+                border: avatar === a.id ? `3px solid ${colors.tang}` : 'none',
                 boxShadow: shadows.chunkSm,
               }}
             >
-              {a.emoji}
+              <AvatarIcon value={a.id} size={40} />
             </button>
           ))}
         </div>
@@ -89,10 +94,10 @@ export default function ChildOnboardingScreen({ onDone }) {
                   fontFamily: fonts.display, fontWeight: 700, fontSize: '.85rem',
                   background: selected ? colors.mint : 'rgba(255,255,255,.15)',
                   color: selected ? colors.mintDeep : colors.cloud,
-                  border: 'none',
+                  border: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}
               >
-                {i.emoji} {i.label}
+                <InterestIcon id={i.id} size={16} /> {i.label}
               </button>
             );
           })}
@@ -104,7 +109,9 @@ export default function ChildOnboardingScreen({ onDone }) {
           variant="mint"
           style={{ width: '100%' }}
         >
-          {createChild.isPending ? 'Creating…' : "Let's go! 🚀"}
+          {createChild.isPending ? 'Creating…' : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Let's go! <IconPlay size={16} /></span>
+          )}
         </ChunkyButton>
       </div>
     </div>

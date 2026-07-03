@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { T } from './gameTheme';
 import { fetchAudio, playAudio } from './gameAudio';
+import { IconMic, IconStar } from '../components/icons';
 
 function normalize(text) {
   return (text ?? '').toLowerCase().trim().replace(/[^a-z']/g, '');
@@ -87,9 +88,9 @@ export default function SayItWithNova({ quiz, onAnswer }) {
   if (status === 'unsupported' || status === 'denied') {
     return (
       <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>🎤</div>
+        <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}><IconMic size={56} color={T.teal} /></div>
         <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '0.75rem' }}>
-          {quiz.word} {quiz.emoji}
+          {quiz.word}
         </div>
         <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem', maxWidth: 280, margin: '0 auto 1.5rem' }}>
           {status === 'denied'
@@ -100,7 +101,7 @@ export default function SayItWithNova({ quiz, onAnswer }) {
           padding: '0.85rem 1.75rem', borderRadius: 100, border: 'none', cursor: 'pointer',
           background: T.teal, color: T.bg, fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: '1rem',
         }}>
-          I said it! ✅
+          I said it!
         </button>
       </div>
     );
@@ -108,15 +109,15 @@ export default function SayItWithNova({ quiz, onAnswer }) {
 
   return (
     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '0.5rem', animation: status === 'correct' ? 'mw-pop 0.5s ease' : undefined }}>
-        {status === 'correct' ? '🎉' : status === 'wrong' ? '🎤' : '🎤'}
+      <div style={{ marginBottom: '0.5rem', animation: status === 'correct' ? 'mw-pop 0.5s ease' : undefined, display: 'flex', justifyContent: 'center' }}>
+        {status === 'correct' ? <IconStar size={56} color={T.gold} /> : <IconMic size={56} color={T.teal} />}
       </div>
       <div style={{ fontFamily: 'Space Grotesk', fontSize: '2.5rem', color: T.white, marginBottom: '0.75rem' }}>
-        {quiz.word} {quiz.emoji}
+        {quiz.word}
       </div>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem' }}>
         {status === 'listening' && "Nova is listening…"}
-        {status === 'correct' && 'Nova heard you! ⭐'}
+        {status === 'correct' && 'Nova heard you!'}
         {status === 'wrong' && missCount === 1 && "Almost! Listen again and try once more."}
         {status === 'wrong' && missCount > 1 && "Good try!"}
         {status === 'idle' && missCount === 0 && 'Say it with Nova!'}
@@ -127,11 +128,12 @@ export default function SayItWithNova({ quiz, onAnswer }) {
           disabled={status === 'listening'}
           style={{
             width: 84, height: 84, borderRadius: '50%', border: 'none', cursor: status === 'listening' ? 'default' : 'pointer',
-            background: status === 'listening' ? T.purple : T.coral, color: '#fff', fontSize: '2rem',
+            background: status === 'listening' ? T.purple : T.coral, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: status === 'listening' ? 'mw-pop 1s ease-in-out infinite' : undefined,
           }}
         >
-          🎤
+          <IconMic size={32} color="#fff" />
         </button>
       )}
     </div>

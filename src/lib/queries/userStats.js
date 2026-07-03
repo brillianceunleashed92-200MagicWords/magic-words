@@ -13,7 +13,7 @@ export function useUserStatsQuery(childId) {
         .eq('child_id', childId)
         .maybeSingle();
       if (error) throw error;
-      return data ?? { total_xp: 0, current_level: 1, avatar: '🚀' };
+      return data ?? { total_xp: 0, current_level: 1, avatar: '\u{1F680}' }; // unicode escape, not a literal emoji char — see lib/avatars.js
     },
   });
 }

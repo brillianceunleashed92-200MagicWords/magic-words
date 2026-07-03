@@ -25,6 +25,20 @@ export const colors = {
 
 export const skyGradient = `linear-gradient(180deg, ${colors.sky} 0%, ${colors.skyDeep} 55%, ${colors.skyNight} 100%)`;
 
+// WordArt illustration palette — extracted verbatim from docs/mockup-E2-no-emoji.html's
+// style-reference strip (the 4 locked animals). Every WordArt.jsx illustration follows the
+// same fill/outline/inner triad relationship: outline is a darker shade of fill, inner/accent
+// is a pale tint. See docs/DESIGN_BRIEF.md §1 for the full table.
+export const wordArtColors = {
+  dogFill: '#FFB84D', dogOutline: '#A66A1B', dogInner: '#FFF1D6',
+  elephantFill: '#B8B4E8', elephantOutline: '#6B63B5', elephantInner: '#E8E6FF',
+  catFill: '#FF8A4C', catOutline: '#B35A28', catInner: '#FFD9BE',
+  birdFill: '#5EC8F2', birdOutline: '#2E86AB', birdInner: '#CDEFFF',
+  frogFill: '#3EE0B8', frogOutline: '#1C8C6C', frogInner: '#D6FFF3',
+  buddyFill: '#FFC531', buddyOutline: '#B8890A', buddyInner: '#FFF1D6',
+  blush: '#FF8FA8', dot: '#2A2160',
+};
+
 export const fonts = {
   display: "'Baloo 2', sans-serif",
   body: "'Quicksand', sans-serif",

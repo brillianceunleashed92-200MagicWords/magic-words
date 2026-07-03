@@ -110,19 +110,22 @@ export function useSessionPlan(user, wordProgress) {
   };
 }
 
-// Fallback plan when AI is unavailable — uses local logic only, zero API calls
+// Fallback plan when AI is unavailable — uses local logic only, zero API calls.
+// No `emoji` field on these words — WordArt.jsx (the illustration system
+// every rebuilt activity now uses) derives its art purely from the word
+// string, so this data never needed emoji in the first place.
 function buildFallbackPlan(wordProgress = []) {
   const WORDS = [
-    { word: 'cat',  emoji: '🐱', mastery: 0 },
-    { word: 'dog',  emoji: '🐶', mastery: 0 },
-    { word: 'bird', emoji: '🐦', mastery: 0 },
-    { word: 'eat',  emoji: '🍎', mastery: 0 },
-    { word: 'jump', emoji: '🦘', mastery: 0 },
-    { word: 'the',  emoji: '📖', mastery: 0 },
-    { word: 'can',  emoji: '🥫', mastery: 0 },
-    { word: 'big',  emoji: '🐘', mastery: 0 },
-    { word: 'run',  emoji: '🏃', mastery: 0 },
-    { word: 'fly',  emoji: '✈️', mastery: 0 },
+    { word: 'cat',  mastery: 0 },
+    { word: 'dog',  mastery: 0 },
+    { word: 'bird', mastery: 0 },
+    { word: 'eat',  mastery: 0 },
+    { word: 'jump', mastery: 0 },
+    { word: 'the',  mastery: 0 },
+    { word: 'can',  mastery: 0 },
+    { word: 'big',  mastery: 0 },
+    { word: 'run',  mastery: 0 },
+    { word: 'fly',  mastery: 0 },
   ];
 
   // Prioritize low-mastery words
@@ -139,11 +142,11 @@ function buildFallbackPlan(wordProgress = []) {
     wordSequence: focusWords,
     quizzes: focusWords.map(w => buildLocalQuiz(w, WORDS)),
     encouragements: [
-      "Great job! ⭐",
-      "You're doing amazing! 🌟",
-      "Keep going, star learner! ✨",
-      "Wow, you're so smart! 🎉",
-      "That's right! You're a reading star! 🌈",
+      "Great job!",
+      "You're doing amazing!",
+      "Keep going, star learner!",
+      "Wow, you're so smart!",
+      "That's right! You're a reading star!",
     ],
     sessionGoal: `Practice ${focusWords.map(w => w.word).join(', ')}`,
   };
@@ -163,7 +166,6 @@ function buildLocalQuiz(targetWord, allWords) {
 
   return {
     word:         targetWord.word,
-    emoji:        targetWord.emoji,
     question:     isAction
       ? `Which picture shows someone ${targetWord.word}ing?`
       : `Which picture shows a ${targetWord.word}?`,
@@ -173,7 +175,7 @@ function buildLocalQuiz(targetWord, allWords) {
     // Builder doesn't render a sentence-less blank if this local quiz
     // builder is ever used for that game type.
     sentence:     `I know the word ___.`,
-    options:      options.map(o => ({ word: o.word, emoji: o.emoji })),
+    options:      options.map(o => ({ word: o.word })),
     correctIndex,
   };
 }

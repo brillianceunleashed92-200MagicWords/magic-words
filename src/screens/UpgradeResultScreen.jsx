@@ -12,7 +12,7 @@ export default function UpgradeResultScreen({ outcome, onDone }) {
     <div style={{ minHeight: '100vh', background: skyGradient, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
       <NovaPortrait pose={success ? 'celebrate' : 'wave'} size={120} />
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', color: colors.cloud, marginTop: '1rem' }}>
-        {success ? 'Welcome to Family! ✨' : 'No worries!'}
+        {success ? 'Welcome to Family!' : 'No worries!'}
       </div>
       <div style={{ color: 'rgba(255,255,255,.85)', marginTop: 8, maxWidth: 300 }}>
         {success

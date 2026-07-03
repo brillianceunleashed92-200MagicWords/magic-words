@@ -2,6 +2,8 @@ import { colors, fonts } from '../../theme/tokens';
 import CelebrationOverlay from './CelebrationOverlay';
 import NovaPortrait from './NovaPortrait';
 import { useUIStore } from '../../stores/useUIStore';
+import { IconFlame, IconSpark } from '../icons';
+import { InterestCrown } from '../icons/InterestGlyphs';
 
 // Drains the celebration queue (useUIStore) one at a time so two of the 5
 // ranked moments never overlap (200MW_Product_Blueprint.md 2.7). Mounted
@@ -22,7 +24,7 @@ function CelebrationContent({ celebration }) {
       <>
         <NovaPortrait pose="celebrate" size={100} style={{ margin: '0 auto 12px' }} />
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.6rem', color: colors.ink }}>
-          "{payload.word}" star ignited! ⭐
+          "{payload.word}" star ignited!
         </div>
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6 }}>
           One more word lighting up your galaxy.
@@ -38,8 +40,8 @@ function CelebrationContent({ celebration }) {
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.8rem', color: colors.ink }}>
           Quest Complete!
         </div>
-        <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6 }}>
-          {payload.wordsCorrect}/{payload.totalWords} correct · +{payload.sparksEarned} 💎 Sparks
+        <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          {payload.wordsCorrect}/{payload.totalWords} correct · +{payload.sparksEarned} <IconSpark size={13} color={colors.mutedInk} /> Sparks
         </div>
       </>
     );
@@ -48,7 +50,7 @@ function CelebrationContent({ celebration }) {
   if (type === 'unitBoss') {
     return (
       <>
-        <div style={{ fontSize: '4rem' }}>👑</div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><InterestCrown size={64} /></div>
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.9rem', color: colors.ink }}>
           Unit {payload.unit} Boss Defeated!
         </div>
@@ -62,12 +64,12 @@ function CelebrationContent({ celebration }) {
   if (type === 'streakMilestone') {
     return (
       <>
-        <div style={{ fontSize: '4rem' }}>🔥</div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><IconFlame size={64} color={colors.tang} /></div>
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.9rem', color: colors.ink }}>
           {payload.streak}-Day Streak!
         </div>
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6 }}>
-          Nova brought some friends to celebrate. 🎉
+          Nova brought some friends to celebrate.
         </div>
       </>
     );

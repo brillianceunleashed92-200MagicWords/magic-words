@@ -27,7 +27,7 @@ export default function MagicVideo({ quiz, onAnswer }) {
   return (
     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1rem' }}>
-        Magic Video: {quiz.word} {quiz.emoji}
+        Magic Video: {quiz.word}
       </div>
       <div
         onClick={() => setPlaying(true)}

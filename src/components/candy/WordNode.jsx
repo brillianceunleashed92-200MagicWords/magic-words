@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { colors, fonts, shadows } from '../../theme/tokens';
+import { IconStar, IconPlay, IconLock, IconSpark } from '../icons';
 
 // A single word-star node on the scroll-driven Word Galaxy path
 // (mockup D `.node`). status: 'done' | 'current' | 'locked' | 'premium'.
@@ -9,7 +10,11 @@ import { colors, fonts, shadows } from '../../theme/tokens';
 // lock — enticing, not just blocked. Per the master prompt's gating
 // spec, tapping it does nothing (no child-facing upsell) — upgrade
 // prompts live only in the parent portal.
-export default function WordNode({ word, status, progressLabel, x, y, show, onTap, speak }) {
+//
+// `percent` (0-100) drives the done/current label — WordNode renders the
+// icon+text itself (IconStar/IconPlay) rather than taking a pre-formatted
+// string, so no emoji ever needs to travel through the caller.
+export default function WordNode({ word, status, percent, x, y, show, onTap, speak }) {
   const base = {
     position: 'absolute',
     left: x,
@@ -74,17 +79,20 @@ export default function WordNode({ word, status, progressLabel, x, y, show, onTa
       style={{ ...base, ...styleByStatus[status], cursor: nonInteractive ? 'default' : 'pointer' }}
     >
       <div style={{ fontSize: '1.15rem', lineHeight: 1 }}>{word}</div>
-      <div style={{ fontSize: '.58rem', fontWeight: 800, opacity: .8, marginTop: 3 }}>
-        {status === 'locked' ? '🔒' : progressLabel}
+      <div style={{ fontSize: '.58rem', fontWeight: 800, opacity: .8, marginTop: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+        {status === 'locked' && <IconLock size={11} color="rgba(255,255,255,.65)" />}
+        {status === 'premium' && <IconSpark size={11} color={colors.starText} />}
+        {status === 'done' && <><IconStar size={11} color={colors.starText} /> 100%</>}
+        {status === 'current' && <><IconPlay size={9} color="#fff" /> {percent}%</>}
       </div>
       {status === 'done' && (
-        <div style={{ position: 'absolute', top: -10, right: -4, fontSize: '1.3rem', filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>
-          ⭐
+        <div style={{ position: 'absolute', top: -10, right: -4, filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>
+          <IconStar size={22} color={colors.sun} />
         </div>
       )}
       {status === 'premium' && (
-        <div style={{ position: 'absolute', top: -10, right: -4, fontSize: '1.3rem', filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>
-          🔒
+        <div style={{ position: 'absolute', top: -10, right: -4, filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>
+          <IconLock size={20} color={colors.starText} />
         </div>
       )}
     </motion.div>

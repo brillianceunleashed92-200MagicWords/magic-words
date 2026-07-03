@@ -13,26 +13,33 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Full word list with emojis (single source of truth in backend)
+// Full word list (single source of truth in backend). No `emoji` field —
+// the client illustrates words via src/components/WordArt.jsx (SVG
+// illustrations keyed by word string), not emoji from data. This list used
+// to carry an emoji per word, which flowed straight into `quiz.emoji` and
+// was rendered as a literal emoji character by several client components —
+// a runtime-data leak the static check-no-emoji.mjs source-grep could
+// never catch, since no literal emoji character was ever in that client
+// source. See docs/WORDBUILDER_FIX_REPORT.md.
 const ALL_WORDS = [
-  { word: 'cat',  type: 'content',  unit: 2,  emoji: '🐱', isAction: false, wordClass: 'noun'      },
-  { word: 'dog',  type: 'content',  unit: 9,  emoji: '🐶', isAction: false, wordClass: 'noun'      },
-  { word: 'bird', type: 'content',  unit: 2,  emoji: '🐦', isAction: false, wordClass: 'noun'      },
-  { word: 'frog', type: 'content',  unit: 8,  emoji: '🐸', isAction: false, wordClass: 'noun'      },
-  { word: 'eat',  type: 'content',  unit: 3,  emoji: '🍎', isAction: true,  wordClass: 'verb'      },
-  { word: 'fly',  type: 'content',  unit: 3,  emoji: '✈️', isAction: true,  wordClass: 'verb'      },
-  { word: 'jump', type: 'content',  unit: 4,  emoji: '🦘', isAction: true,  wordClass: 'verb'      },
-  { word: 'run',  type: 'content',  unit: 9,  emoji: '🏃', isAction: true,  wordClass: 'verb'      },
-  { word: 'big',  type: 'content',  unit: 7,  emoji: '🐘', isAction: false, wordClass: 'adjective' },
-  { word: 'sad',  type: 'content',  unit: 13, emoji: '😢', isAction: false, wordClass: 'adjective' },
-  { word: 'the',  type: 'function', unit: 3,  emoji: '📖', isAction: false, wordClass: 'function'  },
-  { word: 'can',  type: 'function', unit: 3,  emoji: '✅', isAction: false, wordClass: 'function'  },
-  { word: 'is',   type: 'function', unit: 5,  emoji: '🔗', isAction: false, wordClass: 'function'  },
-  { word: 'they', type: 'function', unit: 6,  emoji: '👥', isAction: false, wordClass: 'function'  },
-  { word: 'not',  type: 'function', unit: 3,  emoji: '🚫', isAction: false, wordClass: 'function'  },
-  { word: 'and',  type: 'function', unit: 12, emoji: '➕', isAction: false, wordClass: 'function'  },
-  { word: 'with', type: 'function', unit: 18, emoji: '🤝', isAction: false, wordClass: 'function'  },
-  { word: 'do',   type: 'function', unit: 7,  emoji: '⚡', isAction: false, wordClass: 'function'  },
+  { word: 'cat',  type: 'content',  unit: 2,  isAction: false, wordClass: 'noun'      },
+  { word: 'dog',  type: 'content',  unit: 9,  isAction: false, wordClass: 'noun'      },
+  { word: 'bird', type: 'content',  unit: 2,  isAction: false, wordClass: 'noun'      },
+  { word: 'frog', type: 'content',  unit: 8,  isAction: false, wordClass: 'noun'      },
+  { word: 'eat',  type: 'content',  unit: 3,  isAction: true,  wordClass: 'verb'      },
+  { word: 'fly',  type: 'content',  unit: 3,  isAction: true,  wordClass: 'verb'      },
+  { word: 'jump', type: 'content',  unit: 4,  isAction: true,  wordClass: 'verb'      },
+  { word: 'run',  type: 'content',  unit: 9,  isAction: true,  wordClass: 'verb'      },
+  { word: 'big',  type: 'content',  unit: 7,  isAction: false, wordClass: 'adjective' },
+  { word: 'sad',  type: 'content',  unit: 13, isAction: false, wordClass: 'adjective' },
+  { word: 'the',  type: 'function', unit: 3,  isAction: false, wordClass: 'function'  },
+  { word: 'can',  type: 'function', unit: 3,  isAction: false, wordClass: 'function'  },
+  { word: 'is',   type: 'function', unit: 5,  isAction: false, wordClass: 'function'  },
+  { word: 'they', type: 'function', unit: 6,  isAction: false, wordClass: 'function'  },
+  { word: 'not',  type: 'function', unit: 3,  isAction: false, wordClass: 'function'  },
+  { word: 'and',  type: 'function', unit: 12, isAction: false, wordClass: 'function'  },
+  { word: 'with', type: 'function', unit: 18, isAction: false, wordClass: 'function'  },
+  { word: 'do',   type: 'function', unit: 7,  isAction: false, wordClass: 'function'  },
 ];
 
 // Story templates for Story Builder game
@@ -70,10 +77,9 @@ function buildQuiz(targetWord, allWords) {
 
   return {
     word:         target.word,
-    emoji:        target.emoji,
     wordClass:    target.wordClass ?? 'noun', // used by client formatQuestion()
     sentence:     STORY_TEMPLATES[target.word] || `I know the word ___.`,
-    options:      options.map(o => ({ word: o.word, emoji: o.emoji })),
+    options:      options.map(o => ({ word: o.word })),
     correctIndex,
     mastery:      targetWord.mastery || 0,
   };
@@ -190,8 +196,8 @@ Generate a JSON session plan with exactly these fields:
 {
   "sessionGoal": "One short, exciting sentence about what we'll learn today (max 8 words, use 'we')",
   "sessionLength": 6,
-  "encouragements": ["5 short encouraging phrases for when a child answers correctly. Age 4-8. Enthusiastic! Use emojis. Max 6 words each."],
-  "wrongAnswerMessages": ["3 gentle, encouraging messages for wrong answers. Never say 'wrong'. Max 8 words each."],
+  "encouragements": ["5 short encouraging phrases for when a child answers correctly. Age 4-8. Enthusiastic! Plain text only, no emojis or special characters. Max 6 words each."],
+  "wrongAnswerMessages": ["3 gentle, encouraging messages for wrong answers. Never say 'wrong'. Plain text only, no emojis or special characters. Max 8 words each."],
   "coachingTip": "One teaching tip for this child based on their mastery data (for the parent dashboard, not the child)"
 }
 
@@ -231,8 +237,8 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
       sessionGoal:        aiData.sessionGoal        ?? `Let's practice ${chosenWords.length} words today!`,
       quizzes,
       wordSequence:       chosenWords,
-      encouragements:     aiData.encouragements     ?? ['Great job! ⭐', 'Amazing! 🌟', 'You did it! 🎉', "You're a star! ✨", "Wow! 🎈"],
-      wrongAnswerMessages: aiData.wrongAnswerMessages ?? ["Let's try again! 💪", "Almost! Keep going! 🌟", "You're learning! ⭐"],
+      encouragements:     aiData.encouragements     ?? ['Great job!', 'Amazing!', 'You did it!', "You're a star!", "Wow!"],
+      wrongAnswerMessages: aiData.wrongAnswerMessages ?? ["Let's try again!", "Almost! Keep going!", "You're learning!"],
       coachingTip:        aiData.coachingTip        ?? '',
       generatedAt:        new Date().toISOString(),
       wordCount:          chosenWords.length,
@@ -255,8 +261,8 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
         sessionGoal:         "Let's learn some magic words!",
         quizzes,
         wordSequence:        fallbackWords,
-        encouragements:      ['Great job! ⭐', 'Amazing! 🌟', 'You did it! 🎉', "You're a star! ✨", "Wow! 🎈"],
-        wrongAnswerMessages: ["Let's try again! 💪", "Almost! 🌟", "Keep going! ⭐"],
+        encouragements:      ['Great job!', 'Amazing!', 'You did it!', "You're a star!", "Wow!"],
+        wrongAnswerMessages: ["Let's try again!", "Almost!", "Keep going!"],
         coachingTip:         '',
         generatedAt:         new Date().toISOString(),
         wordCount:           fallbackLength,
