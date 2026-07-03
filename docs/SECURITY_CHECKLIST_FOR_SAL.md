@@ -105,3 +105,32 @@ No dashboard action needed; this was all fixed in migrations/code.
   incident — that key was pasted into a chat conversation, never into this repo, so
   it wouldn't show up in a repo scan regardless of rotation status. Rotation is
   still the open item, tracked in Phase 0 above.
+
+---
+
+## 🟢 Phase 4 — Input validation
+
+All fixed in code, no dashboard action needed. See commit `3c5e53d`: hardened
+api/speak.mjs, api/story-engine.js (including a real prompt-injection gap in the
+child-name field), api/session-generator.js, and a client-side name-length limit.
+
+---
+
+## 🟠 Phase 5 — Abuse & rate limiting
+
+Code-side (auth requirement + per-user rate limits on all 4 AI/TTS endpoints, TTS
+response caching) all fixed — see commit `01fc135`. Two items need Sal:
+
+- [ ] **CAPTCHA on signup/signin** (also listed in Phase 1 above — same item,
+      cross-referenced here since it's specifically the anti-abuse control for
+      unauthenticated signup spam): Authentication → Attack Protection → CAPTCHA →
+      enable hCaptcha or Turnstile. Currently OFF.
+- [ ] **Set spend alerts/limits** — this app now has real per-user rate limits, but
+      those cap *abuse from one account*, not total spend if the app succeeds
+      wildly or if per-user limits turn out to be too generous in practice:
+  - [ ] **Anthropic Console** → Settings → Billing → set a monthly spend limit
+        and an alert threshold below it.
+  - [ ] **ElevenLabs** → Subscription/Usage → set a usage alert (character quota
+        warnings).
+  - [ ] **Vercel** → Project Settings → set a spend/usage alert if on a plan that
+        supports it (function invocation count, bandwidth).
