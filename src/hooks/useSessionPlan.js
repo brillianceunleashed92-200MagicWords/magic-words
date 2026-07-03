@@ -122,10 +122,12 @@ async function buildSupabaseFallbackPlan(childId, plan) {
     const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
     const { data: words, error: wordsErr } = await supabase
       .from('words')
-      .select('word, unit, sort_order, word_type')
+      .select('word, unit, sort_order, word_type, has_art')
       .lte('unit', maxUnit)
       .order('sort_order');
     if (wordsErr || !words?.length) throw wordsErr ?? new Error('no words available');
+
+    const artWords = words.filter((w) => w.has_art).map((w) => w.word);
 
     const { data: progress } = await supabase
       .from('word_progress')
@@ -152,7 +154,7 @@ async function buildSupabaseFallbackPlan(childId, plan) {
       difficultyLevel: 'emerging',
       currentUnit,
       wordSequence: focusWords,
-      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery)),
+      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery, artWords)),
       encouragements: [
         'Great job!',
         "You're doing amazing!",
@@ -168,8 +170,6 @@ async function buildSupabaseFallbackPlan(childId, plan) {
   }
 }
 
-const PICTURE_ART_WORDS = ['dog', 'cat', 'bird', 'frog', 'eat', 'fly', 'jump', 'run', 'big', 'sad'];
-const PICTURE_ART_SET = new Set(PICTURE_ART_WORDS);
 // Small subset of function words that already read naturally in a fill-
 // blank sentence — everything else in a true-fallback session gets the
 // generic default, an acceptable degradation for the rare true-offline
@@ -185,12 +185,12 @@ const FALLBACK_FUNCTION_SENTENCES = {
   do: 'What can you ___?',
 };
 
-function buildLocalQuiz(targetWord, allWords) {
-  const pictureEligible = targetWord.word_type !== 'function' && PICTURE_ART_SET.has(targetWord.word);
+function buildLocalQuiz(targetWord, allWords, artWords = []) {
+  const pictureEligible = targetWord.word_type !== 'function' && artWords.includes(targetWord.word);
 
   let distractorWords;
   if (pictureEligible) {
-    distractorWords = [...PICTURE_ART_WORDS].filter((w) => w !== targetWord.word).sort(() => Math.random() - 0.5).slice(0, 3);
+    distractorWords = [...artWords].filter((w) => w !== targetWord.word).sort(() => Math.random() - 0.5).slice(0, 3);
   } else {
     distractorWords = allWords
       .filter((w) => w.word !== targetWord.word)
@@ -213,16 +213,22 @@ function buildLocalQuiz(targetWord, allWords) {
 }
 
 // True-offline last resort — Supabase itself is unreachable (not just the
-// AI endpoint). 5 Unit-1 words only, clearly not the full curriculum;
-// exists so the app never renders a completely empty session.
+// AI endpoint), so this can't query `has_art` like everything else in this
+// file does. 5 Unit-1 words only, clearly not the full curriculum; exists
+// so the app never renders a completely empty session. The art subset
+// below is the one deliberate exception to the has_art-is-the-only-source
+// rule (see Step 0 of the wordart-batch-1 mission) — not covered by
+// scripts/check-wordart-sync.mjs, kept in sync by hand since it only ever
+// needs to match whichever of these exact 5 words currently have real art.
 function buildOfflineFallbackPlan() {
   const words = ['cat', 'dog', 'bird', 'fish', 'ball'].map((word) => ({ word, word_type: 'noun', mastery: 0 }));
+  const offlineArtWords = ['cat', 'dog', 'bird']; // fish/ball don't have real art yet — update alongside wordArtManifest.json if that changes
   return {
     isFallback: true,
     isOffline: true,
     difficultyLevel: 'emerging',
     wordSequence: words,
-    quizzes: words.map((w) => buildLocalQuiz(w, words)),
+    quizzes: words.map((w) => buildLocalQuiz(w, words, offlineArtWords)),
     encouragements: ['Great job!', "You're doing amazing!", 'Keep going, star learner!'],
     sessionGoal: 'Practice a few magic words!',
   };

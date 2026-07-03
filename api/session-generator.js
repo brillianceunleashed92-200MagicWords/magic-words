@@ -32,18 +32,19 @@ const MASTERED_THRESHOLD = 80;
 // gate itself, not trust whatever the client claims its plan is.
 const FREE_TIER_MAX_UNIT = 5;
 
-// Words with a real hand-illustrated WordArt (src/components/WordArt.jsx
-// REGISTRY) — every other word in that registry key set is either not a
-// real curriculum word (e.g. "elephant", a leftover asset) or would be
-// picked up here once added. Picture-matching activities (Word Match,
-// Sound Match, Word Hunt, Rhyme Time) may only draw from this set — a
-// function word or an unillustrated content word rendered as "the picture
-// of X" is pedagogically wrong (you can't picture "the") and visually
-// degrades to a text chip pretending to be a photo. Keep this in sync
-// with WordArt.jsx's REGISTRY keys; it intentionally excludes 'elephant'
-// since that word isn't in the words table.
-const PICTURE_ART_WORDS = ['dog', 'cat', 'bird', 'frog', 'eat', 'fly', 'jump', 'run', 'big', 'sad'];
-const PICTURE_ART_SET = new Set(PICTURE_ART_WORDS);
+// Picture-eligibility (wordart-batch-1, Step 0) is now derived from the
+// words table's `has_art` column instead of a hardcoded constant — this
+// used to be a literal word list here AND a duplicate in useSessionPlan.js
+// AND WordArt.jsx's REGISTRY, three places that had to agree by hand on
+// every art batch. Single source of truth going forward:
+// src/components/wordArtManifest.json (what scripts/check-wordart-sync.mjs
+// checks WordArt.jsx's REGISTRY against) and the `has_art` column it seeds
+// (what this endpoint and useSessionPlan.js's fallback actually query at
+// runtime). Picture-matching activities (Word Match, Sound Match, Word
+// Hunt, Rhyme Time) may only draw from has_art words — a function word or
+// an unillustrated content word rendered as "the picture of X" is
+// pedagogically wrong (you can't picture "the") and visually degrades to a
+// text chip pretending to be a photo.
 
 // Context-template sentences for function words (type='function' in the
 // words table, teaching_track='sight'). These are grammatically closed-
@@ -125,22 +126,23 @@ function shuffled(arr) {
 }
 
 // Build one quiz for a target word. Picture-eligible targets only ever
-// get picture-eligible distractors (drawn from the fixed 10-word art set,
-// not the session's own candidate pool, which guarantees all 4 options
-// are real pictures even in a small/thin session) — non-eligible targets
-// draw distractors from the rest of the session's candidate pool, padding
-// from the art set only if that pool is too thin to reach 3.
-function buildQuiz(target, candidatePool) {
-  const pictureEligible = target.word_type !== 'function' && PICTURE_ART_SET.has(target.word);
+// get picture-eligible distractors (drawn from the full set of has_art
+// words available to this account's plan, not just the session's own
+// candidate pool, which guarantees all 4 options are real pictures even
+// in a small/thin session) — non-eligible targets draw distractors from
+// the rest of the session's candidate pool, padding from the art set only
+// if that pool is too thin to reach 3.
+function buildQuiz(target, candidatePool, artWords) {
+  const pictureEligible = target.word_type !== 'function' && artWords.includes(target.word);
 
   let distractorWords;
   if (pictureEligible) {
-    distractorWords = shuffled(PICTURE_ART_WORDS.filter((w) => w !== target.word)).slice(0, 3);
+    distractorWords = shuffled(artWords.filter((w) => w !== target.word)).slice(0, 3);
   } else {
     const poolWords = candidatePool.filter((w) => w.word !== target.word).map((w) => w.word);
     distractorWords = shuffled(poolWords).slice(0, 3);
-    while (distractorWords.length < 3) {
-      const filler = PICTURE_ART_WORDS[Math.floor(Math.random() * PICTURE_ART_WORDS.length)];
+    while (distractorWords.length < 3 && artWords.length > 0) {
+      const filler = artWords[Math.floor(Math.random() * artWords.length)];
       if (filler !== target.word && !distractorWords.includes(filler)) distractorWords.push(filler);
     }
   }
@@ -204,9 +206,11 @@ async function selectCandidateWords(admin, plan, progress) {
   const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
   const { data: allWords } = await admin
     .from('words')
-    .select('word, unit, sort_order, word_type')
+    .select('word, unit, sort_order, word_type, has_art')
     .lte('unit', maxUnit)
     .order('sort_order');
+
+  const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
 
   const progressMap = new Map(progress.map((p) => [p.word, p]));
   const now = Date.now();
@@ -253,7 +257,7 @@ async function selectCandidateWords(admin, plan, progress) {
     }
   }
 
-  return { pool: pool.slice(0, 8), currentUnit };
+  return { pool: pool.slice(0, 8), currentUnit, artWords };
 }
 
 module.exports = async function handler(req, res) {
@@ -279,7 +283,7 @@ module.exports = async function handler(req, res) {
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
   const { plan, progress } = context;
-  const { pool: candidatePool, currentUnit } = await selectCandidateWords(admin, plan, progress);
+  const { pool: candidatePool, currentUnit, artWords } = await selectCandidateWords(admin, plan, progress);
   const difficultyLevel = getDifficultyLevel(progress);
 
   let sessionWords = candidatePool;
@@ -350,7 +354,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
       sessionWords.length
     );
     const chosenWords = sessionWords.slice(0, sessionLength);
-    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool));
+    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool, artWords));
 
     const plan = {
       difficultyLevel,
@@ -373,7 +377,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
 
     const fallbackLength = Math.min(6, sessionWords.length);
     const fallbackWords  = sessionWords.slice(0, fallbackLength);
-    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool));
+    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool, artWords));
     return res.status(200).json({
       plan: {
         isFallback:          true,

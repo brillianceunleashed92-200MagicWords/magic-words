@@ -9,9 +9,11 @@ import { colors, fonts, wordArtColors as c } from '../theme/tokens';
 // - Sight-track words (and any content-track word without one yet) render
 //   the typographic fallback — never emoji, per docs/DESIGN_BRIEF.md §7.
 //
-// The dog/elephant/cat/bird SVGs are ported verbatim (same paths, same
-// hexes) from docs/mockup-E2-no-emoji.html's style-reference strip — that
-// file is the source of truth if these ever need to be re-extracted.
+// The dog/cat/bird SVGs are ported verbatim (same paths, same hexes) from
+// docs/mockup-E2-no-emoji.html's style-reference strip — that file is the
+// source of truth if these ever need to be re-extracted. (An "elephant"
+// entry from that same strip was removed from REGISTRY — "elephant" isn't
+// a curriculum word in the `words` table, so it was dead, unreachable art.)
 //
 // Action/adjective words (eat, fly, jump, run, big, sad) don't have an
 // obvious single-referent noun to draw, so they share one recurring "Buddy"
@@ -19,6 +21,14 @@ import { colors, fonts, wordArtColors as c } from '../theme/tokens';
 // as distinct from the animal cast) shown in the pose/expression for that
 // word — one consistent visual grammar for the whole non-animal set rather
 // than a different one-off metaphor per word.
+//
+// REGISTRY keys are the single mechanical truth for "which words have real
+// art" on the client side — kept in sync with src/components/
+// wordArtManifest.json (and the words.has_art DB column it seeds) by
+// scripts/check-wordart-sync.mjs, run as part of the build. Add a word:
+// write its <WordArt> component, add it to REGISTRY below, add it to the
+// manifest, and add a migration setting has_art=true for it — the sync
+// script fails loudly if REGISTRY and the manifest ever disagree.
 
 function Blush({ cx, cy, rx = 6.5, ry = 4.2 }) {
   return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={c.blush} opacity=".8" />;
@@ -64,22 +74,6 @@ function CatArt() {
       <Eye cx={47} cy={60} /><Eye cx={73} cy={60} />
       <path d="M60 74l-5 5h10z" fill={c.catOutline} />
       <Blush cx={38} cy={74} /><Blush cx={82} cy={74} />
-    </>
-  );
-}
-
-function ElephantArt() {
-  return (
-    <>
-      <GroundShadow cx={60} cy={102} rx={34} />
-      <circle cx="24" cy="60" r="24" fill={c.elephantFill} stroke={c.elephantOutline} strokeWidth="4" />
-      <circle cx="24" cy="60" r="13" fill={c.elephantInner} />
-      <circle cx="96" cy="60" r="24" fill={c.elephantFill} stroke={c.elephantOutline} strokeWidth="4" />
-      <circle cx="96" cy="60" r="13" fill={c.elephantInner} />
-      <circle cx="60" cy="58" r="40" fill={c.elephantFill} stroke={c.elephantOutline} strokeWidth="4" />
-      <path d="M50 82q-4 20 0 30q6 6 12 0" fill="none" stroke={c.elephantOutline} strokeWidth="8" strokeLinecap="round" />
-      <Eye cx={47} cy={54} /><Eye cx={73} cy={54} />
-      <Blush cx={38} cy={66} /><Blush cx={82} cy={66} />
     </>
   );
 }
@@ -234,7 +228,6 @@ function SadArt() {
 const REGISTRY = {
   dog: DogArt,
   cat: CatArt,
-  elephant: ElephantArt,
   bird: BirdArt,
   frog: FrogArt,
   eat: EatArt,

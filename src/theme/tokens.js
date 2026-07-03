@@ -31,7 +31,6 @@ export const skyGradient = `linear-gradient(180deg, ${colors.sky} 0%, ${colors.s
 // is a pale tint. See docs/DESIGN_BRIEF.md §1 for the full table.
 export const wordArtColors = {
   dogFill: '#FFB84D', dogOutline: '#A66A1B', dogInner: '#FFF1D6',
-  elephantFill: '#B8B4E8', elephantOutline: '#6B63B5', elephantInner: '#E8E6FF',
   catFill: '#FF8A4C', catOutline: '#B35A28', catInner: '#FFD9BE',
   birdFill: '#5EC8F2', birdOutline: '#2E86AB', birdInner: '#CDEFFF',
   frogFill: '#3EE0B8', frogOutline: '#1C8C6C', frogInner: '#D6FFF3',
