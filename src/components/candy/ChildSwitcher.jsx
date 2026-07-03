@@ -1,4 +1,5 @@
 import { colors, fonts, shadows } from '../../theme/tokens';
+import { AvatarIcon } from '../icons/AvatarGlyphs';
 
 // Avatar-chip profile switcher (blueprint 4.3 "Multi-child profiles").
 // The "+" tile is hidden once the plan's child limit is reached — Family
@@ -24,7 +25,7 @@ export default function ChildSwitcher({ children, activeChildId, onSelect, onAdd
               flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: '1.6rem' }}>{child.avatar || '🚀'}</span>
+            <AvatarIcon value={child.avatar || 'rocket'} size={32} />
             <span style={{
               fontFamily: fonts.display, fontWeight: 700, fontSize: '.7rem',
               color: isActive ? colors.ink : colors.cloud,
