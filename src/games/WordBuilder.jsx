@@ -1,24 +1,8 @@
 import { useEffect, useState } from 'react';
-import { T } from './gameTheme';
 import { playAudio, fetchAudio } from './gameAudio';
-
-const SUFFIXES = ['', 'ing', 'ed'];
-
-// Deterministic per-word variant pick (not random-during-render — see the
-// same purity concern documented in GrownUpsScreen's MathGate) — derived
-// from the word's char codes so the same word always gets the same
-// variant within a session, no state/effect needed.
-function pickVariant(word) {
-  const sum = [...word].reduce((s, c) => s + c.charCodeAt(0), 0);
-  return SUFFIXES[sum % SUFFIXES.length];
-}
-
-function targetSpelling(word, suffix) {
-  if (!suffix) return word;
-  if (suffix === 'ing') return word.endsWith('e') ? word.slice(0, -1) + 'ing' : word + 'ing';
-  if (suffix === 'ed') return word.endsWith('e') ? word + 'd' : word + 'ed';
-  return word;
-}
+import { colors, fonts, shadows } from '../theme/tokens';
+import WordArt from '../components/WordArt';
+import { validSuffixesFor, pickValidSuffix, inflect } from '../lib/wordMorphology';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -30,15 +14,53 @@ function shuffle(arr) {
 }
 
 // Word Builder — morphology activity (MLC "Word Builder" per the
-// blueprint's 10-activity table). Drag/tap letter tiles to spell the
+// blueprint's 10-activity table). Tap letter tiles in order to spell the
 // target word, sometimes with a +ing/+ed variant.
+//
+// The suffix and the resulting spelling both come from
+// src/lib/wordMorphology.js, which only ever offers a suffix that
+// produces a real inflected form for that specific word (see that file's
+// header for why "is this a verb" alone wasn't enough — several of the
+// verbs in this word list are irregular). Previously this component
+// picked a suffix from a hash of the word's characters with no linguistic
+// checking at all, producing real words like "froging" (frog is a noun)
+// and "doged" (dog is a noun) — see docs/WORDBUILDER_FIX_REPORT.md.
 export default function WordBuilder({ quiz, onAnswer }) {
-  const suffix = pickVariant(quiz.word);
-  const target = targetSpelling(quiz.word, suffix);
+  const suffix = pickValidSuffix(quiz.word);
+  const target = inflect(quiz.word, suffix);
+
+  // Dev-time invariants — fail loudly if either is ever violated, same
+  // spirit as the Story Engine's vocabulary validator. Both should be
+  // structurally impossible given pickValidSuffix/inflect above, but this
+  // is exactly the kind of silent-corruption bug that produced "froging"
+  // in the first place, so it's worth asserting rather than trusting.
+  if (import.meta.env?.DEV) {
+    if (suffix && !validSuffixesFor(quiz.word).includes(suffix)) {
+      throw new Error(`[WordBuilder] "${quiz.word}" was given invalid suffix "${suffix}"`);
+    }
+    if (target.length < quiz.word.length) {
+      throw new Error(`[WordBuilder] target "${target}" is shorter than base word "${quiz.word}"`);
+    }
+  }
+
   const [tiles] = useState(() => shuffle(target.split('')));
   const [built, setBuilt] = useState([]);
   const [wrong, setWrong] = useState(false);
   const [startTime] = useState(() => Date.now());
+
+  // Slot count must always equal the real target's length, and the tray
+  // must always contain exactly the target's letters (shuffled) — both
+  // hold by construction here (tiles === shuffle(target.split(''))), but
+  // asserted explicitly since this is exactly the invariant that broke
+  // silently before (a 7-slot puzzle — "frog" + "ing" — that no real
+  // word could ever fill, because the target itself wasn't a real word).
+  if (import.meta.env?.DEV) {
+    const tileLetters = [...tiles].sort().join('');
+    const targetLetters = [...target].sort().join('');
+    if (tiles.length !== target.length || tileLetters !== targetLetters) {
+      throw new Error(`[WordBuilder] tray "${tiles.join('')}" cannot spell target "${target}"`);
+    }
+  }
 
   useEffect(() => {
     fetchAudio(quiz.word).then(playAudio);
@@ -61,9 +83,11 @@ export default function WordBuilder({ quiz, onAnswer }) {
   }
 
   return (
-    <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>{quiz.emoji}</div>
-      <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '1.5rem' }}>
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px', textAlign: 'center' }}>
+      <div style={{ margin: '8px 0 12px', display: 'flex', justifyContent: 'center' }}>
+        <WordArt word={quiz.word} size={90} />
+      </div>
+      <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.cloud, marginBottom: '1.5rem' }}>
         Build the word{suffix ? ` (add "${suffix}")` : ''}
       </div>
 
@@ -74,8 +98,9 @@ export default function WordBuilder({ quiz, onAnswer }) {
         {target.split('').map((_, i) => (
           <div key={i} style={{
             width: 44, height: 54, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: i < built.length ? T.correct : T.card, border: `2px solid ${T.border}`,
-            fontFamily: 'Space Grotesk', fontSize: '1.5rem', fontWeight: 700, color: T.white, textTransform: 'uppercase',
+            background: i < built.length ? colors.mint : colors.cloud,
+            boxShadow: shadows.chunkSm,
+            fontFamily: fonts.display, fontSize: '1.5rem', fontWeight: 800, color: colors.ink, textTransform: 'uppercase',
           }}>
             {i < built.length ? tiles[built[i]] : ''}
           </div>
@@ -90,8 +115,9 @@ export default function WordBuilder({ quiz, onAnswer }) {
             disabled={built.includes(i)}
             style={{
               width: 52, height: 52, borderRadius: 14, border: 'none', cursor: built.includes(i) ? 'default' : 'pointer',
-              background: built.includes(i) ? T.cardHov : T.gold, color: '#1A0A00',
-              fontFamily: 'Space Grotesk', fontSize: '1.3rem', fontWeight: 700, textTransform: 'uppercase',
+              background: colors.sun, color: colors.starText,
+              fontFamily: fonts.display, fontSize: '1.3rem', fontWeight: 800, textTransform: 'uppercase',
+              boxShadow: shadows.chunkSm,
               opacity: built.includes(i) ? 0.35 : 1,
             }}
           >

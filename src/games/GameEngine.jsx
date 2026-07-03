@@ -1589,7 +1589,12 @@ export function GameEngine({
   // would double-fire confetti if the orchestrator also triggered it.
   // Un-rebuilt game types (SoundMatch, SpellItOut, etc.) still fall back to
   // the orchestrator-level ConfettiBurst + Cloud background.
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards'].includes(gameType);
+  //
+  // word_builder added here after docs/WORDBUILDER_FIX_REPORT.md found it's
+  // actually live and reachable from PlayScreen.jsx (it was mistakenly
+  // conflated with the genuinely-unreachable SpellItOut during the earlier
+  // UI polish pass and never audited).
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder'].includes(gameType);
 
   return (
     <div style={{
