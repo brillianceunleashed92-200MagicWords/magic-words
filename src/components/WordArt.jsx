@@ -400,17 +400,30 @@ function BabyArt() {
       <circle cx="60" cy="52" r="30" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
       <path d="M42 40q18-12 36 0" fill="none" stroke={HAIR_DEEP} strokeWidth="5" strokeLinecap="round" />
       <Eye cx={48} cy={50} r={6.5} /><Eye cx={72} cy={50} r={6.5} />
+      <ellipse cx="60" cy="64" rx="6" ry="4.5" fill={c.buddyOutline} />
       <Blush cx={38} cy={60} /><Blush cx={82} cy={60} />
-      {/* pacifier — unambiguous baby cue */}
-      <ellipse cx="60" cy="66" rx="8" ry="6" fill="#fff" stroke={PERSON_CLOTHES_DEEP} strokeWidth="2.5" />
-      <circle cx="60" cy="66" r="3" fill={PERSON_CLOTHES} />
     </>
   );
 }
 
+// Child figures (boy/girl) are drawn at a deliberately dramatic size
+// contrast against adults (man/woman) — not a subtle proportion tweak.
+// Once rendered independently at a fixed tile size (WordMatch/SoundMatch
+// render every option at the same pixel size), a small proportion
+// difference alone doesn't read reliably — confirmed by testing at actual
+// in-game tile sizes (72-92px) in the throwaway render harness, not
+// assumed. Fixed by (a) scaling children down hard around a shared ground
+// anchor so they sit noticeably smaller with visible margin, adults up to
+// nearly fill the frame edge-to-edge (same technique BigArt/SmallArt uses
+// for that pair, adapted since these are 4 independent single-figure
+// images, not one paired image), and (b) `man` gets a simple mustache — a
+// standard, unambiguous adult-male cue that doesn't depend on size at all
+// (the single most reliable pictogram convention for this, worldwide, not
+// a size-dependent judgment call).
+
 function BoyArt() {
   return (
-    <>
+    <g transform="translate(60,110) scale(.68) translate(-60,-110)">
       <GroundShadow cx={60} cy={112} rx={24} ry={6} />
       <rect x="44" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
       <rect x="64" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
@@ -420,13 +433,13 @@ function BoyArt() {
       <Eye cx={50} cy={48} /><Eye cx={70} cy={48} />
       <path d="M50 60q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
       <Blush cx={40} cy={56} /><Blush cx={80} cy={56} />
-    </>
+    </g>
   );
 }
 
 function GirlArt() {
   return (
-    <>
+    <g transform="translate(60,110) scale(.68) translate(-60,-110)">
       <GroundShadow cx={60} cy={112} rx={24} ry={6} />
       <rect x="44" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
       <rect x="64" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
@@ -436,13 +449,13 @@ function GirlArt() {
       <Eye cx={50} cy={48} /><Eye cx={70} cy={48} />
       <path d="M50 60q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
       <Blush cx={40} cy={56} /><Blush cx={80} cy={56} />
-    </>
+    </g>
   );
 }
 
 function ManArt() {
   return (
-    <>
+    <g transform="translate(60,110) scale(1.08) translate(-60,-110)">
       <GroundShadow cx={60} cy={114} rx={28} ry={6} />
       <rect x="40" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
       <rect x="66" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
@@ -450,15 +463,17 @@ function ManArt() {
       <circle cx="60" cy="40" r="28" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
       <path d="M32 38q0-26 28-26t28 26q-12-11-28-11t-28 11z" fill={HAIR} stroke={HAIR_DEEP} strokeWidth="3" strokeLinejoin="round" />
       <Eye cx={49} cy={42} /><Eye cx={71} cy={42} />
+      {/* mustache — drawn above the mouth, unambiguous adult-male cue */}
+      <path d="M46 50q7 5 14 0q7 5 14 0" fill="none" stroke={HAIR_DEEP} strokeWidth="4" strokeLinecap="round" />
       <path d="M48 54q12 6 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
       <Blush cx={37} cy={50} /><Blush cx={83} cy={50} />
-    </>
+    </g>
   );
 }
 
 function WomanArt() {
   return (
-    <>
+    <g transform="translate(60,110) scale(1.08) translate(-60,-110)">
       <GroundShadow cx={60} cy={114} rx={28} ry={6} />
       <rect x="40" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
       <rect x="66" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
@@ -468,7 +483,7 @@ function WomanArt() {
       <Eye cx={49} cy={42} /><Eye cx={71} cy={42} />
       <path d="M48 54q12 6 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
       <Blush cx={37} cy={50} /><Blush cx={83} cy={50} />
-    </>
+    </g>
   );
 }
 
