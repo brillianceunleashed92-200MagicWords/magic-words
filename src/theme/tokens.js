@@ -59,6 +59,25 @@ export const wordArtColors = {
   // (same mug silhouette, temperature read via color+steam/ice, not a
   // second unrelated hex triad); snail (slow) gets its own.
   snailFill: '#A8C64A', snailOutline: '#5C7A1E', snailInner: '#E8F2C8',
+  // wordart-batch-2, Unit 8 (color words) — deliberately their OWN accurate
+  // hexes, not forced into the brand palette above: `sky` leans purple-blue
+  // and `mint` leans teal, so reusing them literally would teach the wrong
+  // color word. `orange`/`pink` do reuse the existing tang/bubble brand
+  // tokens since those genuinely read as accurate instances of those two
+  // colors. See docs/wordart-batch-2-depictability.md for why "gold" isn't
+  // in this set (collides with yellow — no metallic rendering in this flat
+  // illustration style).
+  colorRed: '#E8453C', colorRedOutline: '#A82E26',
+  colorBlue: '#4A90E2', colorBlueOutline: '#2B5F94',
+  colorGreen: '#4CAF50', colorGreenOutline: '#2E7D32',
+  colorYellow: '#FFC531', colorYellowOutline: '#B8890A',
+  colorOrange: '#FF8A4C', colorOrangeOutline: '#B35A28',
+  colorPurple: '#9B59B6', colorPurpleOutline: '#6B3A80',
+  colorPink: '#FF6FA5', colorPinkOutline: '#B8285F',
+  colorBlack: '#2B2B2B', colorBlackOutline: '#000000',
+  colorWhite: '#FFFFFF', colorWhiteOutline: '#B0B0B0',
+  colorBrown: '#8B5A2B', colorBrownOutline: '#5C3A1A',
+  colorGray: '#9CA3AF', colorGrayOutline: '#6B7280',
 };
 
 export const fonts = {

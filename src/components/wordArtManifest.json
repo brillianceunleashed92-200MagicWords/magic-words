@@ -6,5 +6,6 @@
   "sleep", "sit",
   "small", "happy", "hot", "cold", "fast", "slow",
   "baby", "boy", "girl", "man", "woman",
-  "apple", "milk", "cookie", "cake", "pizza", "bread", "egg", "water", "soup", "juice", "banana", "grapes"
+  "apple", "milk", "cookie", "cake", "pizza", "bread", "egg", "water", "soup", "juice", "banana", "grapes",
+  "red", "blue", "green", "yellow", "orange", "purple", "pink", "black", "white", "brown", "gray"
 ]

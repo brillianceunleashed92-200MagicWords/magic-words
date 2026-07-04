@@ -623,6 +623,45 @@ function GrapesArt() {
   );
 }
 
+// ─── Unit 8 (Colors) ────────────────────────────────────────────────────
+// Deliberately NOT "a red apple" etc. — anchoring a color word to a real
+// object risks the child naming the object instead of the color, and is a
+// worse risk here specifically since `apple` is a real Unit-7 word in this
+// same curriculum (see docs/wordart-batch-2-depictability.md). Every color
+// instead gets the same abstract rounded paint-drop shape (a single shared
+// silhouette) in its own accurate hex from wordArtColors' `color*` set —
+// the shape never changes, so the only variable a child reads is the
+// color itself. `gold` is not in this set (collides with yellow — no
+// metallic/gradient rendering in this flat illustration style).
+function ColorBlob({ fill, outline, whiteOutline }) {
+  return (
+    <>
+      <GroundShadow />
+      <path
+        d="M60 20c16 20 30 38 30 56a30 30 0 01-60 0c0-18 14-36 30-56z"
+        fill={fill}
+        stroke={outline}
+        strokeWidth={whiteOutline ? 5 : 4}
+        strokeLinejoin="round"
+      />
+      <ellipse cx="48" cy="66" rx="9" ry="13" fill="#fff" opacity=".35" />
+    </>
+  );
+}
+function RedArt() { return <ColorBlob fill={c.colorRed} outline={c.colorRedOutline} />; }
+function BlueArt() { return <ColorBlob fill={c.colorBlue} outline={c.colorBlueOutline} />; }
+function GreenArt() { return <ColorBlob fill={c.colorGreen} outline={c.colorGreenOutline} />; }
+function YellowArt() { return <ColorBlob fill={c.colorYellow} outline={c.colorYellowOutline} />; }
+function OrangeArt() { return <ColorBlob fill={c.colorOrange} outline={c.colorOrangeOutline} />; }
+function PurpleArt() { return <ColorBlob fill={c.colorPurple} outline={c.colorPurpleOutline} />; }
+function PinkArt() { return <ColorBlob fill={c.colorPink} outline={c.colorPinkOutline} />; }
+// black/white need a visibly stronger outline stroke (whiteOutline flag)
+// since the fill itself gives near-zero contrast against its own edge.
+function BlackArt() { return <ColorBlob fill={c.colorBlack} outline={c.colorBlackOutline} whiteOutline />; }
+function WhiteArt() { return <ColorBlob fill={c.colorWhite} outline={c.colorWhiteOutline} whiteOutline />; }
+function BrownArt() { return <ColorBlob fill={c.colorBrown} outline={c.colorBrownOutline} />; }
+function GrayArt() { return <ColorBlob fill={c.colorGray} outline={c.colorGrayOutline} />; }
+
 // Shared "Buddy" figure for action/adjective words.
 function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   return (
@@ -989,6 +1028,18 @@ const REGISTRY = {
   juice: JuiceArt,
   banana: BananaArt,
   grapes: GrapesArt,
+  // wordart-batch-2, Unit 8
+  red: RedArt,
+  blue: BlueArt,
+  green: GreenArt,
+  yellow: YellowArt,
+  orange: OrangeArt,
+  purple: PurpleArt,
+  pink: PinkArt,
+  black: BlackArt,
+  white: WhiteArt,
+  brown: BrownArt,
+  gray: GrayArt,
 };
 
 // Deterministic candy-color pick for the typographic tile, so a given word
