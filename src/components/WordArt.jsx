@@ -472,6 +472,157 @@ function WomanArt() {
   );
 }
 
+// ─── Unit 7 (Food & Drink) ──────────────────────────────────────────────
+// All plain objects (no face/character treatment, same as Unit 1's
+// fish/bear/ball/book/cup). Disambiguation note (see depictability doc):
+// milk/water/juice/soup are the four liquid-in-a-container words in this
+// unit — separated by container SHAPE first (water is a droplet, not a
+// glass at all; soup is a wide bowl, not a glass) and liquid COLOR second
+// (milk white, juice orange) so no two ever collide on shape alone.
+
+function AppleArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M58 40q-3-13 9-16q-3 7 2 11" fill="none" stroke="#5C3A1A" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M68 32q10-5 15 3q-8 1-10 7z" fill="#4CAF50" stroke="#2E7D32" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M60 38c-24 0-36 20-32 44c3 17 16 26 32 26s29-9 32-26c4-24-8-44-32-44z" fill="#E8453C" stroke="#A82E26" strokeWidth="4" strokeLinejoin="round" />
+      <ellipse cx="46" cy="60" rx="9" ry="13" fill="#FFD9BE" opacity=".45" />
+    </>
+  );
+}
+
+function MilkArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M42 30h36l-4 74q-1 6-7 6H53q-6 0-7-6z" fill="#fff" stroke="#8B84BD" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M44 48h32l-3 56q-1 5-6 5H53q-5 0-6-5z" fill="#F5F0E8" />
+      <ellipse cx="60" cy="48" rx="16" ry="4" fill="#fff" stroke="#8B84BD" strokeWidth="2.5" />
+    </>
+  );
+}
+
+function CookieArt() {
+  return (
+    <>
+      <GroundShadow />
+      <circle cx="60" cy="62" r="40" fill={c.monkeyFill} stroke={c.monkeyOutline} strokeWidth="4" />
+      <circle cx="44" cy="48" r="5" fill={c.antFill} />
+      <circle cx="70" cy="44" r="4.5" fill={c.antFill} />
+      <circle cx="76" cy="66" r="5" fill={c.antFill} />
+      <circle cx="50" cy="76" r="4" fill={c.antFill} />
+      <circle cx="62" cy="60" r="4.5" fill={c.antFill} />
+    </>
+  );
+}
+
+function CakeArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="30" y="70" width="60" height="30" rx="6" fill={colors.bubble} stroke="#B8285F" strokeWidth="4" />
+      <rect x="36" y="50" width="48" height="24" rx="6" fill="#FFD9BE" stroke="#B35A28" strokeWidth="3.5" />
+      <path d="M32 70q0-6 6-6h44q6 0 6 6" fill="none" stroke="#B8285F" strokeWidth="3" strokeLinecap="round" />
+      <rect x="56" y="30" width="8" height="20" rx="3" fill={colors.sun} stroke="#B8890A" strokeWidth="2.5" />
+      <path d="M60 22q4 4 0 10q-4-4 0-10z" fill={colors.tang} />
+    </>
+  );
+}
+
+function PizzaArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M60 24l38 84H22z" fill="#FFD93D" stroke="#B8930A" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M35 84q25 8 50 0" fill="none" stroke="#E8453C" strokeWidth="6" strokeLinecap="round" opacity=".75" />
+      <circle cx="52" cy="60" r="7" fill="#E8453C" />
+      <circle cx="68" cy="70" r="7" fill="#E8453C" />
+      <circle cx="60" cy="46" r="6" fill="#E8453C" />
+    </>
+  );
+}
+
+function BreadArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M24 88V56q0-24 36-24t36 24v32z" fill="#E8C078" stroke="#8A5A12" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M24 88h72v6q0 6-6 6H30q-6 0-6-6z" fill={c.monkeyFill} stroke={c.monkeyOutline} strokeWidth="3.5" />
+      <path d="M40 40v48M60 34v54M80 40v48" stroke="#8A5A12" strokeWidth="2.5" strokeLinecap="round" opacity=".5" />
+    </>
+  );
+}
+
+function EggArt() {
+  return (
+    <>
+      <GroundShadow />
+      <ellipse cx="60" cy="66" rx="30" ry="40" fill="#FFF8E8" stroke="#C9AE7A" strokeWidth="4" />
+      <ellipse cx="48" cy="46" rx="8" ry="12" fill="#fff" opacity=".55" />
+    </>
+  );
+}
+
+function WaterArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M60 20c14 22 26 38 26 54a26 26 0 01-52 0c0-16 12-32 26-54z" fill="#4A90E2" stroke="#2B5F94" strokeWidth="4" strokeLinejoin="round" />
+      <ellipse cx="50" cy="70" rx="7" ry="10" fill="#fff" opacity=".4" />
+    </>
+  );
+}
+
+function SoupArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M26 62h68q2 20-14 30t-20 10-20-10-14-30z" fill={colors.sun} stroke="#8A5A12" strokeWidth="4" strokeLinejoin="round" />
+      <ellipse cx="60" cy="62" rx="34" ry="8" fill="#FFF1D6" stroke="#8A5A12" strokeWidth="3" />
+      <path d="M46 48q-4-10 4-16M60 46q-4-10 4-16M74 48q-4-10 4-16" fill="none" stroke="#B0B0B0" strokeWidth="3" strokeLinecap="round" opacity=".6" />
+    </>
+  );
+}
+
+function JuiceArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M42 30h36l-4 74q-1 6-7 6H53q-6 0-7-6z" fill="#fff" stroke="#8B84BD" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M44 48h32l-3 56q-1 5-6 5H53q-5 0-6-5z" fill={colors.tang} />
+      <ellipse cx="60" cy="48" rx="16" ry="4" fill="#FFB84D" />
+      <rect x="66" y="18" width="7" height="36" rx="3.5" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2" transform="rotate(12 70 36)" />
+    </>
+  );
+}
+
+function BananaArt() {
+  return (
+    <>
+      <path d="M30 90q-6-40 20-64q10-8 20-6q-4 8-12 14q-22 18-16 54q2 10-4 12q-6 2-8-10z" fill="#FFD93D" stroke="#B8930A" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M48 22q6-4 12-2" fill="none" stroke="#8A5A12" strokeWidth="3" strokeLinecap="round" />
+    </>
+  );
+}
+
+function GrapesArt() {
+  return (
+    <>
+      <path d="M56 20q6-6 14-2" fill="none" stroke="#2E7D32" strokeWidth="3" strokeLinecap="round" />
+      <path d="M64 22q8-6 14 2q-6 4-8 10z" fill="#4CAF50" stroke="#2E7D32" strokeWidth="2.5" strokeLinejoin="round" />
+      <circle cx="48" cy="46" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="66" cy="42" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="40" cy="66" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="58" cy="64" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="76" cy="60" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="50" cy="86" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <circle cx="68" cy="84" r="12" fill="#9B59B6" stroke="#6B3A80" strokeWidth="3" />
+      <ellipse cx="44" cy="42" rx="4" ry="5" fill="#fff" opacity=".3" />
+    </>
+  );
+}
+
 // Shared "Buddy" figure for action/adjective words.
 function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   return (
@@ -825,6 +976,19 @@ const REGISTRY = {
   girl: GirlArt,
   man: ManArt,
   woman: WomanArt,
+  // wordart-batch-2, Unit 7
+  apple: AppleArt,
+  milk: MilkArt,
+  cookie: CookieArt,
+  cake: CakeArt,
+  pizza: PizzaArt,
+  bread: BreadArt,
+  egg: EggArt,
+  water: WaterArt,
+  soup: SoupArt,
+  juice: JuiceArt,
+  banana: BananaArt,
+  grapes: GrapesArt,
 };
 
 // Deterministic candy-color pick for the typographic tile, so a given word
