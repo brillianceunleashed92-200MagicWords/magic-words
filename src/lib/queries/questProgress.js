@@ -16,6 +16,12 @@ export function useTodayWordActivityQuery(childId, word) {
     // needs to reflect a just-finished session quickly, but doesn't need
     // to be instant (PlayScreen invalidates it explicitly on session end).
     staleTime: 1000 * 10,
+    // Always refetch on mount regardless of staleTime — this query decides
+    // whether a path node shows as done, so the guided path must never
+    // render off a stale cache the instant it's shown again (e.g.
+    // returning from a just-finished session before the explicit
+    // invalidateQueries call in PlayScreen's handleSessionEnd has settled).
+    refetchOnMount: 'always',
     queryFn: async () => {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
