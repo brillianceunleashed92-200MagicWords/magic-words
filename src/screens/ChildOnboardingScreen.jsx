@@ -15,11 +15,25 @@ import { IconStar, IconPlay } from '../components/icons';
 // from the switcher. Name + avatar + up to 3 interests (moderated list,
 // no free text — see docs/mlc-engine-audit.md / AI Safety Rules: no child
 // PII collected here beyond a first name the parent chooses to enter).
+//
+// Bug-fix pass (see the 3 reported issues this screen shipped with):
+// avatar used to default to AVATARS[0] with no way to tell it was even a
+// choice — it's now a real required field (starts unset) matching name,
+// so "required" means the same thing for both. The submit button used to
+// be a plain HTML `disabled` button at 50% opacity — combined with the
+// mint button's already-dark mintDeep text, that opacity crushed contrast
+// into the purple page background badly enough to read as "unreadable
+// text" (confirmed live, not assumed — see the contrast audit in this
+// fix's PR). The button is now always full-opacity/tappable; incomplete
+// submissions get the same errorless wiggle+glow scaffold as the lesson
+// screens (see onboarding-wiggle/onboarding-hint-glow in index.css) on
+// whichever field is actually missing, instead of a silent no-op.
 export default function ChildOnboardingScreen({ onDone }) {
   const { user } = useAuth();
   const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState(AVATARS[0].id);
+  const [avatar, setAvatar] = useState(null);
   const [interests, setInterests] = useState([]);
+  const [missing, setMissing] = useState(null); // 'name' | 'avatar' | null
   const createChild = useCreateChildProfileMutation(user?.id);
   const setActiveChildId = useUIStore((s) => s.setActiveChildId);
 
@@ -31,12 +45,24 @@ export default function ChildOnboardingScreen({ onDone }) {
     });
   }
 
+  function flagMissing(field) {
+    setMissing(field);
+    setTimeout(() => setMissing((m) => (m === field ? null : m)), 900);
+  }
+
   async function handleCreate() {
+    if (createChild.isPending) return; // guard against double-tap during the insert
     const trimmed = name.trim().slice(0, 40);
-    if (!trimmed) return;
-    const child = await createChild.mutateAsync({ name: trimmed, avatar, interests });
-    setActiveChildId(child.id);
-    onDone?.(child);
+    if (!trimmed) { flagMissing('name'); return; }
+    if (!avatar) { flagMissing('avatar'); return; }
+    try {
+      const child = await createChild.mutateAsync({ name: trimmed, avatar, interests });
+      setActiveChildId(child.id);
+      onDone?.(child);
+    } catch {
+      // createChild.isError/error below already renders feedback — no
+      // separate handling needed, just don't let this throw unhandled.
+    }
   }
 
   return (
@@ -49,27 +75,40 @@ export default function ChildOnboardingScreen({ onDone }) {
           A few quick things so Nova can get to know them.
         </div>
 
-        <label style={{ color: colors.cloud, fontFamily: fonts.display, fontWeight: 700, fontSize: '.9rem' }}>What's their name?</label>
+        <label htmlFor="child-name-input" style={{ color: colors.cloud, fontFamily: fonts.display, fontWeight: 700, fontSize: '.9rem' }}>
+          What's their name? <span style={{ color: colors.sun }} aria-hidden="true">*</span>
+        </label>
         <input
+          id="child-name-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Emma"
           maxLength={40}
+          aria-required="true"
           style={{
             width: '100%', marginTop: 8, marginBottom: 24, padding: '14px 16px', borderRadius: 20,
             border: 'none', fontFamily: fonts.body, fontSize: '1rem', boxSizing: 'border-box',
+            animation: missing === 'name' ? 'onboarding-wiggle .45s ease, onboarding-hint-glow 1.4s ease-in-out' : 'none',
           }}
         />
 
-        <div style={{ color: colors.cloud, fontFamily: fonts.display, fontWeight: 700, fontSize: '.9rem', marginBottom: 8 }}>Pick an avatar</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
+        <div style={{ color: colors.cloud, fontFamily: fonts.display, fontWeight: 700, fontSize: '.9rem', marginBottom: 8 }}>
+          Pick an avatar <span style={{ color: colors.sun }} aria-hidden="true">*</span>
+        </div>
+        <div
+          style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24, borderRadius: 24,
+            animation: missing === 'avatar' ? 'onboarding-wiggle .45s ease, onboarding-hint-glow 1.4s ease-in-out' : 'none',
+          }}
+        >
           {AVATARS.map((a) => (
             <button
               key={a.id}
               onClick={() => setAvatar(a.id)}
               aria-label={a.name}
+              aria-pressed={avatar === a.id}
               style={{
-                minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minHeight: 64, minWidth: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRadius: 20, cursor: 'pointer',
                 background: avatar === a.id ? colors.sun : colors.cloud,
                 border: avatar === a.id ? `3px solid ${colors.tang}` : 'none',
@@ -105,16 +144,27 @@ export default function ChildOnboardingScreen({ onDone }) {
           })}
         </div>
 
+        {/* Deliberately never HTML-`disabled` here (that reduced the mint
+            button's already-dark mintDeep text to ~50% opacity, crushing
+            contrast against the purple page background — the actual root
+            cause behind this screen's reported "unreadable text" bug).
+            The button stays fully readable and tappable at all times;
+            an incomplete form gets the wiggle/glow scaffold above instead
+            of a silently-disabled control. */}
         <ChunkyButton
           onClick={handleCreate}
-          disabled={!name.trim() || createChild.isPending}
           variant="mint"
-          style={{ width: '100%' }}
+          style={{ width: '100%', opacity: createChild.isPending ? 0.85 : 1 }}
         >
           {createChild.isPending ? 'Creating…' : (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Let's go! <IconPlay size={16} /></span>
           )}
         </ChunkyButton>
+        {createChild.isError && (
+          <div style={{ color: colors.cloud, textAlign: 'center', marginTop: 12, fontSize: '.85rem' }}>
+            Hmm, that didn't work — please try again.
+          </div>
+        )}
       </div>
     </div>
   );

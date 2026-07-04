@@ -42,6 +42,20 @@
   0% { opacity: 1; transform: translateX(-50%) translateY(0); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
 }
+/* Errorless-learning wiggle/glow for a missing required field on submit —
+   same motion as src/games/lessonChrome.jsx's lessonWiggle/lessonHintPulse,
+   reused here (not imported) since this screen isn't part of lesson chrome. */
+@keyframes onboarding-wiggle {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-6px) rotate(-1deg); }
+  40% { transform: translateX(5px) rotate(1deg); }
+  60% { transform: translateX(-4px) rotate(-.5deg); }
+  80% { transform: translateX(3px) rotate(.5deg); }
+}
+@keyframes onboarding-hint-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(62,224,184,.45), 0 0 18px rgba(62,224,184,.5); }
+  50% { box-shadow: 0 0 0 5px rgba(62,224,184,.7), 0 0 28px rgba(62,224,184,.75); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .candy-galaxy * {
