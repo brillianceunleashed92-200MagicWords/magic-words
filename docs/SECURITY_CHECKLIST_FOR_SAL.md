@@ -147,18 +147,41 @@ failure logging, security event logging, `npm audit fix` for 9 of 10 vulnerabili
 - [ ] **Switch the CSP from Report-Only to enforcing.** `vercel.json` currently ships
       `Content-Security-Policy-Report-Only` — it logs violations to the browser
       console without blocking anything, deliberately, so a misconfigured policy
-      can't break the live app silently. Verified during this session's own testing
-      that the policy as written doesn't fire any violations for the real app flows
-      exercised (sign-in, play a session, audio, Parent Portal, Stripe checkout
-      redirect) — see the session's closing report for exactly what was checked. If
-      nothing new turns up after a few days of real traffic, flip the header key from
+      can't break the live app silently. **Update (follow-up session, real
+      production console evidence):** the earlier "no violations found" claim
+      missed a real gap — `media-src` didn't include `blob:`, and every TTS
+      audio clip is played from a `URL.createObjectURL(blob)` (see
+      `src/games/gameAudio.js`), so if this had been flipped to enforcing as
+      originally written, **all in-app audio would have silently broken**. Fixed:
+      `media-src` now includes `blob:` alongside `'self'` and the Supabase
+      domain. Re-verified with a full live walkthrough (sign-in, a full play
+      session with audio, Story reader, Parent Portal, Magic Moments share
+      card, Stripe checkout redirect) with the browser console open — zero CSP
+      violations of any kind this time. If nothing new turns up after a few
+      days of real traffic, flip the header key from
       `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in
-      `vercel.json` to actually start blocking violations, not just logging them.
+      `vercel.json` to actually start blocking violations, not just logging
+      them.
 - [ ] **Database network restrictions** (if your Supabase plan supports it) —
       Dashboard → Settings → Database → Network Restrictions → restrict direct
       Postgres connections to known IPs. Confirmed no direct Postgres connection
       string is ever referenced client-side (grepped), so this is defense-in-depth
       on top of that, not a fix for an active leak.
+
+**No dashboard action needed, fully fixed in code (follow-up session):**
+stale/deleted-user sessions. A browser can hold a JWT that still *looks*
+valid (right shape, not expired) for an account deleted server-side —
+confirmed live, and confirmed this is exactly what produced the "409
+Conflict" console error reported from a real gameplay session (a
+`word_progress` upsert hitting a 23503 foreign-key violation, which
+PostgREST maps to HTTP 409 — same root cause as the child_profiles-insert
+version of this bug, just a different table). Fixed at two layers:
+`useAuth.js` now calls `supabase.auth.getUser()` (a real round-trip to
+Supabase Auth, not just a local JWT decode) once at boot and signs out
+with a friendly message if the account is gone; a global
+`MutationCache.onError` in `queryClient.js` catches a Postgres FK
+violation (code `23503`) from *any* mutation, anywhere in the app, and
+does the same — so this is handled once, centrally, not per-mutation.
 ---
 
 ## 🟢 Phase 7 — COPPA baseline
