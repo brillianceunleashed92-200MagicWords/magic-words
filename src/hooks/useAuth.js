@@ -19,11 +19,26 @@ function clearAppStorage(storage) {
   keys.forEach((k) => storage.removeItem(k));
 }
 
+const INVALID_SESSION_MESSAGE = 'Please sign in again.';
+
 export function useAuth() {
   const [session, setSession]         = useState(undefined);
   const [profile, setProfile]         = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError]     = useState(null);
+
+  // Fired by src/lib/queryClient.js's MutationCache when any mutation hits
+  // a Postgres FK violation (23503) — the account behind this session was
+  // deleted server-side while the browser still held a locally-valid-
+  // looking JWT. Sets the friendly message the sign-out below (fired by
+  // the same event's supabase.auth.signOut() call) will land on.
+  useEffect(() => {
+    function onInvalidSession() {
+      setAuthError(INVALID_SESSION_MESSAGE);
+    }
+    window.addEventListener('mw:invalid-session', onInvalidSession);
+    return () => window.removeEventListener('mw:invalid-session', onInvalidSession);
+  }, []);
 
   useEffect(() => {
     let initialResolved = false;
@@ -44,11 +59,27 @@ export function useAuth() {
         if (event === 'INITIAL_SESSION') {
           clearTimeout(timeout);
           initialResolved = true;
+          if (newSession) {
+            // A locally-stored JWT can look valid (right shape, not
+            // expired) for an account that no longer exists server-side —
+            // getSession() only reads localStorage, it can't catch this.
+            // getUser() actually round-trips to Supabase Auth, so a
+            // since-deleted account is caught here at boot instead of
+            // surfacing later as a raw FK violation on whatever mutation
+            // runs first (confirmed live: child_profiles insert failing
+            // with 23503, uncaught, no user-visible feedback at all).
+            supabase.auth.getUser().then(({ error }) => {
+              if (error) {
+                setAuthError(INVALID_SESSION_MESSAGE);
+                supabase.auth.signOut();
+              }
+            });
+          }
           setSession(newSession ?? null);
           setAuthLoading(false);
         } else {
           setSession(newSession ?? null);
-          setAuthError(null);
+          if (newSession) setAuthError(null); // a fresh sign-in clears any prior "please sign in again"
         }
         if (!newSession) {
           setProfile(null);
