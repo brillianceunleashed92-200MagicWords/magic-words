@@ -310,15 +310,25 @@ function ConfettiBurst({ active }) {
 }
 
 // ─── Progress bar — chunky segmented bar ─────────────────────────────────────
-function SessionProgress({ current, total, correctCount }) {
+function SessionProgress({ current, total, correctCount, onClose }) {
   return (
     <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', gap: 10 }}>
+        <button
+          onClick={onClose}
+          aria-label="Exit and save progress"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+          }}
+        >
+          <IconClose size={18} color={T.muted} />
+        </button>
+        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem', flex: 1 }}>
           Word {current} of {total}
         </span>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem' }}>
-          ⭐ {correctCount} correct
+        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IconStar size={16} color={T.gold} /> {correctCount} correct
         </span>
       </div>
       <div style={{ display: 'flex', gap: '4px' }}>
@@ -1475,6 +1485,7 @@ export function GameEngine({
   onProgress,
   onSessionEnd,
   onHome,
+  onExitEarly,
   onXP,
   userId,
   childId,
@@ -1594,6 +1605,30 @@ export function GameEngine({
     sessionXPRef.current = 0;
   };
 
+  // Universal exit-that-saves (mission B3): every activity's close button
+  // routes here instead of calling onHome directly. Hands whatever
+  // progress has accumulated so far — correct count, words actually
+  // played this session, and XP earned (deliberately NOT the +20
+  // completion / +50 perfect bonuses handleAnswer's natural-end path
+  // adds, since the session didn't actually finish) — to PlayScreen's
+  // onExitEarly, which banks it through the same shared pipeline
+  // (learning_events already wrote per-question; this awards XP/Sparks,
+  // runs the same path-completion check onSessionEnd uses, and awaits
+  // every pending write) BEFORE navigating away. Does not call onHome
+  // itself — onExitEarly is responsible for navigating once its async
+  // banking work is done, so nothing can race ahead of an in-flight write.
+  const handleExitEarly = useCallback(async () => {
+    stopCurrentAudio();
+    if (!onExitEarly) { onHome?.(); return; }
+    await onExitEarly({
+      wordsCorrect: correctCount,
+      totalWords: totalQuizzes,
+      wordsPlayed,
+      partialXP: sessionXPRef.current,
+      gameType,
+    });
+  }, [onExitEarly, onHome, correctCount, totalQuizzes, wordsPlayed, gameType]);
+
   if (sessionDone) {
     return (
       <SessionComplete
@@ -1654,8 +1689,8 @@ export function GameEngine({
         <div style={{ maxWidth: 780, margin: '0 auto', width: '100%', padding: '28px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button
-              onClick={onHome}
-              aria-label="Close lesson"
+              onClick={handleExitEarly}
+              aria-label="Exit and save progress"
               style={{
                 width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
@@ -1671,6 +1706,7 @@ export function GameEngine({
           current={currentIdx + 1}
           total={totalQuizzes}
           correctCount={correctCount}
+          onClose={handleExitEarly}
         />
       )}
 
