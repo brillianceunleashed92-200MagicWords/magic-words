@@ -1502,9 +1502,16 @@ export function GameEngine({
   // to play (e.g. a session drawn entirely from function words) — an
   // empty session is a worse outcome than one non-ideal picture quiz.
   const pictureFiltered = allQuizzes.filter((q) => q.pictureEligible);
-  const quizzes = PICTURE_MATCH_GAME_TYPES.has(gameType)
+  const filteredQuizzes = PICTURE_MATCH_GAME_TYPES.has(gameType)
     ? (pictureFiltered.length > 0 ? pictureFiltered : allQuizzes)
     : allQuizzes;
+  // Story Time (mission A1): short, frequent sessions beat one long one —
+  // capped at 3 stories regardless of how many words the underlying
+  // session plan has, so the same "finish the session" pipeline every
+  // other activity uses (onXP/onSessionEnd firing once currentIdx reaches
+  // the end) naturally fires after the 3rd story instead of the 6-8 a
+  // normal session would otherwise run.
+  const quizzes = gameType === 'story_time' ? filteredQuizzes.slice(0, 3) : filteredQuizzes;
   const encouragements = sessionPlan?.encouragements ?? ['Great job!'];
 
   const [currentIdx,        setCurrentIdx]        = useState(0);
