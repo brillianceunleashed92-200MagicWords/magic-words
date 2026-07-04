@@ -26,7 +26,9 @@ import MagicVideo from './MagicVideo';
 import StoryTimeActivity from './StoryTimeActivity';
 import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
+import { playCorrectChime, playIncorrectTone } from './soundEffects';
 import { getPromptText } from './promptText';
+import { useMuted } from '../lib/useMuted';
 import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
@@ -310,7 +312,7 @@ function ConfettiBurst({ active }) {
 }
 
 // ─── Progress bar — chunky segmented bar ─────────────────────────────────────
-function SessionProgress({ current, total, correctCount, onClose }) {
+function SessionProgress({ current, total, correctCount, onClose, muted, onToggleMute }) {
   return (
     <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', gap: 10 }}>
@@ -330,6 +332,16 @@ function SessionProgress({ current, total, correctCount, onClose }) {
         <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: 4 }}>
           <IconStar size={16} color={T.gold} /> {correctCount} correct
         </span>
+        <button
+          onClick={onToggleMute}
+          aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+          }}
+        >
+          <IconSpeaker size={16} color={T.muted} muted={muted} />
+        </button>
       </div>
       <div style={{ display: 'flex', gap: '4px' }}>
         {Array.from({ length: total }, (_, i) => {
@@ -1497,6 +1509,8 @@ export function GameEngine({
     return () => { stopCurrentAudio(); };
   }, []);
 
+  const [muted, toggleMuted] = useMuted();
+
   const allQuizzes = sessionPlan?.quizzes ?? [];
   // Fall back to the unfiltered list only if filtering would leave nothing
   // to play (e.g. a session drawn entirely from function words) — an
@@ -1546,7 +1560,7 @@ export function GameEngine({
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAnswer = useCallback(({ correct, responseTimeMs, firstTry = true }) => {
+  const handleAnswer = useCallback(async ({ correct, responseTimeMs, firstTry = true }) => {
     // XP calculation
     if (correct) {
       let xpEarned = 10;
@@ -1582,7 +1596,26 @@ export function GameEngine({
       attemptNumber: 1,
     });
 
+    const encouragement = encouragements[encouragIdx % encouragements.length];
     setEncouragIdx(i => i + 1);
+
+    // Sound choreography (mission B2): chime/tone, THEN (correct only)
+    // Nova's spoken encouragement, both awaited before advancing — so the
+    // next question's own auto-play (each activity's mount effect, see
+    // e.g. WordMatch) never starts until this sequence has actually
+    // finished. Everything here goes through either the oscillator
+    // Promise (soundEffects.js) or the shared TTS singleton
+    // (fetchAudio/playAudio), so nothing in the sequence can overlap.
+    if (correct) {
+      await playCorrectChime();
+      const url = await fetchAudio(encouragement);
+      if (url) {
+        playAudio(url);
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+      }
+    } else {
+      await playIncorrectTone();
+    }
 
     // WordMatch already waits 1400ms before calling onAnswer — advance immediately
     if (currentIdx + 1 >= totalQuizzes) {
@@ -1599,7 +1632,7 @@ export function GameEngine({
     } else {
       setCurrentIdx(i => i + 1);
     }
-  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP]);
+  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP, encouragements, encouragIdx]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
@@ -1706,6 +1739,16 @@ export function GameEngine({
               <IconClose size={20} color={colors.cloud} />
             </button>
             <StarProgress current={currentIdx + 1} total={totalQuizzes} />
+            <button
+              onClick={() => toggleMuted(!muted)}
+              aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+              style={{
+                width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+              }}
+            >
+              <IconSpeaker size={18} color={colors.cloud} muted={muted} />
+            </button>
           </div>
         </div>
       ) : (
@@ -1714,6 +1757,8 @@ export function GameEngine({
           total={totalQuizzes}
           correctCount={correctCount}
           onClose={handleExitEarly}
+          muted={muted}
+          onToggleMute={() => toggleMuted(!muted)}
         />
       )}
 
