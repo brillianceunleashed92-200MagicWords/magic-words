@@ -26,6 +26,7 @@ import MagicVideo from './MagicVideo';
 import StoryTimeActivity from './StoryTimeActivity';
 import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
+import { getPromptText } from './promptText';
 import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
@@ -86,17 +87,8 @@ function warnMissingArt(context, word) {
   }
 }
 
-// Full-sentence TTS prompt for a quiz, tailored to the game type — used both to
-// warm the audio cache at session start and to play the live prompt in-game, so
-// the cached text key always matches what's actually spoken (no re-fetch delay).
-function getPromptText(quiz, gameType) {
-  if (!quiz) return null;
-  switch (gameType) {
-    case 'word_hunt':   return 'Which word matches this picture?';
-    case 'rhyme_time':  return `Which word rhymes with ${quiz.word}?`;
-    default:            return quiz.question ?? quiz.word;
-  }
-}
+// getPromptText moved to ./promptText.js (so activity components in other
+// files can import it without a circular import back into this file).
 
 // ─── Rhyme map for RhymeTime game ────────────────────────────────────────────
 export const RHYME_MAP = {
@@ -391,7 +383,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   }, [quiz?.word]);
 
   useEffect(() => {
-    const audioText = quiz?.question ?? quiz?.word;
+    const audioText = getPromptText(quiz, 'word_match');
     if (!audioText) return;
     let cancelled = false;
     setAudioUrl(null);
@@ -429,7 +421,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     } else {
       setWrongTileIdx(idx);
       setMessage(`That's okay — it's "${quiz.word}"!`);
-      const url = audioCache.get(quiz.question ?? quiz.word);
+      const url = audioCache.get(getPromptText(quiz, 'word_match'));
       if (url) playAudio(url);
     }
     setTimeout(() => {
@@ -832,16 +824,16 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   // and warm the next card's audio in the background so it's ready when the
   // child gets there.
   useEffect(() => {
-    const text = quiz?.question ?? quiz?.word;
+    const text = getPromptText(quiz, 'flash_cards');
     if (text) fetchAudio(text);
-    const nextText = nextQuiz?.question ?? nextQuiz?.word;
+    const nextText = getPromptText(nextQuiz, 'flash_cards');
     if (nextText) fetchAudio(nextText);
   }, [quiz?.word, nextQuiz?.word]);
 
   const handleReveal = () => {
     if (revealed) return;
     setRevealed(true);
-    const text = quiz?.question ?? quiz?.word;
+    const text = getPromptText(quiz, 'flash_cards');
     fetchAudio(text).then(url => { if (url) playAudio(url); });
   };
 
@@ -911,6 +903,12 @@ function StoryBuilder({ quiz, onAnswer }) {
     setNovaState('idle');
     setMessage('Tap a word to choose it');
     startRef.current = Date.now();
+  }, [quiz?.word]);
+
+  // Previously silent — every other activity now speaks a carrier prompt
+  // on mount, this one had none at all.
+  useEffect(() => {
+    fetchAudio(getPromptText(quiz, 'story_builder')).then(playAudio);
   }, [quiz?.word]);
 
   // quiz.sentence = "The ___ jumped over the puddle."

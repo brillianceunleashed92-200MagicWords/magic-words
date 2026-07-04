@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { T } from './gameTheme';
 import { supabase } from '../supabaseClient';
+import { playAudio, fetchAudio } from './gameAudio';
+import { getPromptText } from './promptText';
 
 // Draw It — semantic-encoding activity (MLC 10-activity table). No
 // right/wrong: drawing the word by hand is the point. Saves a PNG to the
@@ -12,6 +14,12 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
   const drawingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [startTime] = useState(() => Date.now());
+
+  // Previously silent — every other activity now speaks a carrier prompt
+  // on mount, this one had none at all.
+  useEffect(() => {
+    fetchAudio(getPromptText(quiz, 'draw_it')).then(playAudio);
+  }, [quiz?.word]);
 
   function getPos(e, canvas) {
     const rect = canvas.getBoundingClientRect();
