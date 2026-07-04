@@ -169,3 +169,11 @@ export function IconBubble({ size = 20, color = 'currentColor' }) {
     </svg>
   );
 }
+
+export function IconCheck({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M5 12.5l4.5 4.5L19 7" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}

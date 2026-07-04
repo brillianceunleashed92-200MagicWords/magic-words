@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { colors, fonts, skyGradient, shadows } from '../theme/tokens';
+import { colors, fonts, skyGradient } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabaseClient';
 import { useSessionPlan } from '../hooks/useSessionPlan';
@@ -12,33 +12,24 @@ import { useEarnSparksMutation } from '../lib/queries/sparks';
 import { useUpdateStreakMutation } from '../lib/queries/streaks';
 import { useUIStore } from '../stores/useUIStore';
 import { useSpeak } from '../lib/useSpeak';
-import { logSessionResult, getRollingSuccessRate, suggestActivity } from '../lib/difficultyGovernor';
+import { logSessionResult, getRollingSuccessRate } from '../lib/difficultyGovernor';
 import { useParentSettingsQuery } from '../lib/queries/parentSettings';
 import { useSessionTimeLimit } from '../lib/useSessionTimeLimit';
 import NovaPortrait from '../components/candy/NovaPortrait';
-import WordArt from '../components/WordArt';
-import { IconSpeaker, IconSearch, IconBook, IconMic, IconSpark, IconArrow, IconTrophy } from '../components/icons';
-import { InterestMusic, InterestArt } from '../components/icons/InterestGlyphs';
+import QuestPath from '../components/candy/QuestPath';
+import { getEligibleActivities } from '../lib/activityDefs';
+import { useTodayWordActivityQuery, summarizeTodayActivity } from '../lib/queries/questProgress';
+import { useQueryClient } from '@tanstack/react-query';
+import { IconSpark, IconArrow } from '../components/icons';
 
 const MASTERED_THRESHOLD = 80;
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
-
-// The 5 named Candy Galaxy activities mapped onto the existing MLC-bound
-// game components (kept as-is, not rewritten — see docs/mlc-engine-audit.md
-// section 5/6 for why each mapping was chosen).
-const ACTIVITIES = [
-  { id: 'word_match', label: 'Tap & Hear', Icon: IconSpeaker },
-  { id: 'word_hunt', label: 'Word Hunt', Icon: IconSearch },
-  { id: 'story_builder', label: 'Fill the Story', Icon: IconBook },
-  { id: 'rhyme_time', label: 'Match & Sort', Icon: InterestMusic },
-  { id: 'flash_cards', label: 'Quiz Boss', Icon: IconTrophy },
-  { id: 'word_builder', label: 'Word Builder', Icon: IconSpark },
-  { id: 'draw_it', label: 'Draw It', Icon: InterestArt },
-  { id: 'story_time', label: 'Story Time', Icon: IconBook },
-  { id: 'word_song', label: 'Word Song', Icon: InterestMusic },
-  { id: 'magic_video', label: 'Magic Video', Icon: IconSpark },
-  { id: 'say_it', label: 'Say It with Nova', Icon: IconMic },
-];
+// Fixed bonus for finishing every eligible activity in a word's guided
+// path for the day — comfortably under earn_sparks' 500/call cap
+// (migration 0015), clearly bigger than a typical single-session award
+// (round(sessionXP/2), usually single-to-low-double digits) so it reads
+// as a genuine bonus, not "the same reward, slightly bigger."
+const PATH_COMPLETE_SPARKS_BONUS = 25;
 
 export default function PlayScreen({ focusWord, onExit }) {
   const { user } = useAuth();
@@ -51,6 +42,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   const { minutesToday, limitReached } = useSessionTimeLimit(childId, parentSettingsQ.data?.daily_minutes_limit);
 
   const { sessionPlan, planLoading, planError, generatePlanForWord } = useSessionPlan(user, childId, plan);
+  const queryClient = useQueryClient();
 
   // A word tapped directly on the Home path/Galaxy map should drive the
   // session, not whatever the default sequencing would pick.
@@ -64,7 +56,13 @@ export default function PlayScreen({ focusWord, onExit }) {
   const earnSparks = useEarnSparksMutation(childId);
   const updateStreak = useUpdateStreakMutation(user?.id, childId);
 
-  const suggestedActivity = suggestActivity(getRollingSuccessRate());
+  // Option B guided path — the full word record (word_type/has_art) for
+  // whichever word this session is actually about, falling back to the
+  // adaptive currentWord if no specific focusWord was tapped.
+  const pathWord = words.find((w) => w.word === (focusWord?.word ?? currentWord?.word)) ?? currentWord;
+  const eligibleActivities = getEligibleActivities(pathWord);
+  const todayActivityQ = useTodayWordActivityQuery(childId, pathWord?.word);
+  const todayActivitySummary = summarizeTodayActivity(todayActivityQ.data ?? []);
 
   async function handleProgress({ word, correct, responseTimeMs, gameType: playedGameType }) {
     const before = words.find((w) => w.word === word);
@@ -115,6 +113,23 @@ export default function PlayScreen({ focusWord, onExit }) {
     if (STREAK_MILESTONES.includes(streakResult?.current_streak)) {
       queueCelebration({ type: 'streakMilestone', payload: { streak: streakResult.current_streak } });
     }
+
+    // Option B guided path reward — did finishing THIS activity complete
+    // every eligible activity for the focus word today? Checked against
+    // todayActivitySummary from before this session started (closed over
+    // from render) with gameType folded in directly, rather than
+    // re-querying learning_events — that insert is fire-and-forget (see
+    // handleProgress) and its last row may not have landed yet, but we
+    // already know for certain gameType just finished.
+    if (pathWord && eligibleActivities.length > 0) {
+      const wasAllDoneBefore = eligibleActivities.every((a) => todayActivitySummary.has(a.id));
+      const isAllDoneNow = eligibleActivities.every((a) => a.id === gameType || todayActivitySummary.has(a.id));
+      if (!wasAllDoneBefore && isAllDoneNow) {
+        await earnSparks.mutateAsync(PATH_COMPLETE_SPARKS_BONUS);
+        queueCelebration({ type: 'pathComplete', payload: { word: pathWord.word, sparksBonus: PATH_COMPLETE_SPARKS_BONUS } });
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['todayWordActivity', childId, pathWord?.word] });
   }
 
   // Soft time-limit lockout (blueprint 4.3 "Time controls" — parent-set
@@ -155,32 +170,13 @@ export default function PlayScreen({ focusWord, onExit }) {
         <h2 style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.cloud, textAlign: 'center', margin: '0.5rem 0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <IconSpark size={20} color={colors.sun} /> Today's Quest
         </h2>
-        {currentWord && (
-          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.85)', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            Focus word: <strong>{currentWord.word}</strong> <WordArt word={currentWord.word} teachingTrack={currentWord.teaching_track} size={28} />
-          </div>
-        )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem', maxWidth: 420, margin: '0 auto' }}>
-          {ACTIVITIES.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => { speak(a.label); setGameType(a.id); }}
-              style={{
-                minHeight: 130,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                background: colors.cloud, color: colors.ink,
-                border: suggestedActivity === a.id ? `3px solid ${colors.sun}` : 'none',
-                borderRadius: 26, boxShadow: shadows.chunk, cursor: 'pointer',
-              }}
-            >
-              <span style={{ display: 'flex' }}><a.Icon size={30} color={colors.ink} /></span>
-              <span style={{ fontFamily: fonts.display, fontWeight: 700 }}>{a.label}</span>
-              {suggestedActivity === a.id && (
-                <span style={{ fontSize: '.65rem', fontWeight: 800, color: colors.tang }}>RECOMMENDED</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <QuestPath
+          word={pathWord}
+          childId={childId}
+          recommendedRate={getRollingSuccessRate()}
+          onSelectActivity={(id) => setGameType(id)}
+          speak={speak}
+        />
         {planError && (
           <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.7)', marginTop: '1.5rem', fontSize: '.85rem' }}>
             Offline mode — your progress still saves normally.

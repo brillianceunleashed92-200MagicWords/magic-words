@@ -10,7 +10,10 @@ export function useWordsQuery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('words')
-        .select('id, word, type, teaching_track, unit, sort_order, emoji, definition, audio_url, image_url')
+        // word_type/has_art added for Option B's guided-path activity
+        // eligibility gate (src/lib/activityDefs.js) — real, populated
+        // columns this query previously didn't select at all.
+        .select('id, word, type, word_type, has_art, teaching_track, unit, sort_order, emoji, definition, audio_url, image_url')
         .order('sort_order', { ascending: true });
       if (error) throw error;
       return data ?? [];

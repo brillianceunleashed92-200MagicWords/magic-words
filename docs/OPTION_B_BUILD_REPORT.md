@@ -155,7 +155,112 @@ itself, since it isn't inherited automatically.
 
 ## What was built
 
-(filled in during Phase 1)
+New files:
+- `src/lib/activityDefs.js` — single source of truth for the 11 activities
+  (moved out of `PlayScreen.jsx`, which used to declare them inline with no
+  eligibility logic) plus `getEligibleActivities(word)`.
+- `src/lib/queries/questProgress.js` — `useTodayWordActivityQuery` +
+  `summarizeTodayActivity`, the completion-tracking source of truth.
+- `src/components/candy/QuestPathNode.jsx` — one path node (completed/
+  current/locked), pulses only when current and only when
+  `!prefersReducedMotion`.
+- `src/components/candy/QuestPath.jsx` — hero header (WordArt + word + "X
+  of Y done today"), the vertical path itself, and the trophy reward node.
+- Added `IconCheck` to `src/components/icons/index.jsx` (no checkmark icon
+  existed yet).
+
+Modified:
+- `src/screens/PlayScreen.jsx` — replaced the static `ACTIVITIES` grid with
+  `<QuestPath>`; added path-completion detection + the `pathComplete`
+  celebration + 25-Sparks bonus in `handleSessionEnd`.
+- `src/lib/queries/words.js` — added `word_type`/`has_art` to the select
+  list (previously missing entirely from the live app's word data).
+- `src/games/GameEngine.jsx` — exported `RHYME_MAP` (was module-private)
+  so `activityDefs.js` can reuse it instead of duplicating the rhyme list.
+- `src/components/candy/CelebrationRenderer.jsx` — added the `pathComplete`
+  celebration type (trophy icon, "X fully explored!", Sparks bonus line).
+
+## Verified live (local dev server against real production Supabase)
+
+Two bugs caught and fixed **before** this was considered done, both via
+live browser testing, not just code review:
+
+1. **Locked nodes would have navigated.** First draft passed
+   `onTap={() => onSelectActivity(activity.id)}` to every node regardless
+   of state — a tap on a locked node would have opened it, defeating the
+   whole "locked means locked" mechanic. Fixed: `QuestPath` now passes
+   `onTap={undefined}` for locked nodes; `QuestPathNode` still speaks the
+   nudge ("Let's finish this one first!") on tap either way, it just has
+   nothing to call.
+2. **Double-speak on every tap.** First draft called `speak()` both inside
+   `PlayScreen`'s `onSelectActivity` callback and inside `QuestPathNode`'s
+   own tap handler — every real activity tap would have spoken the label
+   twice, overlapping. Fixed by removing the redundant call in
+   `PlayScreen`; `QuestPathNode` is now the single place that speaks
+   before opening/nudging.
+
+Verified end-to-end against a real account (family plan, real Supabase,
+real gameplay — not mocked):
+- **Sequencing correctness**: a fresh has_art content word ("cat") showed
+  all 11 nodes in the documented rank order, "Tap & Hear" current, "11
+  more to go" on the trophy node.
+- **Eligibility correctness, including a case I didn't engineer**: "horse"
+  (a real word_progress record, has_art=true) showed exactly **10**
+  activities, not 11 — `rhyme_time` was correctly excluded because
+  "horse" isn't in `GameEngine.jsx`'s `RHYME_MAP`. This wasn't staged; it
+  fell out of real data, which is stronger evidence than a contrived test.
+- **Function-word gating**, checked directly against `getEligibleActivities`
+  for `the`/`is`/`with`/`because`: all four return exactly 7 eligible
+  activities with **zero** picture-match nodes and no `rhyme_time`/
+  `draw_it` — confirmed against real DB rows (`word_type`/`has_art`), not
+  assumed.
+- **Locked-node protection**: tapping a locked node ("Magic Video" before
+  its turn) produced no navigation — path stayed put, consistent with the
+  fixed bug above.
+- **Completion + reward, end to end**: seeded 9 of "horse"'s 10 activities
+  via direct DB insert (to reach the scenario deterministically rather
+  than grinding through 9 real sessions), then played the 10th
+  (`draw_it`) for real through the browser. Path correctly showed "9 of
+  10 done today," "Draw It · YOU'RE HERE!," "1 more to go." After
+  completing it: `user_sparks.balance` increased by exactly the expected
+  amount (normal per-session award + the 25-Spark path-complete bonus —
+  confirmed via direct DB query before/after, not inferred from the UI
+  alone), and `learning_events` showed exactly one row per activity for
+  "horse" (no duplicate/double-fired inserts).
+
+**Important nuance discovered, not a bug**: tapping any activity node
+starts a normal multi-word GameEngine session (4-10 words drawn from the
+current unit's candidate pool, per `useSessionPlan`/`session-generator.js`
+— unchanged, pre-existing behavior), not a single-question drill on just
+the path's focus word. The focus word is included in that session (moved
+to front), so its own `learning_events` row still lands correctly, but
+`handleSessionEnd`'s path-completion check (`eligibleActivities.every(a
+=> a.id === gameType || todayActivitySummary.has(a.id))`) relies on the
+assumption that finishing a `gameType` session implies the focus word's
+own node for that `gameType` is done. This holds in every case tested
+(the focus-word reordering guarantees it appears in its own session) but
+is a documented assumption, not a mathematically airtight guarantee — see
+docs/E2E_TEST_REPORT.md for the fuller note.
+
+**Pre-existing bug found, not caused by this build**: a React "duplicate
+key" console warning reproduces during normal multi-question play,
+confirmed identical on the pre-Option-B commit (tested by stashing all
+Option B changes and re-running the exact same script) — not something
+introduced here. Root cause not yet pinned down in the time available
+(candidates: `StarProgress`, `SessionProgress`, or the XP-toast/confetti
+keying in `GameEngine.jsx`); logged in `E2E_TEST_REPORT.md` as a
+pre-existing, reproducible finding for follow-up.
+
+## Screenshots
+
+Saved during live verification (scratchpad, not committed — described
+here since they're throwaway test-account captures):
+- Fresh "cat" path: all 11 nodes, correct rank order, "Tap & Hear"
+  current.
+- "horse" path at 9/10 done: "Draw It · YOU'RE HERE!", "1 more to go" on
+  the trophy node.
+- Session Complete screen after the 10th activity (unrelated pre-existing
+  component, unchanged).
 
 ## Ordering / completion / reward logic
 
