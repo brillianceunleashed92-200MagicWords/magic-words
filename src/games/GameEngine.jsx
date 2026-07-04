@@ -99,7 +99,7 @@ function getPromptText(quiz, gameType) {
 }
 
 // ─── Rhyme map for RhymeTime game ────────────────────────────────────────────
-const RHYME_MAP = {
+export const RHYME_MAP = {
   cat:'bat', dog:'log', run:'sun', big:'pig', sad:'bad', fly:'sky', eat:'beat',
   can:'pan', jump:'bump', hot:'pot', cold:'gold', fast:'last', slow:'glow',
   ball:'fall', book:'cook', cup:'pup', bed:'red', boy:'toy', girl:'curl',

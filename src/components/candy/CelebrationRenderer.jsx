@@ -2,7 +2,7 @@ import { colors, fonts } from '../../theme/tokens';
 import CelebrationOverlay from './CelebrationOverlay';
 import NovaPortrait from './NovaPortrait';
 import { useUIStore } from '../../stores/useUIStore';
-import { IconFlame, IconSpark } from '../icons';
+import { IconFlame, IconSpark, IconTrophy } from '../icons';
 import { InterestCrown } from '../icons/InterestGlyphs';
 
 // Drains the celebration queue (useUIStore) one at a time so two of the 5
@@ -14,6 +14,7 @@ const DURATIONS = {
   questComplete: 3000,
   unitBoss: 5000,
   streakMilestone: 4000,
+  pathComplete: 4200,
 };
 
 function CelebrationContent({ celebration }) {
@@ -42,6 +43,20 @@ function CelebrationContent({ celebration }) {
         </div>
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
           {payload.wordsCorrect}/{payload.totalWords} correct · +{payload.sparksEarned} <IconSpark size={13} color={colors.mutedInk} /> Sparks
+        </div>
+      </>
+    );
+  }
+
+  if (type === 'pathComplete') {
+    return (
+      <>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><IconTrophy size={64} color={colors.sun} /></div>
+        <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.8rem', color: colors.ink }}>
+          "{payload.word}" fully explored!
+        </div>
+        <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          Every activity done today · +{payload.sparksBonus} <IconSpark size={13} color={colors.mutedInk} /> bonus Sparks
         </div>
       </>
     );
