@@ -13,7 +13,7 @@
 // question's own audio) — matching the "one at a time, never
 // simultaneous" choreography requirement without needing these tones to
 // go through the HTML5-Audio-based singleton in gameAudio.js.
-import { isMuted } from './gameAudio';
+import { isMuted, stopCurrentAudio } from './gameAudio';
 
 let ctx;
 function getCtx() {
@@ -49,6 +49,13 @@ function canPlay() {
 // every correct tap would undercut that.
 export function playCorrectChime() {
   if (!canPlay()) return Promise.resolve();
+  // A child can answer before the question's own prompt TTS has finished
+  // (that audio auto-plays on mount and isn't answer-gated, unlike Story
+  // Time's comprehension question) — stop it first so the chime never
+  // overlaps the tail of an in-flight clip (confirmed via a live overlap
+  // probe: rapid answering reproduced exactly this overlap before this
+  // stopCurrentAudio() call was added).
+  stopCurrentAudio();
   const ac = getCtx();
   const now = ac.currentTime;
   tone(ac, 523.25, now, 0.14, 0.16);
@@ -62,6 +69,7 @@ export function playCorrectChime() {
 // too: a miss gets a gentle, non-punitive cue, never a punishing one.
 export function playIncorrectTone() {
   if (!canPlay()) return Promise.resolve();
+  stopCurrentAudio();
   const ac = getCtx();
   const now = ac.currentTime;
   tone(ac, 311.13, now, 0.28, 0.09);
