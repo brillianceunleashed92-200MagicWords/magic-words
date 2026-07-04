@@ -1,3 +1,6 @@
+## COMMAND RULES — READ FIRST
+- NEVER prefix any command with `cd ~/magic-words &&` or any `cd`. You are ALWAYS already in ~/magic-words. Compound cd+git commands trigger unavoidable manual permission prompts and stall autonomous runs. Run commands bare: `git status`, NOT `cd ~/magic-words && git status`.
+
 # 200 Magic Words — CLAUDE.md
 
 Literacy app for young children, built on Dr. Marion Blank's Mastering Language and
@@ -602,3 +605,5 @@ genuinely transparent, not just "appears to match the cream bg by luck."
   unchanged), baseline 4-screenshot diff shows only the intended
   swaps (Nova, quest icons, Unit 1 word icons) — Choose a Game screen
   pixel-identical (game-type icons are a separate, untouched system).
+
+- You are always launched from ~/magic-words; never prefix commands with `cd ~/magic-words &&` — you are already there.
