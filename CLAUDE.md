@@ -608,3 +608,4 @@ genuinely transparent, not just "appears to match the cream bg by luck."
 
 - You are always launched from ~/magic-words; never prefix commands with `cd ~/magic-words &&` — you are already there.
 - For production DB queries, write the SQL to a file with the Write tool, then run `node scripts/db-query.mjs <file.sql>`. NEVER build bash commands that combine $() token substitution with JSON heredocs — that shape triggers an unavoidable "expansion obfuscation" permission prompt.
+- For production DB queries: write SQL to a file, then `node scripts/db-query.mjs <file.sql>`. For test users: `node scripts/admin-user.mjs create <prefix>` / `delete <id>`. NEVER build bash that combines $() substitution with JSON heredocs, inline admin curl, or `&` backgrounding — those shapes trigger unavoidable permission prompts.
