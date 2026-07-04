@@ -86,7 +86,15 @@ export default function StoryReader({ story, onComplete, words }) {
       <div style={{ background: colors.cloud, borderRadius: 32, padding: '2rem', maxWidth: 420, width: '100%', minHeight: 320, boxShadow: shadows.chunkLg, textAlign: 'center' }}>
         {page === -1 && (
           <>
-            <NovaPortrait pose="read" size={140} style={{ margin: '0 auto 1rem' }} />
+            {story.artUrl ? (
+              <img
+                src={story.artUrl}
+                alt=""
+                style={{ width: 180, height: 180, objectFit: 'contain', margin: '0 auto 1rem', display: 'block' }}
+              />
+            ) : (
+              <NovaPortrait pose="read" size={140} style={{ margin: '0 auto 1rem' }} />
+            )}
             <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.ink, marginBottom: '1.5rem' }}>
               {story.title}
             </div>
