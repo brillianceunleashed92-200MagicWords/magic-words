@@ -100,6 +100,116 @@ const STORIES = [
     ],
     comprehension_question: { question: 'What was in the cup?', choices: ['milk', 'juice', 'water'], correctIndex: 0 },
   },
+  // Unit 2 (free tier) — same tier-3 shape, extending catalog coverage
+  // toward the mission's 20-50 target after the sample-review sign-off.
+  {
+    target_word: 'ant', tier: 3, title: 'The Busy Ant',
+    sentences: [
+      'This is an ant.', 'The ant is tiny and black.', 'It walks under a big leaf.',
+      'The ant finds a piece of bread.', 'It carries the bread to its home.', 'Other ants come to help.',
+      'They all work together.', 'Now the ants share a happy meal.',
+    ],
+    comprehension_question: { question: 'What did the ant find?', choices: ['bread', 'a shoe', 'a rock'], correctIndex: 0 },
+  },
+  {
+    target_word: 'bee', tier: 3, title: 'The Busy Bee',
+    sentences: [
+      'This is a bee.', 'The bee is yellow and black.', 'It flies from flower to flower.',
+      'The bee collects sweet nectar.', 'It flies back to the hive.', 'The bee makes golden honey.',
+      'All the bees share the honey.', 'The bee buzzes a happy tune.',
+    ],
+    comprehension_question: { question: 'What does the bee make?', choices: ['honey', 'milk', 'juice'], correctIndex: 0 },
+  },
+  {
+    target_word: 'cow', tier: 3, title: 'The Gentle Cow',
+    sentences: [
+      'This is a cow.', 'The cow is black and white.', 'It stands in a green field.',
+      'The cow eats soft green grass.', 'It walks to a cool pond.', 'The cow takes a long drink.',
+      'Then it rests under a tree.', 'The cow is calm and happy.',
+    ],
+    comprehension_question: { question: 'Where did the cow drink water?', choices: ['a pond', 'a cup', 'a box'], correctIndex: 0 },
+  },
+  {
+    target_word: 'duck', tier: 3, title: 'The Happy Duck',
+    sentences: [
+      'This is a duck.', 'The duck is yellow and small.', 'It swims in a calm pond.',
+      'The duck paddles with its feet.', 'It quacks at its duck friends.', 'They all swim in a line.',
+      'The duck finds a piece of bread.', 'It happily eats its snack.',
+    ],
+    comprehension_question: { question: 'Where did the duck swim?', choices: ['a pond', 'a tree', 'a box'], correctIndex: 0 },
+  },
+  {
+    target_word: 'frog', tier: 3, title: 'The Jumping Frog',
+    sentences: [
+      'This is a frog.', 'The frog is green and small.', 'It sits on a lily pad.',
+      'The frog sees a little fly.', 'It jumps high into the air.', 'The frog catches the fly.',
+      'Then it jumps back to the pad.', 'The frog croaks a happy sound.',
+    ],
+    comprehension_question: { question: 'What did the frog catch?', choices: ['a fly', 'a ball', 'a leaf'], correctIndex: 0 },
+  },
+  {
+    target_word: 'horse', tier: 3, title: 'The Fast Horse',
+    sentences: [
+      'This is a horse.', 'The horse is brown and tall.', 'It stands in a big field.',
+      'The horse likes to run fast.', 'It gallops across the grass.', 'The wind blows through its mane.',
+      'The horse stops by a fence.', 'It rests after a fun run.',
+    ],
+    comprehension_question: { question: 'Where did the horse run?', choices: ['a field', 'a lake', 'a house'], correctIndex: 0 },
+  },
+  {
+    target_word: 'lion', tier: 3, title: 'The Proud Lion',
+    sentences: [
+      'This is a lion.', 'The lion is golden and strong.', 'It rests under a warm sun.',
+      'The lion has a big fluffy mane.', 'It stands up and stretches.', 'The lion lets out a big roar.',
+      'Other animals hear the sound.', 'Then the lion naps in the shade.',
+    ],
+    comprehension_question: { question: 'What sound does the lion make?', choices: ['a roar', 'a quack', 'a buzz'], correctIndex: 0 },
+  },
+  {
+    target_word: 'monkey', tier: 3, title: 'The Playful Monkey',
+    sentences: [
+      'This is a monkey.', 'The monkey is brown and quick.', 'It swings from tree to tree.',
+      'The monkey finds a ripe banana.', 'It peels the banana with its hands.', 'The monkey eats the yellow banana.',
+      'Then it swings to see its friends.', 'They all play together happily.',
+    ],
+    comprehension_question: { question: 'What did the monkey eat?', choices: ['a banana', 'an apple', 'bread'], correctIndex: 0 },
+  },
+  {
+    target_word: 'pig', tier: 3, title: 'The Muddy Pig',
+    sentences: [
+      'This is a pig.', 'The pig is pink and round.', 'It lives on a sunny farm.',
+      'The pig finds a puddle of mud.', 'It rolls around in the mud.', 'The mud keeps the pig cool.',
+      'The pig oinks a happy sound.', 'Then it naps in the warm sun.',
+    ],
+    comprehension_question: { question: 'Where did the pig roll around?', choices: ['in the mud', 'in a pond', 'in a box'], correctIndex: 0 },
+  },
+  {
+    target_word: 'rabbit', tier: 3, title: 'The Quick Rabbit',
+    sentences: [
+      'This is a rabbit.', 'The rabbit is white and soft.', 'It hops through a green garden.',
+      'The rabbit finds a fresh carrot.', 'It nibbles the crunchy carrot.', 'Then the rabbit hears a sound.',
+      'It hops quickly to its burrow.', 'The rabbit feels safe and happy.',
+    ],
+    comprehension_question: { question: 'What did the rabbit eat?', choices: ['a carrot', 'a banana', 'bread'], correctIndex: 0 },
+  },
+  {
+    target_word: 'shark', tier: 3, title: 'The Big Shark',
+    sentences: [
+      'This is a shark.', 'The shark is gray and big.', 'It swims in the deep blue sea.',
+      'The shark glides past the coral.', 'It sees a school of small fish.', 'The shark swims along beside them.',
+      'Then it swims down to the ocean floor.', 'The shark rests near the rocks.',
+    ],
+    comprehension_question: { question: 'Where does the shark swim?', choices: ['the sea', 'a pond', 'a cup'], correctIndex: 0 },
+  },
+  {
+    target_word: 'turtle', tier: 3, title: 'The Slow Turtle',
+    sentences: [
+      'This is a turtle.', 'The turtle is green with a hard shell.', 'It walks slowly on the sand.',
+      'The turtle moves toward the water.', 'It swims into the calm sea.', 'The turtle glides through the waves.',
+      'It finds a cozy rock to rest.', 'The turtle naps in the warm sun.',
+    ],
+    comprehension_question: { question: 'Where did the turtle walk?', choices: ['on the sand', 'in a house', 'on a road'], correctIndex: 0 },
+  },
 ];
 
 function vocabularyUsed(sentences) {
