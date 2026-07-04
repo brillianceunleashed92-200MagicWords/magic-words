@@ -129,15 +129,29 @@ function shuffled(arr) {
 // get picture-eligible distractors (drawn from the full set of has_art
 // words available to this account's plan, not just the session's own
 // candidate pool, which guarantees all 4 options are real pictures even
-// in a small/thin session) — non-eligible targets draw distractors from
-// the rest of the session's candidate pool, padding from the art set only
-// if that pool is too thin to reach 3.
-function buildQuiz(target, candidatePool, artWords) {
+// in a small/thin session). Distractor preference order: same UNIT first
+// (units are the curriculum's real topical grouping — Family, Food &
+// Drink, Colors, Home & Travel, etc. — so "same unit" is a much tighter
+// semantic-group signal than word_type, which is a grammatical category
+// that lumps a person noun in with a food noun and a home-object noun),
+// then same word_type outside that unit, then the broader has_art pool —
+// so a picture quiz on "woman" prefers other Family-unit words (man,
+// baby, boy, girl) over an unrelated grab-bag (frog, cookie, grapes).
+// Non-eligible targets draw distractors from the rest of the session's
+// candidate pool, padding from the art set only if that pool is too thin
+// to reach 3.
+function buildQuiz(target, candidatePool, artWords, wordMetaByWord) {
   const pictureEligible = target.word_type !== 'function' && artWords.includes(target.word);
 
   let distractorWords;
   if (pictureEligible) {
-    distractorWords = shuffled(artWords.filter((w) => w !== target.word)).slice(0, 3);
+    const otherArtWords = artWords.filter((w) => w !== target.word);
+    const sameUnit = shuffled(otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit === target.unit));
+    const sameTypeOtherUnit = shuffled(otherArtWords.filter((w) =>
+      wordMetaByWord.get(w)?.unit !== target.unit && wordMetaByWord.get(w)?.word_type === target.word_type));
+    const rest = shuffled(otherArtWords.filter((w) =>
+      wordMetaByWord.get(w)?.unit !== target.unit && wordMetaByWord.get(w)?.word_type !== target.word_type));
+    distractorWords = [...sameUnit, ...sameTypeOtherUnit, ...rest].slice(0, 3);
   } else {
     const poolWords = candidatePool.filter((w) => w.word !== target.word).map((w) => w.word);
     distractorWords = shuffled(poolWords).slice(0, 3);
@@ -211,6 +225,7 @@ async function selectCandidateWords(admin, plan, progress) {
     .order('sort_order');
 
   const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
+  const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
 
   const progressMap = new Map(progress.map((p) => [p.word, p]));
   const now = Date.now();
@@ -257,7 +272,7 @@ async function selectCandidateWords(admin, plan, progress) {
     }
   }
 
-  return { pool: pool.slice(0, 8), currentUnit, artWords };
+  return { pool: pool.slice(0, 8), currentUnit, artWords, wordMetaByWord };
 }
 
 module.exports = async function handler(req, res) {
@@ -283,7 +298,7 @@ module.exports = async function handler(req, res) {
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
   const { plan, progress } = context;
-  const { pool: candidatePool, currentUnit, artWords } = await selectCandidateWords(admin, plan, progress);
+  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord } = await selectCandidateWords(admin, plan, progress);
   const difficultyLevel = getDifficultyLevel(progress);
 
   let sessionWords = candidatePool;
@@ -354,7 +369,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
       sessionWords.length
     );
     const chosenWords = sessionWords.slice(0, sessionLength);
-    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool, artWords));
+    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord));
 
     const plan = {
       difficultyLevel,
@@ -377,7 +392,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
 
     const fallbackLength = Math.min(6, sessionWords.length);
     const fallbackWords  = sessionWords.slice(0, fallbackLength);
-    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool, artWords));
+    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord));
     return res.status(200).json({
       plan: {
         isFallback:          true,

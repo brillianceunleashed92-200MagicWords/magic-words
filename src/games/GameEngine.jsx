@@ -28,7 +28,7 @@ import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
 import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
-import WordArt from '../components/WordArt';
+import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
 import { IconClose, IconSpeaker, IconStar } from '../components/icons';
 import { StarProgress, NovaPorthole, AnswerTile, ConfettiStars, LESSON_CHROME_KEYFRAMES } from './lessonChrome';
 import { AvatarRocket } from '../components/icons/AvatarGlyphs';
@@ -69,6 +69,20 @@ function formatQuestion(word, wordClass) {
       const art = 'aeiou'.includes(word[0]) ? 'an' : 'a';
       return `Which picture shows ${art} ${word}?`;
     }
+  }
+}
+
+// Dev-only safety net for picture-matching activities (Word Match, Sound
+// Match, Word Hunt) — a word reaching a picture tile without a real
+// WordArt illustration should never happen (distractor selection is
+// has_art-filtered server- and client-side), but if it ever does, this
+// surfaces it loudly instead of silently degrading to WordArt's
+// typographic fallback, which would look like a picture tile that isn't
+// actually a picture. No-ops in production builds.
+function warnMissingArt(context, word) {
+  if (!import.meta.env.DEV || !word) return;
+  if (!WORD_ART_REGISTRY[word.toLowerCase()]) {
+    console.warn(`[${context}] "${word}" has no WordArt illustration but reached a picture-matching tile.`);
   }
 }
 
@@ -373,6 +387,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     setMessage(formatQuestion(quiz?.word, quiz?.wordClass ?? 'noun'));
     setNovaState('idle');
     startRef.current = Date.now();
+    quiz?.options?.forEach((opt) => warnMissingArt('WordMatch', opt.word));
   }, [quiz?.word]);
 
   useEffect(() => {
@@ -494,6 +509,7 @@ function SoundMatch({ quiz, onAnswer, audioUrl }) {
     setAudioPlayed(false);
     setAudioError(false);
     startRef.current = null;
+    quiz?.options?.forEach((opt) => warnMissingArt('SoundMatch', opt.word));
     // Auto-play when quiz loads (with a small delay for UX)
     const timer = setTimeout(() => playWord(), 600);
     return () => clearTimeout(timer);
@@ -628,6 +644,7 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
     setMessage('Which word matches this picture?');
     setNovaState('idle');
     startRef.current = Date.now();
+    warnMissingArt('WordHunt', quiz?.word);
   }, [quiz?.word]);
 
   useEffect(() => {

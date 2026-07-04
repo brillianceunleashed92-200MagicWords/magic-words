@@ -128,6 +128,7 @@ async function buildSupabaseFallbackPlan(childId, plan) {
     if (wordsErr || !words?.length) throw wordsErr ?? new Error('no words available');
 
     const artWords = words.filter((w) => w.has_art).map((w) => w.word);
+    const wordMetaByWord = new Map(words.map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
 
     const { data: progress } = await supabase
       .from('word_progress')
@@ -154,7 +155,7 @@ async function buildSupabaseFallbackPlan(childId, plan) {
       difficultyLevel: 'emerging',
       currentUnit,
       wordSequence: focusWords,
-      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery, artWords)),
+      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery, artWords, wordMetaByWord)),
       encouragements: [
         'Great job!',
         "You're doing amazing!",
@@ -185,12 +186,25 @@ const FALLBACK_FUNCTION_SENTENCES = {
   do: 'What can you ___?',
 };
 
-function buildLocalQuiz(targetWord, allWords, artWords = []) {
+function buildLocalQuiz(targetWord, allWords, artWords = [], wordMetaByWord = new Map()) {
   const pictureEligible = targetWord.word_type !== 'function' && artWords.includes(targetWord.word);
 
   let distractorWords;
   if (pictureEligible) {
-    distractorWords = [...artWords].filter((w) => w !== targetWord.word).sort(() => Math.random() - 0.5).slice(0, 3);
+    // Prefer same-unit distractors first (units are the curriculum's real
+    // topical grouping — Family, Food & Drink, Colors, etc. — a tighter
+    // semantic signal than word_type alone), then same word_type outside
+    // that unit, then the broader has_art pool. Mirrors api/session-
+    // generator.js's buildQuiz so both plan sources behave the same way.
+    const otherArtWords = artWords.filter((w) => w !== targetWord.word);
+    const sameUnit = otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit === targetWord.unit).sort(() => Math.random() - 0.5);
+    const sameTypeOtherUnit = otherArtWords
+      .filter((w) => wordMetaByWord.get(w)?.unit !== targetWord.unit && wordMetaByWord.get(w)?.word_type === targetWord.word_type)
+      .sort(() => Math.random() - 0.5);
+    const rest = otherArtWords
+      .filter((w) => wordMetaByWord.get(w)?.unit !== targetWord.unit && wordMetaByWord.get(w)?.word_type !== targetWord.word_type)
+      .sort(() => Math.random() - 0.5);
+    distractorWords = [...sameUnit, ...sameTypeOtherUnit, ...rest].slice(0, 3);
   } else {
     distractorWords = allWords
       .filter((w) => w.word !== targetWord.word)
