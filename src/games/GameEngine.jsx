@@ -17,7 +17,7 @@
 //   onSessionEnd   — callback({ wordsCorrect, totalWords, timeSpentMs })
 //   childName      — for personalized encouragement
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import WordBuilder from './WordBuilder';
 import DrawIt from './DrawIt';
@@ -32,9 +32,10 @@ import { useMuted } from '../lib/useMuted';
 import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
-import { IconClose, IconSpeaker, IconStar } from '../components/icons';
+import { IconClose, IconSpeaker, IconStar, IconSpark } from '../components/icons';
 import { StarProgress, NovaPorthole, AnswerTile, ConfettiStars, LESSON_CHROME_KEYFRAMES } from './lessonChrome';
-import { AvatarRocket } from '../components/icons/AvatarGlyphs';
+import NovaSprite from '../components/candy/NovaSprite';
+import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
 
 // ─── Question formatter — correct grammar for every word class ────────────────
 // Client-side fallback for any plan that predates wordClass being added to quizzes
@@ -273,6 +274,22 @@ const GLOBAL_CSS = `
   }
   .mw-drop-zone.over { background: rgba(45,212,191,0.15); border-radius: 8px 8px 0 0; }
   .mw-drop-zone.filled { color: ${T.gold}; border-color: ${T.gold}; }
+
+  /* Session Complete — Nova "shining brighter" glow (two concentric rings,
+     sun/bubble per DESIGN_BRIEF §1's accent-color roles). Static when
+     prefers-reduced-motion (see the JS check gating the animation name). */
+  @keyframes session-complete-glow-1 {
+    0%, 100% { transform: scale(1);    opacity: .55; }
+    50%      { transform: scale(1.12); opacity: .8; }
+  }
+  @keyframes session-complete-glow-2 {
+    0%, 100% { transform: scale(1);    opacity: .35; }
+    50%      { transform: scale(1.18); opacity: .6; }
+  }
+  .session-complete-btn:active {
+    transform: translateY(6px) !important;
+    box-shadow: 0 2px 0 rgba(0,0,0,.16) !important;
+  }
 `;
 
 function injectCSS() {
@@ -1160,10 +1177,35 @@ function SpellItOut({ quiz, onAnswer }) {
 }
 
 // ─── Session Complete screen ───────────────────────────────────────────────────
-export function SessionComplete({ correctCount, total, encouragement, childName, wordsPlayed = [], onPlayAgain, onHome }) {
+// Effort/process praise (Dweck growth-mindset framing — see mission
+// "Fix 1"): trait praise ("you're so smart") can undermine persistence,
+// effort praise builds it. Varies deterministically by session shape
+// (words practiced + correct count) rather than Math.random(), matching
+// this codebase's existing purity convention (see WordBuilder.jsx).
+const EFFORT_PRAISE = [
+  'You worked so hard on those words!',
+  'You kept trying until they stuck!',
+  'Look how much you practiced!',
+  'Your practice is really paying off!',
+  'You stuck with it — that’s how words stick!',
+];
+
+function pickEffortPraise(wordsCount, correctCount) {
+  const idx = (wordsCount * 3 + correctCount) % EFFORT_PRAISE.length;
+  return EFFORT_PRAISE[idx];
+}
+
+export function SessionComplete({
+  correctCount, total, childName, wordsPlayed = [], masteredThisSession = [],
+  xpEarned = 0, sparksEarned = 0, masteredCount = 0, totalWordCount = 0,
+  onPlayAgain, onHome,
+}) {
   const [confettiActive, setConfettiActive] = useState(true);
+  const reducedMotion = usePrefersReducedMotion();
   const pct   = Math.round((correctCount / total) * 100);
   const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
+  const masteredSet = useMemo(() => new Set(masteredThisSession), [masteredThisSession]);
+  const effortLine = useMemo(() => pickEffortPraise(wordsPlayed.length, correctCount), [wordsPlayed.length, correctCount]);
 
   useEffect(() => {
     const t = setTimeout(() => setConfettiActive(false), 2000);
@@ -1173,117 +1215,166 @@ export function SessionComplete({ correctCount, total, encouragement, childName,
   return (
     <div style={{
       minHeight: '100vh',
-      background: T.bg,
+      background: skyGradient,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',
+      padding: '2rem 1.5rem',
       textAlign: 'center',
       animation: 'mw-slide-up 0.4s ease',
       overflowY: 'auto',
     }}>
-      <ConfettiBurst active={confettiActive} />
+      <ConfettiStars active={confettiActive && !reducedMotion} />
 
-      {/* Rocket bounce */}
-      <div style={{ animation: 'mw-bounce 1s ease 0.2s both', display: 'flex', justifyContent: 'center' }}>
-        <svg viewBox="0 0 120 120" width="72" height="72"><AvatarRocket /></svg>
+      {/* Nova, celebrating — porthole treatment per DESIGN_BRIEF §4, with a
+          layered sun/bubble glow behind it to read as "Nova is shining
+          brighter." Static (no pulse) under reduced-motion; the porthole
+          itself still renders. */}
+      <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: `radial-gradient(circle, ${colors.bubble}55, transparent 70%)`,
+          animation: reducedMotion ? 'none' : 'session-complete-glow-2 2.4s ease-in-out infinite',
+        }} />
+        <div style={{
+          position: 'absolute', inset: 14, borderRadius: '50%',
+          background: `radial-gradient(circle, ${colors.sun}66, transparent 70%)`,
+          animation: reducedMotion ? 'none' : 'session-complete-glow-1 2.4s ease-in-out infinite',
+        }} />
+        <div style={{
+          position: 'relative', width: 108, height: 108, borderRadius: '50%',
+          background: `radial-gradient(circle at 35% 30%, #7A6BF0, ${colors.skyDeep} 70%)`,
+          border: '5px solid rgba(255,255,255,.9)', boxShadow: shadows.chunk,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        }}>
+          <NovaSprite state="correct" size={92} />
+        </div>
       </div>
 
       <h2 style={{
-        fontFamily: 'Space Grotesk',
-        fontSize: 'clamp(2rem, 6vw, 2.75rem)',
-        color: T.gold,
-        margin: '0.75rem 0 0.25rem',
-        textShadow: `0 0 30px ${T.gold}88`,
+        fontFamily: fonts.display,
+        fontWeight: 800,
+        fontSize: 'clamp(1.75rem, 6vw, 2.25rem)',
+        color: colors.cloud,
+        margin: '0.25rem 0 0.25rem',
       }}>
         Session Complete!
       </h2>
 
-      {childName && (
-        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '1rem', color: T.muted, margin: '0 0 0.75rem' }}>
-          Great work, {childName}!
-        </p>
-      )}
+      <p style={{ fontFamily: fonts.body, fontWeight: 600, fontSize: '1rem', color: 'rgba(255,255,255,.85)', margin: '0 0 1rem' }}>
+        {childName ? `You powered Nova up, ${childName}!` : 'Amazing work!'}
+      </p>
 
       {/* Stars */}
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.75rem 0' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0 0 1.25rem' }}>
         {[1, 2, 3].map(s => (
           <span key={s} style={{
-            opacity: s <= stars ? 1 : 0.15,
-            animation: s <= stars ? `mw-pop 0.4s ease ${s * 0.15}s both` : 'none',
+            opacity: s <= stars ? 1 : 0.25,
+            animation: s <= stars && !reducedMotion ? `mw-pop 0.4s ease ${s * 0.15}s both` : 'none',
           }}>
-            <IconStar size={40} color={T.gold} />
+            <IconStar size={40} color={colors.sun} />
           </span>
         ))}
       </div>
 
-      <p style={{ fontFamily: 'Space Grotesk', fontSize: '1.3rem', color: T.white, margin: '0.25rem 0 1.25rem' }}>
-        {correctCount} / {total} correct!
-      </p>
+      {/* Rewards row */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, width: '100%', maxWidth: 380 }}>
+        <div style={{
+          flex: 1, background: colors.cloud, borderRadius: 24, padding: '14px 10px',
+          boxShadow: shadows.chunkSm,
+        }}>
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.6rem', color: colors.sky }}>
+            +{xpEarned}
+          </div>
+          <div style={{ fontFamily: fonts.body, fontWeight: 600, fontSize: '.8rem', color: colors.ink, opacity: .7 }}>
+            XP earned
+          </div>
+        </div>
+        <div style={{
+          flex: 1, background: colors.cloud, borderRadius: 24, padding: '14px 10px',
+          boxShadow: shadows.chunkSm,
+        }}>
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.6rem', color: colors.sun, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            +{sparksEarned} <IconSpark size={20} color={colors.sun} />
+          </div>
+          <div style={{ fontFamily: fonts.body, fontWeight: 600, fontSize: '.8rem', color: colors.ink, opacity: .7 }}>
+            Sparks earned
+          </div>
+        </div>
+      </div>
 
-      {/* Words practiced pills */}
+      {/* Words-learned card */}
       {wordsPlayed.length > 0 && (
         <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '0.5rem',
-          justifyContent: 'center',
-          maxWidth: '320px',
-          marginBottom: '1.5rem',
+          background: colors.cloud, borderRadius: 28, padding: '18px 18px 20px',
+          boxShadow: shadows.chunkSm, width: '100%', maxWidth: 380, marginBottom: 20,
         }}>
-          {wordsPlayed.map((wp, i) => (
-            <div key={i} style={{
-              background: wp.correct ? 'rgba(45,212,191,0.15)' : 'rgba(255,122,89,0.1)',
-              border: `1.5px solid ${wp.correct ? T.teal : T.coral}`,
-              borderRadius: '50px',
-              padding: '0.25rem 0.75rem',
-              fontFamily: 'Atkinson Hyperlegible',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              color: wp.correct ? T.teal : T.coral,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}>
-              <WordArt word={wp.word} size={20} />
-              <span>{wp.word}</span>
-            </div>
-          ))}
+          <div style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: '.95rem', color: colors.ink, marginBottom: 12 }}>
+            Words you practiced
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
+            {wordsPlayed.map((wp, i) => {
+              const nowShining = masteredSet.has(wp.word);
+              return (
+                <div key={i} style={{
+                  background: nowShining ? `${colors.sun}22` : 'rgba(42,33,96,.05)',
+                  border: `1.5px solid ${nowShining ? colors.sun : 'transparent'}`,
+                  borderRadius: 999,
+                  padding: '4px 12px 4px 4px',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <WordArt word={wp.word} size={24} />
+                  <span style={{ fontFamily: fonts.body, fontWeight: 700, fontSize: '.85rem', color: colors.ink }}>
+                    {wp.word}
+                  </span>
+                  {nowShining && <IconStar size={13} color={colors.sun} />}
+                </div>
+              );
+            })}
+          </div>
+          {totalWordCount > 0 && (
+            <>
+              <div style={{ height: 12, borderRadius: 6, background: 'rgba(42,33,96,.1)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.min(100, Math.round((masteredCount / totalWordCount) * 100))}%`,
+                  background: colors.sun, borderRadius: 6,
+                  transition: reducedMotion ? 'none' : 'width 0.6s ease',
+                }} />
+              </div>
+              <div style={{ fontFamily: fonts.body, fontWeight: 600, fontSize: '.8rem', color: colors.ink, opacity: .7, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                {masteredCount} / {totalWordCount} words shining <IconStar size={12} color={colors.sun} />
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.95rem', color: T.muted, margin: '0 0 2rem', maxWidth: '260px' }}>
-        {encouragement}
+      <p style={{ fontFamily: fonts.body, fontWeight: 600, fontSize: '.95rem', color: 'rgba(255,255,255,.85)', margin: '0 0 1.75rem', maxWidth: 300 }}>
+        {effortLine}
       </p>
 
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
+          className="session-complete-btn"
           onClick={onPlayAgain}
           style={{
-            fontFamily: 'Space Grotesk',
-            fontSize: '1.1rem',
-            background: T.teal,
-            color: T.bg,
-            border: 'none',
-            borderRadius: '50px',
-            padding: '0.875rem 2rem',
-            cursor: 'pointer',
+            fontFamily: fonts.display, fontWeight: 700, fontSize: '1.05rem',
+            background: colors.mint, color: colors.ink,
+            border: 'none', borderRadius: 100, boxShadow: shadows.chunk,
+            padding: '0.9rem 2rem', minHeight: 48, cursor: 'pointer',
           }}
         >
-          Keep Going!
+          Keep going
         </button>
         <button
+          className="session-complete-btn"
           onClick={onHome}
           style={{
-            fontFamily: 'Space Grotesk',
-            fontSize: '1.1rem',
-            background: 'transparent',
-            color: T.white,
-            border: `2px solid ${T.border}`,
-            borderRadius: '50px',
-            padding: '0.875rem 2rem',
-            cursor: 'pointer',
+            fontFamily: fonts.display, fontWeight: 700, fontSize: '1.05rem',
+            background: colors.cloud, color: colors.ink,
+            border: 'none', borderRadius: 100, boxShadow: shadows.chunk,
+            padding: '0.9rem 2rem', minHeight: 48, cursor: 'pointer',
           }}
         >
           Home

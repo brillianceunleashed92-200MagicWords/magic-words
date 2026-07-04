@@ -51,7 +51,7 @@ const PATH_COMPLETE_SPARKS_BONUS = 25;
 
 export default function PlayScreen({ focusWord, onExit }) {
   const { user } = useAuth();
-  const { words, currentWord, unitsById, childId, activeChild, plan } = useCandyGalaxyData();
+  const { words, currentWord, unitsById, childId, activeChild, plan, masteredCount } = useCandyGalaxyData();
   const [gameType, setGameType] = useState(null);
   const [sessionResult, setSessionResult] = useState(null);
   const { speak } = useSpeak();
@@ -93,6 +93,20 @@ export default function PlayScreen({ focusWord, onExit }) {
   // closes that race without slowing down gameplay in between answers.
   const pendingLearningEventsRef = useRef([]);
 
+  // Session Complete redesign — tracks which words crossed the exact same
+  // mastery-celebration threshold (isRealMastery: mastery >= 80 AND
+  // attempt_count >= 3) during THIS session, so the recap's "now shining"
+  // chip highlight agrees with whenever the wordMastered celebration
+  // actually fired (same check, just also recorded here instead of only
+  // driving queueCelebration). Reset once consumed in handleSessionEnd.
+  const masteredThisSessionRef = useRef([]);
+  // Reused for the rewards row: GameEngine calls onXP (see handleXP) and
+  // onSessionEnd back to back in the same synchronous branch, so storing
+  // the values here as the very first (synchronous) line of handleXP
+  // guarantees they're populated before handleSessionEnd reads them —
+  // no need to change GameEngine's onXP/onSessionEnd contract.
+  const lastSessionRewardsRef = useRef({ xp: 0, sparks: 0 });
+
   async function handleProgress({ word, correct, responseTimeMs, gameType: playedGameType }) {
     const before = words.find((w) => w.word === word);
     const prevMastery = before?.mastery ?? 0;
@@ -115,6 +129,7 @@ export default function PlayScreen({ focusWord, onExit }) {
     const wasMasteredBefore = isRealMastery(prevMastery, before?.attemptCount);
     const isMasteredNow = isRealMastery(result.mastery, result.attempt_count);
     if (!wasMasteredBefore && isMasteredNow) {
+      masteredThisSessionRef.current.push(word);
       const wordData = before ?? { word };
       queueCelebration({ type: 'wordMastered', payload: { word: wordData.word } });
 
@@ -130,10 +145,11 @@ export default function PlayScreen({ focusWord, onExit }) {
   }
 
   async function handleXP(totalSessionXP) {
-    await saveXP.mutateAsync(totalSessionXP);
     // v1 Sparks formula: half of session XP, rounded — a simple, tunable
     // starting ratio (blueprint only specifies "earned on completions").
     const sparksEarned = Math.max(1, Math.round(totalSessionXP / 2));
+    lastSessionRewardsRef.current = { xp: totalSessionXP, sparks: sparksEarned };
+    await saveXP.mutateAsync(totalSessionXP);
     await earnSparks.mutateAsync(sparksEarned);
     return sparksEarned;
   }
@@ -173,7 +189,16 @@ export default function PlayScreen({ focusWord, onExit }) {
     pendingLearningEventsRef.current = [];
     await Promise.allSettled(pending);
 
-    setSessionResult({ wordsCorrect, totalWords, wordsPlayed: wordsPlayed ?? [] });
+    const masteredThisSession = masteredThisSessionRef.current;
+    masteredThisSessionRef.current = [];
+
+    setSessionResult({
+      wordsCorrect,
+      totalWords,
+      wordsPlayed: wordsPlayed ?? [],
+      masteredThisSession,
+      ...lastSessionRewardsRef.current,
+    });
     logSessionResult({ wordsCorrect, totalWords });
     const streakResult = await updateStreak.mutateAsync();
     if (STREAK_MILESTONES.includes(streakResult?.current_streak)) {
@@ -289,9 +314,13 @@ export default function PlayScreen({ focusWord, onExit }) {
       <SessionComplete
         correctCount={sessionResult.wordsCorrect}
         total={sessionResult.totalWords}
-        encouragement={sessionPlan?.encouragements?.[0]}
-        childName={activeChild?.name ?? 'Star Learner'}
+        childName={activeChild?.name}
         wordsPlayed={sessionResult.wordsPlayed}
+        masteredThisSession={sessionResult.masteredThisSession}
+        xpEarned={sessionResult.xp}
+        sparksEarned={sessionResult.sparks}
+        masteredCount={masteredCount}
+        totalWordCount={words.length}
         onPlayAgain={() => { setSessionResult(null); setGameType(null); }}
         onHome={onExit}
       />
