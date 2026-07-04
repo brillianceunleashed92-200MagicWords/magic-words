@@ -26,6 +26,9 @@ import MagicVideo from './MagicVideo';
 import StoryTimeActivity from './StoryTimeActivity';
 import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
+import { playCorrectChime, playIncorrectTone } from './soundEffects';
+import { getPromptText } from './promptText';
+import { useMuted } from '../lib/useMuted';
 import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
@@ -86,17 +89,8 @@ function warnMissingArt(context, word) {
   }
 }
 
-// Full-sentence TTS prompt for a quiz, tailored to the game type — used both to
-// warm the audio cache at session start and to play the live prompt in-game, so
-// the cached text key always matches what's actually spoken (no re-fetch delay).
-function getPromptText(quiz, gameType) {
-  if (!quiz) return null;
-  switch (gameType) {
-    case 'word_hunt':   return 'Which word matches this picture?';
-    case 'rhyme_time':  return `Which word rhymes with ${quiz.word}?`;
-    default:            return quiz.question ?? quiz.word;
-  }
-}
+// getPromptText moved to ./promptText.js (so activity components in other
+// files can import it without a circular import back into this file).
 
 // ─── Rhyme map for RhymeTime game ────────────────────────────────────────────
 export const RHYME_MAP = {
@@ -318,16 +312,36 @@ function ConfettiBurst({ active }) {
 }
 
 // ─── Progress bar — chunky segmented bar ─────────────────────────────────────
-function SessionProgress({ current, total, correctCount }) {
+function SessionProgress({ current, total, correctCount, onClose, muted, onToggleMute }) {
   return (
     <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', gap: 10 }}>
+        <button
+          onClick={onClose}
+          aria-label="Exit and save progress"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+          }}
+        >
+          <IconClose size={18} color={T.muted} />
+        </button>
+        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem', flex: 1 }}>
           Word {current} of {total}
         </span>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem' }}>
-          ⭐ {correctCount} correct
+        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IconStar size={16} color={T.gold} /> {correctCount} correct
         </span>
+        <button
+          onClick={onToggleMute}
+          aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+          }}
+        >
+          <IconSpeaker size={16} color={T.muted} muted={muted} />
+        </button>
       </div>
       <div style={{ display: 'flex', gap: '4px' }}>
         {Array.from({ length: total }, (_, i) => {
@@ -391,7 +405,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   }, [quiz?.word]);
 
   useEffect(() => {
-    const audioText = quiz?.question ?? quiz?.word;
+    const audioText = getPromptText(quiz, 'word_match');
     if (!audioText) return;
     let cancelled = false;
     setAudioUrl(null);
@@ -429,7 +443,7 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
     } else {
       setWrongTileIdx(idx);
       setMessage(`That's okay — it's "${quiz.word}"!`);
-      const url = audioCache.get(quiz.question ?? quiz.word);
+      const url = audioCache.get(getPromptText(quiz, 'word_match'));
       if (url) playAudio(url);
     }
     setTimeout(() => {
@@ -832,16 +846,16 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
   // and warm the next card's audio in the background so it's ready when the
   // child gets there.
   useEffect(() => {
-    const text = quiz?.question ?? quiz?.word;
+    const text = getPromptText(quiz, 'flash_cards');
     if (text) fetchAudio(text);
-    const nextText = nextQuiz?.question ?? nextQuiz?.word;
+    const nextText = getPromptText(nextQuiz, 'flash_cards');
     if (nextText) fetchAudio(nextText);
   }, [quiz?.word, nextQuiz?.word]);
 
   const handleReveal = () => {
     if (revealed) return;
     setRevealed(true);
-    const text = quiz?.question ?? quiz?.word;
+    const text = getPromptText(quiz, 'flash_cards');
     fetchAudio(text).then(url => { if (url) playAudio(url); });
   };
 
@@ -911,6 +925,12 @@ function StoryBuilder({ quiz, onAnswer }) {
     setNovaState('idle');
     setMessage('Tap a word to choose it');
     startRef.current = Date.now();
+  }, [quiz?.word]);
+
+  // Previously silent — every other activity now speaks a carrier prompt
+  // on mount, this one had none at all.
+  useEffect(() => {
+    fetchAudio(getPromptText(quiz, 'story_builder')).then(playAudio);
   }, [quiz?.word]);
 
   // quiz.sentence = "The ___ jumped over the puddle."
@@ -1477,6 +1497,7 @@ export function GameEngine({
   onProgress,
   onSessionEnd,
   onHome,
+  onExitEarly,
   onXP,
   userId,
   childId,
@@ -1488,14 +1509,23 @@ export function GameEngine({
     return () => { stopCurrentAudio(); };
   }, []);
 
+  const [muted, toggleMuted] = useMuted();
+
   const allQuizzes = sessionPlan?.quizzes ?? [];
   // Fall back to the unfiltered list only if filtering would leave nothing
   // to play (e.g. a session drawn entirely from function words) — an
   // empty session is a worse outcome than one non-ideal picture quiz.
   const pictureFiltered = allQuizzes.filter((q) => q.pictureEligible);
-  const quizzes = PICTURE_MATCH_GAME_TYPES.has(gameType)
+  const filteredQuizzes = PICTURE_MATCH_GAME_TYPES.has(gameType)
     ? (pictureFiltered.length > 0 ? pictureFiltered : allQuizzes)
     : allQuizzes;
+  // Story Time (mission A1): short, frequent sessions beat one long one —
+  // capped at 3 stories regardless of how many words the underlying
+  // session plan has, so the same "finish the session" pipeline every
+  // other activity uses (onXP/onSessionEnd firing once currentIdx reaches
+  // the end) naturally fires after the 3rd story instead of the 6-8 a
+  // normal session would otherwise run.
+  const quizzes = gameType === 'story_time' ? filteredQuizzes.slice(0, 3) : filteredQuizzes;
   const encouragements = sessionPlan?.encouragements ?? ['Great job!'];
 
   const [currentIdx,        setCurrentIdx]        = useState(0);
@@ -1530,7 +1560,7 @@ export function GameEngine({
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAnswer = useCallback(({ correct, responseTimeMs, firstTry = true }) => {
+  const handleAnswer = useCallback(async ({ correct, responseTimeMs, firstTry = true }) => {
     // XP calculation
     if (correct) {
       let xpEarned = 10;
@@ -1566,7 +1596,26 @@ export function GameEngine({
       attemptNumber: 1,
     });
 
+    const encouragement = encouragements[encouragIdx % encouragements.length];
     setEncouragIdx(i => i + 1);
+
+    // Sound choreography (mission B2): chime/tone, THEN (correct only)
+    // Nova's spoken encouragement, both awaited before advancing — so the
+    // next question's own auto-play (each activity's mount effect, see
+    // e.g. WordMatch) never starts until this sequence has actually
+    // finished. Everything here goes through either the oscillator
+    // Promise (soundEffects.js) or the shared TTS singleton
+    // (fetchAudio/playAudio), so nothing in the sequence can overlap.
+    if (correct) {
+      await playCorrectChime();
+      const url = await fetchAudio(encouragement);
+      if (url) {
+        playAudio(url);
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+      }
+    } else {
+      await playIncorrectTone();
+    }
 
     // WordMatch already waits 1400ms before calling onAnswer — advance immediately
     if (currentIdx + 1 >= totalQuizzes) {
@@ -1583,7 +1632,7 @@ export function GameEngine({
     } else {
       setCurrentIdx(i => i + 1);
     }
-  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP]);
+  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP, encouragements, encouragIdx]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
@@ -1595,6 +1644,30 @@ export function GameEngine({
     sessionStartRef.current = Date.now();
     sessionXPRef.current = 0;
   };
+
+  // Universal exit-that-saves (mission B3): every activity's close button
+  // routes here instead of calling onHome directly. Hands whatever
+  // progress has accumulated so far — correct count, words actually
+  // played this session, and XP earned (deliberately NOT the +20
+  // completion / +50 perfect bonuses handleAnswer's natural-end path
+  // adds, since the session didn't actually finish) — to PlayScreen's
+  // onExitEarly, which banks it through the same shared pipeline
+  // (learning_events already wrote per-question; this awards XP/Sparks,
+  // runs the same path-completion check onSessionEnd uses, and awaits
+  // every pending write) BEFORE navigating away. Does not call onHome
+  // itself — onExitEarly is responsible for navigating once its async
+  // banking work is done, so nothing can race ahead of an in-flight write.
+  const handleExitEarly = useCallback(async () => {
+    stopCurrentAudio();
+    if (!onExitEarly) { onHome?.(); return; }
+    await onExitEarly({
+      wordsCorrect: correctCount,
+      totalWords: totalQuizzes,
+      wordsPlayed,
+      partialXP: sessionXPRef.current,
+      gameType,
+    });
+  }, [onExitEarly, onHome, correctCount, totalQuizzes, wordsPlayed, gameType]);
 
   if (sessionDone) {
     return (
@@ -1656,8 +1729,8 @@ export function GameEngine({
         <div style={{ maxWidth: 780, margin: '0 auto', width: '100%', padding: '28px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button
-              onClick={onHome}
-              aria-label="Close lesson"
+              onClick={handleExitEarly}
+              aria-label="Exit and save progress"
               style={{
                 width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
@@ -1666,6 +1739,16 @@ export function GameEngine({
               <IconClose size={20} color={colors.cloud} />
             </button>
             <StarProgress current={currentIdx + 1} total={totalQuizzes} />
+            <button
+              onClick={() => toggleMuted(!muted)}
+              aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+              style={{
+                width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+              }}
+            >
+              <IconSpeaker size={18} color={colors.cloud} muted={muted} />
+            </button>
           </div>
         </div>
       ) : (
@@ -1673,6 +1756,9 @@ export function GameEngine({
           current={currentIdx + 1}
           total={totalQuizzes}
           correctCount={correctCount}
+          onClose={handleExitEarly}
+          muted={muted}
+          onToggleMute={() => toggleMuted(!muted)}
         />
       )}
 

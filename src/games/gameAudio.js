@@ -14,13 +14,43 @@ export const audioFetching = new Map(); // text → Promise (in-flight dedup)
 // audio stops cleanly when a game unmounts.
 let currentAudio = null;
 
+// Mute (mission B2 — "simple mute toggle for classroom/library use").
+// Persisted directly in localStorage rather than through a React
+// store/mutation, since it's a pure client-side UI preference with
+// nothing to sync server-side — a teacher/librarian mutes once and it
+// should stay muted across reloads. `playAudio` itself checks this (not
+// `fetchAudio` — still safe to warm the cache while muted, so un-muting
+// mid-session doesn't re-pay the fetch), and playCorrectChime/
+// playIncorrectTone in soundEffects.js check it too, so every sound this
+// app makes (TTS and synthesized effects alike) respects one switch.
+const MUTE_KEY = 'mw_muted';
+let muted = (() => {
+  try { return typeof localStorage !== 'undefined' && localStorage.getItem(MUTE_KEY) === '1'; }
+  catch { return false; }
+})();
+const muteListeners = new Set();
+
+export function isMuted() { return muted; }
+
+export function setMuted(value) {
+  muted = !!value;
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* ignore */ }
+  if (muted) stopCurrentAudio();
+  muteListeners.forEach((fn) => fn(muted));
+}
+
+export function subscribeMuted(fn) {
+  muteListeners.add(fn);
+  return () => muteListeners.delete(fn);
+}
+
 export function playAudio(url) {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
-  if (!url) return null;
+  if (!url || muted) return null;
   const audio = new Audio(url);
   currentAudio = audio;
   audio.play().catch(() => {});

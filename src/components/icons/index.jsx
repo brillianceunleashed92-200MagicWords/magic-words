@@ -19,11 +19,13 @@ export function IconClose({ size = 20, color = 'currentColor' }) {
   );
 }
 
-export function IconSpeaker({ size = 20, color = 'currentColor' }) {
+export function IconSpeaker({ size = 20, color = 'currentColor', muted = false }) {
   return (
     <svg {...base(size)}>
       <path d="M4 9v6h4l5 4V5L8 9H4z" fill={color} />
-      <path d="M16 8.5a5 5 0 010 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+      {muted
+        ? <path d="M15 8.5l5 7M20 8.5l-5 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+        : <path d="M16 8.5a5 5 0 010 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" />}
     </svg>
   );
 }

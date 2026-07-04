@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { T } from './gameTheme';
 import { playAudio, fetchAudio } from './gameAudio';
+import { getPromptText } from './promptText';
 import NovaMascot from '../design-system/primitives/NovaMascot';
 
 const PLAY_DURATION_MS = 4500;
@@ -16,7 +17,7 @@ export default function MagicVideo({ quiz, onAnswer }) {
 
   useEffect(() => {
     if (!playing) return;
-    fetchAudio(quiz.word).then(playAudio);
+    fetchAudio(getPromptText(quiz, 'magic_video')).then(playAudio);
     const t = setTimeout(() => {
       onAnswer({ correct: true, responseTimeMs: Date.now() - startTime, firstTry: true });
     }, PLAY_DURATION_MS);

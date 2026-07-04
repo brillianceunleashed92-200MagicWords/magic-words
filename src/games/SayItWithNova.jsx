@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { T } from './gameTheme';
 import { fetchAudio, playAudio } from './gameAudio';
+import { getPromptText } from './promptText';
 import { IconMic, IconStar } from '../components/icons';
 
 function normalize(text) {
@@ -35,6 +36,14 @@ export default function SayItWithNova({ quiz, onAnswer }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Previously this activity never said the word aloud before asking the
+  // child to repeat it — audio only played as a hint after a first miss.
+  // For a "verbal imitation" task, hearing the word first is the whole
+  // point (imitation requires a model to imitate).
+  useEffect(() => {
+    fetchAudio(getPromptText(quiz, 'say_it')).then(playAudio);
+  }, [quiz?.word]);
+
   function finish(correct) {
     if (doneRef.current) return;
     doneRef.current = true;
@@ -60,7 +69,7 @@ export default function SayItWithNova({ quiz, onAnswer }) {
       } else if (missCount === 0) {
         setMissCount(1);
         setStatus('wrong');
-        fetchAudio(quiz.word).then(playAudio);
+        fetchAudio(getPromptText(quiz, 'say_it')).then(playAudio);
       } else {
         setStatus('wrong');
         setTimeout(() => finish(false), 1200);

@@ -3,23 +3,44 @@ import { createPortal } from 'react-dom';
 import { colors, fonts, shadows, skyGradient } from '../../theme/tokens';
 import NovaPortrait from './NovaPortrait';
 import { useWordSpeak } from '../../lib/useWordSpeak';
+import { useKaraokeNarration } from './useKaraokeNarration';
+import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
+import { useSpeak } from '../../lib/useSpeak';
+import { IconSpeaker } from '../icons';
 
-// Shared full-screen storybook reader — one sentence per page, every word
-// tappable (speaks), target word glows, Nova reading-pose cover, ends with
-// an optional one-question comprehension check. Used by both the "Story
-// Time" MLC activity (a simple local fallback story, Step 2) and the real
-// AI Story Engine (Step 3) — same reading UI either way, only the story
-// content's source differs. `words` (optional — the full tracked-word
-// list with audio_url) lets tapped words play real ElevenLabs audio
-// instead of Web Speech synthesis; a story word with no match (e.g. the
-// child's own name) falls back to synthesis automatically.
+// Shared full-screen storybook reader — one sentence per page, read aloud
+// with karaoke-style word highlighting, every word also individually
+// tappable (speaks it again), target word glows, Nova reading-pose cover,
+// ends with an optional one-question comprehension check whose answers
+// stay locked until narration finishes. Used by both the "Story Time" MLC
+// activity (guided-path, capped at 3 stories per session — see
+// StoryTimeActivity.jsx) and the real AI Story Engine ("New Story
+// Friday") — same reading UI either way, only the story content's source
+// differs.
+//
+// `words` (optional — the full tracked-word list with audio_url) lets
+// tapped individual words play real ElevenLabs audio instead of Web
+// Speech synthesis; a story word with no match (e.g. the child's own
+// name) falls back to synthesis automatically. Full-sentence narration
+// (useKaraokeNarration) always goes through the shared TTS pipeline
+// (fetchAudio/playAudio), regardless of `words`.
 export default function StoryReader({ story, onComplete, words }) {
   const [page, setPage] = useState(-1); // -1 = cover
   const [answered, setAnswered] = useState(false);
   const { speakWord: speakTrackedWord } = useWordSpeak(words);
+  const { speak } = useSpeak();
+  const reducedMotion = usePrefersReducedMotion();
   const totalPages = story.sentences.length;
   const onLastPage = page === totalPages - 1;
   const hasQuestion = !!story.comprehensionQuestion;
+  const onQuestionPage = page === totalPages;
+
+  // Narrates the current sentence page, or the comprehension question's
+  // own prompt once the child reaches it — same hook either way, just a
+  // different source string. `enabled` keeps it from firing on the cover
+  // page (nothing to narrate yet).
+  const narrationText = onQuestionPage ? story.comprehensionQuestion?.question : story.sentences[page];
+  const { highlightedIndex, narrationDone, replay } = useKaraokeNarration(narrationText, page >= 0);
 
   function speakWord(word) {
     speakTrackedWord(word.replace(/[^a-zA-Z']/g, ''));
@@ -29,6 +50,7 @@ export default function StoryReader({ story, onComplete, words }) {
     return sentence.split(' ').map((word, i) => {
       const clean = word.replace(/[^a-zA-Z']/g, '');
       const isTarget = clean.toLowerCase() === story.targetWord.toLowerCase();
+      const isHighlighted = i === highlightedIndex;
       return (
         <span
           key={i}
@@ -38,6 +60,10 @@ export default function StoryReader({ story, onComplete, words }) {
             color: isTarget ? colors.tang : colors.ink,
             fontWeight: isTarget ? 800 : 500,
             textShadow: isTarget ? `0 0 12px ${colors.tang}55` : 'none',
+            background: isHighlighted ? `${colors.sun}66` : 'transparent',
+            borderRadius: 6,
+            padding: '1px 4px',
+            transition: reducedMotion ? 'none' : 'background 0.15s ease',
           }}
         >
           {word}
@@ -46,12 +72,29 @@ export default function StoryReader({ story, onComplete, words }) {
     });
   }
 
+  function handleChoiceTap(i) {
+    if (!narrationDone) {
+      speak("Let's read first!");
+      return;
+    }
+    setAnswered(true);
+    setTimeout(() => onComplete(i === story.comprehensionQuestion.correctIndex), 900);
+  }
+
   return createPortal(
     <div className="candy-galaxy" style={{ position: 'fixed', inset: 0, zIndex: 9990, background: skyGradient, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
       <div style={{ background: colors.cloud, borderRadius: 32, padding: '2rem', maxWidth: 420, width: '100%', minHeight: 320, boxShadow: shadows.chunkLg, textAlign: 'center' }}>
         {page === -1 && (
           <>
-            <NovaPortrait pose="read" size={140} style={{ margin: '0 auto 1rem' }} />
+            {story.artUrl ? (
+              <img
+                src={story.artUrl}
+                alt=""
+                style={{ width: 180, height: 180, objectFit: 'contain', margin: '0 auto 1rem', display: 'block' }}
+              />
+            ) : (
+              <NovaPortrait pose="read" size={140} style={{ margin: '0 auto 1rem' }} />
+            )}
             <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.ink, marginBottom: '1.5rem' }}>
               {story.title}
             </div>
@@ -72,31 +115,46 @@ export default function StoryReader({ story, onComplete, words }) {
             <div style={{ color: colors.mutedInk, fontSize: '.8rem', margin: '1rem 0' }}>
               Page {page + 1} of {totalPages}
             </div>
-            <button
-              onClick={() => {
-                if (onLastPage && !hasQuestion) onComplete();
-                else setPage((p) => p + 1);
-              }}
-              style={{
-                background: colors.sky, color: '#fff', border: 'none', borderRadius: 100,
-                padding: '0.75rem 1.75rem', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              {onLastPage && !hasQuestion ? 'Finish' : 'Next →'}
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button
+                onClick={replay}
+                aria-label="Read this page again"
+                style={{
+                  width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                  background: 'rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}
+              >
+                <IconSpeaker size={18} color={colors.mutedInk} />
+              </button>
+              <button
+                onClick={() => {
+                  if (onLastPage && !hasQuestion) onComplete();
+                  else setPage((p) => p + 1);
+                }}
+                style={{
+                  background: colors.sky, color: '#fff', border: 'none', borderRadius: 100,
+                  padding: '0.75rem 1.75rem', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {onLastPage && !hasQuestion ? 'Finish' : 'Next →'}
+              </button>
+            </div>
           </>
         )}
 
-        {page === totalPages && hasQuestion && !answered && (
+        {onQuestionPage && hasQuestion && !answered && (
           <>
             <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.15rem', color: colors.ink, marginBottom: '1.25rem' }}>
-              {story.comprehensionQuestion.question}
+              {renderSentence(story.comprehensionQuestion.question)}
             </div>
-            <div style={{ display: 'grid', gap: 10 }}>
+            {/* Errorless — choices are never hard-disabled (no punishment
+                state), just not-yet-active: tapping early gives a gentle
+                Nova nudge instead of answering (handleChoiceTap). */}
+            <div style={{ display: 'grid', gap: 10, opacity: narrationDone ? 1 : 0.55 }}>
               {story.comprehensionQuestion.choices.map((choice, i) => (
                 <button
                   key={choice}
-                  onClick={() => { setAnswered(true); setTimeout(() => onComplete(i === story.comprehensionQuestion.correctIndex), 900); }}
+                  onClick={() => handleChoiceTap(i)}
                   style={{
                     background: 'rgba(0,0,0,.05)', border: 'none', borderRadius: 16, padding: '0.85rem',
                     fontFamily: fonts.body, fontSize: '1rem', color: colors.ink, cursor: 'pointer',
@@ -106,6 +164,11 @@ export default function StoryReader({ story, onComplete, words }) {
                 </button>
               ))}
             </div>
+            {!narrationDone && (
+              <div style={{ fontFamily: fonts.body, fontSize: '.8rem', color: colors.mutedInk, marginTop: 10 }}>
+                Listening…
+              </div>
+            )}
           </>
         )}
 

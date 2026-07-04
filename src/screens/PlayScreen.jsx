@@ -138,6 +138,30 @@ export default function PlayScreen({ focusWord, onExit }) {
     return sparksEarned;
   }
 
+  // Shared by both the natural session-end path and the early-exit path
+  // (mission B3 requires exit to reuse the same completion mechanism, not
+  // exit-specific logic). Only treats `playedGameType` as "done for
+  // pathWord today" if pathWord was actually among the words answered
+  // this session — closes a gap the natural-completion path alone used
+  // to have (it assumed finishing *a* session for this gameType meant
+  // pathWord's own node was done, which holds in practice since the
+  // focus word is always reordered to the front of its own session, but
+  // wasn't a hard guarantee — an early exit specifically can end a
+  // session before pathWord was ever reached, so this can no longer be
+  // assumed either path).
+  async function checkAndFirePathComplete(wordsPlayedThisSession, playedGameType) {
+    if (!pathWord || eligibleActivities.length === 0) return;
+    const touchedPathWord = (wordsPlayedThisSession ?? []).some((w) => w.word === pathWord.word);
+    if (!touchedPathWord) return;
+
+    const wasAllDoneBefore = eligibleActivities.every((a) => todayActivitySummary.has(a.id));
+    const isAllDoneNow = eligibleActivities.every((a) => a.id === playedGameType || todayActivitySummary.has(a.id));
+    if (!wasAllDoneBefore && isAllDoneNow) {
+      await earnSparks.mutateAsync(PATH_COMPLETE_SPARKS_BONUS);
+      queueCelebration({ type: 'pathComplete', payload: { word: pathWord.word, sparksBonus: PATH_COMPLETE_SPARKS_BONUS } });
+    }
+  }
+
   async function handleSessionEnd({ wordsCorrect, totalWords, wordsPlayed }) {
     // Wait for every learning_events insert this session queued (see
     // handleProgress) before doing anything that reads that table or
@@ -156,22 +180,50 @@ export default function PlayScreen({ focusWord, onExit }) {
       queueCelebration({ type: 'streakMilestone', payload: { streak: streakResult.current_streak } });
     }
 
-    // Option B guided path reward — did finishing THIS activity complete
-    // every eligible activity for the focus word today? todayActivitySummary
-    // is from before this session started (closed over from render), so
-    // gameType is folded in directly rather than re-querying — but now
-    // that every insert from this session is confirmed landed (above),
-    // the invalidateQueries call below is safe to rely on for the guided
-    // path's own next read.
-    if (pathWord && eligibleActivities.length > 0) {
-      const wasAllDoneBefore = eligibleActivities.every((a) => todayActivitySummary.has(a.id));
-      const isAllDoneNow = eligibleActivities.every((a) => a.id === gameType || todayActivitySummary.has(a.id));
-      if (!wasAllDoneBefore && isAllDoneNow) {
-        await earnSparks.mutateAsync(PATH_COMPLETE_SPARKS_BONUS);
-        queueCelebration({ type: 'pathComplete', payload: { word: pathWord.word, sparksBonus: PATH_COMPLETE_SPARKS_BONUS } });
+    await checkAndFirePathComplete(wordsPlayed, gameType);
+    await queryClient.invalidateQueries({ queryKey: ['todayWordActivity', childId, pathWord?.word] });
+  }
+
+  // Universal exit-that-saves (mission B3) — called from GameEngine's
+  // close button on EVERY activity, mid-session. Banks whatever progress
+  // was earned so far through the exact same pipeline a natural session
+  // end uses (learning_events already wrote per-question via
+  // handleProgress; this awaits those writes, awards partial XP/Sparks,
+  // runs the same path-completion check, and invalidates the same query)
+  // — no exit-specific completion logic, and no navigation until all of
+  // that has actually finished, so an early exit can't reintroduce the
+  // fire-and-forget race Prompt 1 closed for the natural-completion path.
+  async function handleExitEarly({ wordsCorrect, totalWords, wordsPlayed, partialXP, gameType: exitedGameType }) {
+    const pending = pendingLearningEventsRef.current;
+    pendingLearningEventsRef.current = [];
+    await Promise.allSettled(pending);
+
+    // Only bank XP/Sparks/streak if the child actually answered something
+    // — an exit with zero progress shouldn't manufacture a reward.
+    // Deliberately no completion (+20) or perfect (+50) bonus here (see
+    // GameEngine's handleAnswer): those represent finishing a session,
+    // which didn't happen.
+    if (partialXP > 0) {
+      await saveXP.mutateAsync(partialXP);
+      const sparksEarned = Math.max(1, Math.round(partialXP / 2));
+      await earnSparks.mutateAsync(sparksEarned);
+      logSessionResult({ wordsCorrect, totalWords: (wordsPlayed ?? []).length || totalWords });
+      const streakResult = await updateStreak.mutateAsync();
+      if (STREAK_MILESTONES.includes(streakResult?.current_streak)) {
+        queueCelebration({ type: 'streakMilestone', payload: { streak: streakResult.current_streak } });
       }
     }
+
+    await checkAndFirePathComplete(wordsPlayed, exitedGameType);
     await queryClient.invalidateQueries({ queryKey: ['todayWordActivity', childId, pathWord?.word] });
+
+    // Defensive reset in case this PlayScreen instance somehow survives
+    // navigation (it shouldn't — CandyGalaxyShell unmounts it when navTab
+    // changes — but a stale gameType/sessionResult would otherwise jump
+    // straight back into a session instead of the guided path).
+    setGameType(null);
+    setSessionResult(null);
+    onExit();
   }
 
   // Soft time-limit lockout (blueprint 4.3 "Time controls" — parent-set
@@ -254,6 +306,7 @@ export default function PlayScreen({ focusWord, onExit }) {
       onProgress={handleProgress}
       onSessionEnd={handleSessionEnd}
       onHome={onExit}
+      onExitEarly={handleExitEarly}
       onXP={handleXP}
       userId={user?.id}
       childId={childId}

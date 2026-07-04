@@ -62,9 +62,14 @@ export default function WordBuilder({ quiz, onAnswer }) {
     }
   }
 
+  // Says the actual spelling target ("running"), not the base word
+  // ("run") — the audio previously named the base word while the tiles
+  // spelled the inflected form, a real word/task mismatch independent of
+  // the carrier-sentence rewrite (see src/games/promptText.js for the
+  // same "Can you spell X?" phrasing used elsewhere).
   useEffect(() => {
-    fetchAudio(quiz.word).then(playAudio);
-  }, [quiz.word]);
+    fetchAudio(`Can you spell "${target}"?`).then(playAudio);
+  }, [target]);
 
   function tapLetter(idx) {
     if (built.includes(idx)) return;

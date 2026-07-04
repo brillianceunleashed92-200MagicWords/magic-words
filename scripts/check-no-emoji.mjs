@@ -146,9 +146,19 @@ const EXCEPTIONS = new Set([
 // or 'spell_it_out', and GameTypeSelector/UpgradeModal are imported only
 // by the legacy App.jsx tree (mechanically verified above, since
 // GameEngine.jsx as a whole IS reachable — only these specific functions
-// within it are dead). SessionProgress (pre-E2 progress bar) is only
-// rendered for non-rebuilt activities, same reasoning.
-const GAME_ENGINE_EXEMPT_FUNCTIONS = ['SoundMatch', 'SpellItOut', 'GameTypeSelector', 'UpgradeModal', 'SessionProgress'];
+// within it are dead).
+//
+// SessionProgress was PREVIOUSLY exempted here as "only rendered for
+// non-rebuilt activities, same reasoning [dead]" — that was wrong. It's
+// the progress bar for draw_it/word_song/magic_video/story_time/say_it,
+// all five of which are real, live entries in PlayScreen.jsx's activity
+// list (confirmed directly, not assumed) — "not one of the 5 original
+// E2-rebuilt activities" does not mean "unreachable." This exemption
+// hid a real emoji (⭐) in a genuinely live component from every run of
+// this check until it was found and fixed (story-time-and-audio branch).
+// Removed from the exempt list rather than re-justified, since after the
+// fix there's nothing left to exempt.
+const GAME_ENGINE_EXEMPT_FUNCTIONS = ['SoundMatch', 'SpellItOut', 'GameTypeSelector', 'UpgradeModal'];
 const GAME_ENGINE_EXEMPT_CONSTS = ['GAME_TYPES', 'MLC_TYPES', 'PREMIUM_FEATURES'];
 
 // Real emoji ranges. Excludes U+2190-U+21FF (Arrows) — see header comment.
