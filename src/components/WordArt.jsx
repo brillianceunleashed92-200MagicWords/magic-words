@@ -662,6 +662,160 @@ function WhiteArt() { return <ColorBlob fill={c.colorWhite} outline={c.colorWhit
 function BrownArt() { return <ColorBlob fill={c.colorBrown} outline={c.colorBrownOutline} />; }
 function GrayArt() { return <ColorBlob fill={c.colorGray} outline={c.colorGrayOutline} />; }
 
+// ─── Unit 9 (Home & Travel) ─────────────────────────────────────────────
+// All plain objects, same object-drawing convention as Unit 1/7. Two
+// disambiguation notes (see depictability doc): car vs. bus separated by
+// proportion + window count (car = short, two windows; bus = long, four
+// evenly-spaced windows), not just size; chair vs. table separated by the
+// backrest (chair has one, table is a flat plane with none). clock omits
+// numerals entirely (hands + plain tick marks only) — the no-digits/no-
+// letterforms rule applied on principle, not just for Unit 10.
+
+function BedArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M18 90h84v14q0 4-4 4H22q-4 0-4-4z" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="18" y="66" width="84" height="26" rx="8" fill={colors.bubble} stroke="#B8285F" strokeWidth="4" />
+      <rect x="22" y="50" width="26" height="20" rx="8" fill="#fff" stroke="#B0B0B0" strokeWidth="3" />
+    </>
+  );
+}
+
+function ChairArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="38" y="24" width="44" height="50" rx="10" fill="#9B59B6" stroke="#6B3A80" strokeWidth="4" />
+      <rect x="30" y="74" width="60" height="14" rx="6" fill="#9B59B6" stroke="#6B3A80" strokeWidth="4" />
+      <rect x="34" y="88" width="8" height="22" rx="3" fill="#6B3A80" />
+      <rect x="78" y="88" width="8" height="22" rx="3" fill="#6B3A80" />
+    </>
+  );
+}
+
+function DoorArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="30" y="16" width="60" height="94" rx="8" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="4" />
+      <rect x="38" y="24" width="44" height="78" rx="6" fill={c.monkeyFill} stroke={c.monkeyOutline} strokeWidth="3" />
+      <circle cx="72" cy="66" r="5" fill={colors.sun} stroke="#B8890A" strokeWidth="2" />
+    </>
+  );
+}
+
+function HouseArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="30" y="60" width="60" height="48" fill={c.cowFill} stroke={c.cowOutline} strokeWidth="4" />
+      <path d="M22 62l38-36l38 36z" fill="#E8453C" stroke="#A82E26" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="52" y="78" width="16" height="30" fill={c.bookFill} stroke={c.bookOutline} strokeWidth="3" />
+      <rect x="36" y="70" width="14" height="14" rx="2" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+    </>
+  );
+}
+
+function CarArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M14 82q0-10 10-10h8q4-16 20-16h16q16 0 20 16h8q10 0 10 10v10q0 4-4 4H18q-4 0-4-4z" fill="#E8453C" stroke="#A82E26" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M36 72q4-10 14-10h8q10 0 14 10z" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <circle cx="36" cy="96" r="10" fill="#2B2B2B" stroke="#000" strokeWidth="3" />
+      <circle cx="84" cy="96" r="10" fill="#2B2B2B" stroke="#000" strokeWidth="3" />
+      <circle cx="36" cy="96" r="4" fill="#9CA3AF" />
+      <circle cx="84" cy="96" r="4" fill="#9CA3AF" />
+    </>
+  );
+}
+
+function BusArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="10" y="42" width="100" height="46" rx="8" fill={colors.sun} stroke="#B8890A" strokeWidth="4" />
+      <rect x="18" y="50" width="16" height="16" rx="3" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <rect x="40" y="50" width="16" height="16" rx="3" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <rect x="62" y="50" width="16" height="16" rx="3" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <rect x="84" y="50" width="16" height="16" rx="3" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <circle cx="32" cy="92" r="10" fill="#2B2B2B" stroke="#000" strokeWidth="3" />
+      <circle cx="88" cy="92" r="10" fill="#2B2B2B" stroke="#000" strokeWidth="3" />
+    </>
+  );
+}
+
+function HatArt() {
+  return (
+    <>
+      <GroundShadow />
+      <ellipse cx="60" cy="78" rx="44" ry="10" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="4" />
+      <path d="M38 78q-4-34 22-34t22 34z" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="38" y="66" width="44" height="8" fill="#E8453C" />
+    </>
+  );
+}
+
+function ShoeArt() {
+  return (
+    <>
+      <GroundShadow />
+      <path d="M18 90q0-4 4-4h14V64q0-8 8-8h20q6 0 8 6l6 14h20q8 0 8 8v6q0 4-4 4H22q-4 0-4-4z" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="4" strokeLinejoin="round" />
+      <rect x="18" y="86" width="84" height="10" rx="5" fill="#fff" stroke="#B0B0B0" strokeWidth="3" />
+    </>
+  );
+}
+
+function PhoneArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="38" y="14" width="44" height="92" rx="12" fill="#2B2B2B" stroke="#000" strokeWidth="4" />
+      <rect x="44" y="24" width="32" height="66" rx="4" fill={c.birdFill} stroke={c.birdOutline} strokeWidth="2.5" />
+      <circle cx="60" cy="98" r="4" fill="#9CA3AF" />
+    </>
+  );
+}
+
+function LightArt() {
+  return (
+    <>
+      <path d="M40 30q-10-2-14 6M80 30q10-2 14 6M60 10v-8" stroke={colors.sun} strokeWidth="4" strokeLinecap="round" opacity=".7" />
+      <path d="M60 20a26 26 0 0116 46q-4 4-4 10h-24q0-6-4-10a26 26 0 0116-46z" fill={colors.sun} stroke="#B8890A" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="48" y="76" width="24" height="12" rx="2" fill="#9CA3AF" stroke="#6B7280" strokeWidth="2.5" />
+      <path d="M48 88h24M50 94h20" stroke="#6B7280" strokeWidth="2.5" />
+    </>
+  );
+}
+
+function ClockArt() {
+  return (
+    <>
+      <GroundShadow />
+      <circle cx="60" cy="60" r="42" fill="#fff" stroke="#8B84BD" strokeWidth="4" />
+      <circle cx="60" cy="24" r="3" fill="#8B84BD" />
+      <circle cx="96" cy="60" r="3" fill="#8B84BD" />
+      <circle cx="60" cy="96" r="3" fill="#8B84BD" />
+      <circle cx="24" cy="60" r="3" fill="#8B84BD" />
+      <path d="M60 60V32" stroke={colors.ink} strokeWidth="4" strokeLinecap="round" />
+      <path d="M60 60l18 10" stroke={colors.ink} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="60" cy="60" r="4" fill={colors.ink} />
+    </>
+  );
+}
+
+function TableArt() {
+  return (
+    <>
+      <GroundShadow />
+      <rect x="20" y="50" width="80" height="12" rx="4" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="4" />
+      <rect x="26" y="62" width="8" height="34" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="3" />
+      <rect x="86" y="62" width="8" height="34" fill="#8B5A2B" stroke="#5C3A1A" strokeWidth="3" />
+    </>
+  );
+}
+
 // Shared "Buddy" figure for action/adjective words.
 function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   return (
@@ -1040,6 +1194,19 @@ const REGISTRY = {
   white: WhiteArt,
   brown: BrownArt,
   gray: GrayArt,
+  // wordart-batch-2, Unit 9
+  bed: BedArt,
+  chair: ChairArt,
+  door: DoorArt,
+  house: HouseArt,
+  car: CarArt,
+  bus: BusArt,
+  hat: HatArt,
+  shoe: ShoeArt,
+  phone: PhoneArt,
+  light: LightArt,
+  clock: ClockArt,
+  table: TableArt,
 };
 
 // Deterministic candy-color pick for the typographic tile, so a given word
