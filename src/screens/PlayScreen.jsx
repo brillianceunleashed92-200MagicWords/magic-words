@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { colors, fonts, skyGradient } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabaseClient';
@@ -23,7 +23,25 @@ import { useQueryClient } from '@tanstack/react-query';
 import { IconSpark, IconArrow } from '../components/icons';
 
 const MASTERED_THRESHOLD = 80;
+// A brand-new word's very first correct answer computes to 100% mastery
+// under the cumulative-accuracy formula (correct_count/attempt_count —
+// 1/1 = 100%), so gating the star-ignition celebration on raw mastery
+// crossing 80% alone fires on nearly every answer during initial
+// vocabulary learning (confirmed live: 5/5 fresh words each triggered the
+// celebration on their first correct tap; a word with real attempt
+// history that stayed below threshold correctly did not re-fire — the
+// transition check itself is sound, the mastery value it reads just isn't
+// meaningful yet at attempt_count 1). Requiring a minimum attempt count
+// before "mastered" counts for celebration purposes directly addresses
+// "one tap ≠ mastery" without touching the stored mastery formula itself
+// (other systems — Parent dashboard, Word Galaxy, unit-lock checks — read
+// that value and are out of scope here).
+const MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION = 3;
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
+
+function isRealMastery(mastery, attemptCount) {
+  return mastery >= MASTERED_THRESHOLD && (attemptCount ?? 0) >= MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION;
+}
 // Fixed bonus for finishing every eligible activity in a word's guided
 // path for the day — comfortably under earn_sparks' 500/call cap
 // (migration 0015), clearly bigger than a typical single-session award
@@ -64,15 +82,26 @@ export default function PlayScreen({ focusWord, onExit }) {
   const todayActivityQ = useTodayWordActivityQuery(childId, pathWord?.word);
   const todayActivitySummary = summarizeTodayActivity(todayActivityQ.data ?? []);
 
+  // learning_events writes are deliberately fire-and-forget within a
+  // session (a slow/failed log write must never stall the child's next
+  // question — see the insert below). But the guided path's completion
+  // check reads that same table moments later, right after the *last*
+  // question's write fires, so without this the read can race ahead of
+  // the write — especially for the very last question, whose insert has
+  // the least time to land before handleSessionEnd runs. Tracking each
+  // insert's promise here and awaiting them all in handleSessionEnd
+  // closes that race without slowing down gameplay in between answers.
+  const pendingLearningEventsRef = useRef([]);
+
   async function handleProgress({ word, correct, responseTimeMs, gameType: playedGameType }) {
     const before = words.find((w) => w.word === word);
     const prevMastery = before?.mastery ?? 0;
     const result = await saveWordProgress.mutateAsync({ word, correct });
 
-    // Fire-and-forget — feeds the parent portal's "minutes this week" stat
-    // (blueprint 4.1). Not awaited: a logging failure shouldn't affect the
-    // child's session in any way.
-    supabase.from('learning_events').insert({
+    // Fire-and-forget with respect to gameplay pacing (not awaited here —
+    // the child's next question is never blocked on this), but tracked so
+    // handleSessionEnd can wait for it before trusting a subsequent read.
+    const insertPromise = supabase.from('learning_events').insert({
       user_id: user?.id,
       child_id: childId,
       word,
@@ -81,8 +110,11 @@ export default function PlayScreen({ focusWord, onExit }) {
       response_time_ms: responseTimeMs ?? null,
       attempt_number: 1,
     }).then(({ error }) => { if (error) console.error('[learning_events]', error.message); });
+    pendingLearningEventsRef.current.push(insertPromise);
 
-    if (prevMastery < MASTERED_THRESHOLD && result.mastery >= MASTERED_THRESHOLD) {
+    const wasMasteredBefore = isRealMastery(prevMastery, before?.attemptCount);
+    const isMasteredNow = isRealMastery(result.mastery, result.attempt_count);
+    if (!wasMasteredBefore && isMasteredNow) {
       const wordData = before ?? { word };
       queueCelebration({ type: 'wordMastered', payload: { word: wordData.word } });
 
@@ -90,7 +122,7 @@ export default function PlayScreen({ focusWord, onExit }) {
       if (unit != null) {
         const unitWords = unitsById.get(unit) ?? [];
         const unitNowComplete = unitWords.length > 0 && unitWords.every((w) =>
-          w.word === word ? true : w.mastery >= MASTERED_THRESHOLD
+          w.word === word ? isMasteredNow : isRealMastery(w.mastery, w.attemptCount)
         );
         if (unitNowComplete) queueCelebration({ type: 'unitBoss', payload: { unit } });
       }
@@ -107,6 +139,16 @@ export default function PlayScreen({ focusWord, onExit }) {
   }
 
   async function handleSessionEnd({ wordsCorrect, totalWords, wordsPlayed }) {
+    // Wait for every learning_events insert this session queued (see
+    // handleProgress) before doing anything that reads that table or
+    // hands off to a screen that will — otherwise the completion check
+    // just below, and the guided path's own re-fetch after navigating
+    // back, can race ahead of the *last* question's write, which is the
+    // one with the least time to land before this function runs.
+    const pending = pendingLearningEventsRef.current;
+    pendingLearningEventsRef.current = [];
+    await Promise.allSettled(pending);
+
     setSessionResult({ wordsCorrect, totalWords, wordsPlayed: wordsPlayed ?? [] });
     logSessionResult({ wordsCorrect, totalWords });
     const streakResult = await updateStreak.mutateAsync();
@@ -115,12 +157,12 @@ export default function PlayScreen({ focusWord, onExit }) {
     }
 
     // Option B guided path reward — did finishing THIS activity complete
-    // every eligible activity for the focus word today? Checked against
-    // todayActivitySummary from before this session started (closed over
-    // from render) with gameType folded in directly, rather than
-    // re-querying learning_events — that insert is fire-and-forget (see
-    // handleProgress) and its last row may not have landed yet, but we
-    // already know for certain gameType just finished.
+    // every eligible activity for the focus word today? todayActivitySummary
+    // is from before this session started (closed over from render), so
+    // gameType is folded in directly rather than re-querying — but now
+    // that every insert from this session is confirmed landed (above),
+    // the invalidateQueries call below is safe to rely on for the guided
+    // path's own next read.
     if (pathWord && eligibleActivities.length > 0) {
       const wasAllDoneBefore = eligibleActivities.every((a) => todayActivitySummary.has(a.id));
       const isAllDoneNow = eligibleActivities.every((a) => a.id === gameType || todayActivitySummary.has(a.id));
@@ -129,7 +171,7 @@ export default function PlayScreen({ focusWord, onExit }) {
         queueCelebration({ type: 'pathComplete', payload: { word: pathWord.word, sparksBonus: PATH_COMPLETE_SPARKS_BONUS } });
       }
     }
-    queryClient.invalidateQueries({ queryKey: ['todayWordActivity', childId, pathWord?.word] });
+    await queryClient.invalidateQueries({ queryKey: ['todayWordActivity', childId, pathWord?.word] });
   }
 
   // Soft time-limit lockout (blueprint 4.3 "Time controls" — parent-set
