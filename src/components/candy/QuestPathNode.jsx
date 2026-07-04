@@ -27,8 +27,13 @@ export default function QuestPathNode({ activity, state, stars = 0, onTap, speak
     <motion.button
       onClick={() => { speak?.(isLocked ? "Let's finish this one first!" : label); onTap?.(); }}
       whileTap={isLocked ? {} : { y: 4 }}
+      // A few gentle pulses to draw the eye to the current step, then settle
+      // — an infinite pulse both reads as visually noisy for a focus-
+      // sensitive young audience and never lets the element come to rest
+      // (real accessibility/testability cost: a continuously-animating
+      // element never becomes a stable tap target).
       animate={isCurrent && !reducedMotion ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-      transition={isCurrent && !reducedMotion ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : {}}
+      transition={isCurrent && !reducedMotion ? { duration: 1.6, repeat: 2, ease: 'easeInOut' } : {}}
       style={{
         minHeight: touchTarget,
         width: '100%',

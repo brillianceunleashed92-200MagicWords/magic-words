@@ -49,6 +49,22 @@ test.afterAll(async () => {
 // anywhere in its text content, and records (with a screenshot) any
 // failures found rather than failing on the first one, so a single run
 // surfaces every violation instead of stopping at the first screen.
+// Celebration overlays (wordMastered/questComplete/unitBoss/
+// streakMilestone/pathComplete) are real, intentional full-screen
+// takeovers, drained one at a time from a queue — a single session can
+// queue more than one (e.g. mastering several words plus a completed
+// guided path). Not a bug to work around: the test needs to dismiss all
+// of them like a real user would ("Tap to continue") before clicking
+// anything underneath. No-ops once no celebration remains.
+async function dismissAllCelebrations(page) {
+  const tapToContinue = page.getByText("Tap to continue");
+  for (let i = 0; i < 10; i++) {
+    if (!(await tapToContinue.isVisible().catch(() => false))) return;
+    await tapToContinue.click().catch(() => {});
+    await page.waitForTimeout(400);
+  }
+}
+
 async function assertNoEmojiInDom(page, screenLabel) {
   const text = await page.evaluate(() => document.body.innerText);
   const matches = [...text.matchAll(EMOJI_PATTERN)];
@@ -61,6 +77,10 @@ async function assertNoEmojiInDom(page, screenLabel) {
 
 test("live quiz flow: no emoji in DOM, no image 404s, across the full session", async ({ page }) => {
   test.skip(!confirmedUser?.id, "requires SUPABASE_SERVICE_ROLE_KEY to provision a confirmed test account");
+  // Bumped from the 30s default: dismissing celebrations (now checked every
+  // round, since a word can master mid-session) adds real time across 8
+  // rounds, on top of the existing 1600ms-per-round advance delay.
+  test.setTimeout(60000);
 
   page.on("response", (res) => {
     const req = res.request();
@@ -96,6 +116,11 @@ test("live quiz flow: no emoji in DOM, no image 404s, across the full session", 
   // actually completes and the "Tap the picture of X" text changes (or
   // Session Complete appears).
   for (let round = 0; round < 8; round++) {
+    // A word can cross the mastery threshold mid-session (queued the
+    // instant that question is answered, not just at session end), so a
+    // celebration overlay can appear between rounds too, not just after
+    // the whole session finishes.
+    await dismissAllCelebrations(page);
     const stillPlaying = await page.locator("text=/^Tap the picture of/").isVisible().catch(() => false);
     if (!stillPlaying) break;
     await assertNoEmojiInDom(page, `quiz-round-${round}`);
@@ -109,8 +134,10 @@ test("live quiz flow: no emoji in DOM, no image 404s, across the full session", 
 
   await expect(page.getByText("Session Complete!")).toBeVisible({ timeout: 10000 });
   await assertNoEmojiInDom(page, "session-complete");
+  await dismissAllCelebrations(page);
 
   await page.getByRole("button", { name: "Home" }).click();
+  await dismissAllCelebrations(page);
   await page.getByRole("button", { name: /Galaxy/ }).click();
   await expect(page.getByText("Your Galaxy")).toBeVisible();
   await assertNoEmojiInDom(page, "galaxy");
