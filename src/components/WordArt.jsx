@@ -376,6 +376,102 @@ function BeeArt() {
   );
 }
 
+// ─── Unit 6 (Family: baby, boy, girl, man, woman) ──────────────────────────
+// Person figures share the same head fill/outline as Buddy below (keeps
+// them visually part of the same "cast") with plain, non-gender-coded
+// clothing (reused bookFill/bookOutline hue) and neutral dark hair (reused
+// antFill/antOutline) — the only differentiators are body size/proportion
+// (child vs. adult) and hairstyle silhouette (short = boy/man, long =
+// girl/woman), never clothing color or skin tone. mom/dad/friend are
+// deliberately not drawn (see docs/wordart-batch-2-depictability.md) —
+// each would be pixel-identical to woman/man/either-of-these with no
+// independent visual signal, a real answer-leak risk, not a missed
+// opportunity.
+const PERSON_CLOTHES = c.bookFill;
+const PERSON_CLOTHES_DEEP = c.bookOutline;
+const HAIR = c.antFill;
+const HAIR_DEEP = c.antOutline;
+
+function BabyArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={104} rx={26} ry={6} />
+      <ellipse cx="60" cy="90" rx="28" ry="22" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="4" />
+      <circle cx="60" cy="52" r="30" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <path d="M42 40q18-12 36 0" fill="none" stroke={HAIR_DEEP} strokeWidth="5" strokeLinecap="round" />
+      <Eye cx={48} cy={50} r={6.5} /><Eye cx={72} cy={50} r={6.5} />
+      <Blush cx={38} cy={60} /><Blush cx={82} cy={60} />
+      {/* pacifier — unambiguous baby cue */}
+      <ellipse cx="60" cy="66" rx="8" ry="6" fill="#fff" stroke={PERSON_CLOTHES_DEEP} strokeWidth="2.5" />
+      <circle cx="60" cy="66" r="3" fill={PERSON_CLOTHES} />
+    </>
+  );
+}
+
+function BoyArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={112} rx={24} ry={6} />
+      <rect x="44" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="64" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="34" y="62" width="52" height="34" rx="17" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="4" />
+      <circle cx="60" cy="46" r="26" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <path d="M36 44q0-24 24-24t24 24q-10-10-24-10t-24 10z" fill={HAIR} stroke={HAIR_DEEP} strokeWidth="3" strokeLinejoin="round" />
+      <Eye cx={50} cy={48} /><Eye cx={70} cy={48} />
+      <path d="M50 60q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+      <Blush cx={40} cy={56} /><Blush cx={80} cy={56} />
+    </>
+  );
+}
+
+function GirlArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={112} rx={24} ry={6} />
+      <rect x="44" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="64" y="86" width="12" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="34" y="62" width="52" height="34" rx="17" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="4" />
+      <path d="M60 18a28 28 0 00-28 28v22q0 5 5 5l2-16a28 28 0 0142 0l2 16q5 0 5-5v-22a28 28 0 00-28-28z" fill={HAIR} stroke={HAIR_DEEP} strokeWidth="3" strokeLinejoin="round" />
+      <circle cx="60" cy="46" r="26" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <Eye cx={50} cy={48} /><Eye cx={70} cy={48} />
+      <path d="M50 60q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+      <Blush cx={40} cy={56} /><Blush cx={80} cy={56} />
+    </>
+  );
+}
+
+function ManArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={114} rx={28} ry={6} />
+      <rect x="40" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="66" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="28" y="60" width="64" height="38" rx="19" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="4" />
+      <circle cx="60" cy="40" r="28" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <path d="M32 38q0-26 28-26t28 26q-12-11-28-11t-28 11z" fill={HAIR} stroke={HAIR_DEEP} strokeWidth="3" strokeLinejoin="round" />
+      <Eye cx={49} cy={42} /><Eye cx={71} cy={42} />
+      <path d="M48 54q12 6 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+      <Blush cx={37} cy={50} /><Blush cx={83} cy={50} />
+    </>
+  );
+}
+
+function WomanArt() {
+  return (
+    <>
+      <GroundShadow cx={60} cy={114} rx={28} ry={6} />
+      <rect x="40" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="66" y="90" width="14" height="26" rx="6" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="3.5" />
+      <rect x="28" y="60" width="64" height="38" rx="19" fill={PERSON_CLOTHES} stroke={PERSON_CLOTHES_DEEP} strokeWidth="4" />
+      <path d="M60 10a30 30 0 00-30 30v24q0 5 5 5l2-17a30 30 0 0146 0l2 17q5 0 5-5v-24a30 30 0 00-30-30z" fill={HAIR} stroke={HAIR_DEEP} strokeWidth="3" strokeLinejoin="round" />
+      <circle cx="60" cy="40" r="28" fill={c.buddyFill} stroke={c.buddyOutline} strokeWidth="4" />
+      <Eye cx={49} cy={42} /><Eye cx={71} cy={42} />
+      <path d="M48 54q12 6 24 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+      <Blush cx={37} cy={50} /><Blush cx={83} cy={50} />
+    </>
+  );
+}
+
 // Shared "Buddy" figure for action/adjective words.
 function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   return (
@@ -723,6 +819,12 @@ const REGISTRY = {
   shark: SharkArt,
   ant: AntArt,
   bee: BeeArt,
+  // wordart-batch-2, Unit 6
+  baby: BabyArt,
+  boy: BoyArt,
+  girl: GirlArt,
+  man: ManArt,
+  woman: WomanArt,
 };
 
 // Deterministic candy-color pick for the typographic tile, so a given word
