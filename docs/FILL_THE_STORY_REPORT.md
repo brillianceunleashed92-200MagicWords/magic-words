@@ -227,7 +227,70 @@ DONE (investigation + verdict; no deletion — see reasoning below).
   prompt's instruction.
 
 ## VERIFICATION — live checks, overlap-probe result, new Playwright spec, gates
-IN PROGRESS
+DONE, all green. Every check below was driven live via Playwright against either local dev
+(client-fallback path — `/api/session-generator` isn't served by Vite locally, known gap) or the
+pushed branch's Vercel preview deployment (real server path). Fresh accounts/children seeded via
+direct REST calls with `SUPABASE_SERVICE_ROLE_KEY` for each check, deleted after (finally-blocks in
+committed specs; manual scratch accounts also cleaned up via `admin-user.mjs delete`).
+
+- **Verb target with art ("eat", local client-fallback + preview server path)**: Nova-subject
+  sentence ("Watch Nova ___!") renders with eat's WordArt as the pre-answer cue; single tap on the
+  matching chip places it; chime → read-back → §6 celebration (mint glow, Nova correct pose, star
+  segment ignite, advance) all fired in sequence, screenshotted at each stage.
+- **Noun target with art ("frog")**: unchanged noun template (`'I see a ___.'`-family, untouched
+  by this pass) + frog's WordArt as cue, same flow, same distractor-type-matching (pig/horse/cow —
+  all nouns).
+- **No-art target ("play") and function word ("the")**: confirmed live, no cue box rendered for
+  either (matches baseline for these), layout clean, options all same word_type (verbs for `play`;
+  `you`/`this`/`can`/`the` for the function word), flow completes normally.
+- **Errorless**: deliberately missed first on a verb question — wrong chip wiggled+softened, no
+  red/X, correct chip got the persistent mint hint-glow, message read "Not quite — try the glowing
+  one!", no answer was scored yet (no XP toast); second tap on the correct chip completed normally
+  and awarded XP. Verified on both the noun and verb cases via the same live sessions above.
+- **Distractors**: across the ~14 questions played through this pass (multiple sessions/word
+  types), every option set was 100% same-`word_type` as its target, exactly one option ever matched
+  the cue/answer, and no confusable pair (per `CONFUSABLE_PAIRS`) co-occurred — consistent with
+  today's curriculum being internally homogeneous by unit/type (see DISTRACTORS section above).
+- **Server/client parity**: confirmed by direct source comparison (both `CONTENT_TEMPLATES.verb`
+  and `FALLBACK_VERB_TEMPLATES` are the same 4 strings) AND live — the preview deployment's real
+  `/api/session-generator` rendered the same Nova-subject strings the local client fallback did
+  (`bodyText` matched `/Watch Nova|Nova can|Nova likes to|See Nova/` and never contained the old
+  generic `'I know the word'` string on the preview run).
+- **prefers-reduced-motion**: emulated via Playwright's `page.emulateMedia({reducedMotion:
+  'reduce'})` — full session (cue → tap → placement → celebration → XP award) completed
+  identically with animations suppressed.
+- **Whole screen**: every state (question, first-miss, placed, celebration) screenshotted
+  full-page across all four word-type scenarios — no layout breakage, no stray/leftover reveal box,
+  chrome (star progress, close button, speaker button) intact throughout.
+- **Overlap probe**: instrumented `HTMLMediaElement.prototype.play` on the preview deployment and
+  drove a full correct-answer sequence — zero audio-element `play()` calls were logged at all,
+  meaning `/api/speak` (ElevenLabs) isn't fully configured on this Vercel *preview* environment
+  (a known gap for preview envs generally, not something this pass caused) — confirmed the code
+  degrades gracefully (the read-back promise resolves immediately when `fetchAudio` returns null,
+  exactly as coded) rather than hanging. The real overlap probe — confirming the singleton's
+  "only one clip at a time" guarantee holds under this activity's new chime→read-back sequencing
+  with real ElevenLabs audio — is re-run against production in PRODUCTION VERIFICATION below,
+  where secrets are actually present.
+- **New Playwright spec**: added `tests/fill-the-story.spec.js` (2 tests, each provisioning its
+  own isolated account+child — a shared fixture would make one test's mutations leak into the
+  other's assertions, learned by hitting exactly that failure while drafting this): tap-to-place
+  happy path with the picture cue, and first-miss-errorless-then-completes. Full suite is now
+  6/6 (was 4/4).
+  - **Found and fixed a real test-infra trap while adding this**: running the full suite with the
+    default multi-worker parallelism intermittently stalled (workers idle, one test never
+    completing) — root cause was concurrent Supabase test-account provisioning across parallel
+    workers contending/slowing down, not a bug in the app or the new tests (each new test passed
+    cleanly standalone, and the full suite passed cleanly at `--workers=1`). Not a config change
+    checked in (didn't want to slow down unrelated future runs) — noting it here since it's a real
+    trap the next person adding Playwright coverage will hit if their spec also provisions Supabase
+    accounts.
+- **Gates**: `npm run build` ✅, `npm run check:no-emoji` ✅, `npm run check:wordart-sync` ✅,
+  full Playwright suite ✅ (6/6 at `--workers=1`), `scripts/idor-proof.mjs` — mandatory re-run
+  since `session-generator.js` changed: local run (no `DEPLOY_BASE_URL`) 6/6 (3 skipped, deploy-only
+  checks), full run against the pushed branch's Vercel preview
+  (`DEPLOY_BASE_URL=https://magic-words-6svp0ca2u-brillianceunleashed92-6054s-projects.vercel.app`)
+  **9/9, ALL CHECKS PASSED** — including the `session-generator: A cannot generate a session plan
+  for B's child (403)` check that specifically covers this pass's changes.
 
 ## PRODUCTION VERIFICATION — push/deploy confirmation, live walk results
 IN PROGRESS
