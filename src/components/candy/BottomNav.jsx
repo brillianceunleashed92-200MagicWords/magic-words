@@ -9,7 +9,18 @@ const TABS = [
 ];
 
 // Bottom pill nav (mockup D `.nav`) — 64px minimum touch targets.
-export default function BottomNav({ active, onSelect, speak }) {
+//
+// `childInitial` (audio-consolidation Bug 4 — account affordance): there
+// was no visible "you're logged in" indicator anywhere, and no
+// discoverable logout path. A working sign-out already existed
+// (SettingsTab.jsx's "Sign out", behind the Grown-Ups hold+math gate —
+// nothing to build there), so the actual gap was purely the missing
+// indicator. Reusing the existing Grown-ups tab as the entry point
+// (per the mission's own suggested option) rather than adding a second,
+// redundant tap target that leads to the exact same place — a small
+// badge showing the active child's first initial rides on this tab's
+// icon instead of introducing new kid-facing chrome.
+export default function BottomNav({ active, onSelect, speak, childInitial }) {
   return (
     <nav
       style={{
@@ -51,9 +62,25 @@ export default function BottomNav({ active, onSelect, speak }) {
               borderRadius: 100,
               boxShadow: isActive ? '0 4px 0 rgba(0,0,0,.15)' : 'none',
               cursor: 'pointer',
+              position: 'relative',
             }}
           >
             <tab.Icon size={20} color={isActive ? '#fff' : colors.mutedInkLight} />
+            {tab.id === 'grownups' && childInitial && (
+              <span
+                aria-label={`Logged in as ${childInitial}`}
+                style={{
+                  position: 'absolute', top: 2, right: 6,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: colors.sun, color: colors.ink,
+                  fontFamily: fonts.display, fontWeight: 800, fontSize: '.6rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: `1.5px solid ${colors.cloud}`,
+                }}
+              >
+                {childInitial}
+              </span>
+            )}
             {tab.label}
           </button>
         );

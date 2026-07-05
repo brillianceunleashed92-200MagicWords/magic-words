@@ -1717,23 +1717,24 @@ export function GameEngine({
       attemptNumber: 1,
     });
 
-    const encouragement = encouragements[encouragIdx % encouragements.length];
     setEncouragIdx(i => i + 1);
 
-    // Sound choreography (mission B2): chime/tone, THEN (correct only)
-    // Nova's spoken encouragement, both awaited before advancing — so the
-    // next question's own auto-play (each activity's mount effect, see
-    // e.g. WordMatch) never starts until this sequence has actually
-    // finished. Everything here goes through either the oscillator
-    // Promise (soundEffects.js) or the shared TTS singleton
-    // (fetchAudio/playAudio), so nothing in the sequence can overlap.
+    // Sound choreography — correct answer plays a SOUND ONLY, no spoken
+    // word (mission "audio consolidation" Bug 2). An earlier pass here
+    // also spoke Nova's encouragement text after the chime; that was
+    // pulled back out — per this pass's own instructions, a fuller
+    // "chime -> Nova -> next question" choreography + mute toggle is a
+    // later prompt, and until then correct-answer audio should be just
+    // the success sound, cleanly, with nothing else layered on top. The
+    // encouragement STRING itself is unused here now, but stays visible
+    // as on-screen text via each activity's own `encouragement` prop
+    // (e.g. WordMatch's Nova speech bubble) — only the SPOKEN version is
+    // removed. Awaited before advancing so the next question's own
+    // auto-play (each activity's mount effect) never starts until the
+    // chime has actually finished — still routed through soundEffects.js's
+    // oscillator Promise, so nothing here can overlap other audio.
     if (correct) {
       await playCorrectChime();
-      const url = await fetchAudio(encouragement);
-      if (url) {
-        playAudio(url);
-        await new Promise((resolve) => setTimeout(resolve, 1100));
-      }
     } else {
       await playIncorrectTone();
     }
@@ -1753,7 +1754,7 @@ export function GameEngine({
     } else {
       setCurrentIdx(i => i + 1);
     }
-  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP, encouragements, encouragIdx]);
+  }, [correctCount, wordsPlayed, currentQuiz, currentIdx, totalQuizzes, gameType, onProgress, onSessionEnd, onXP]);
 
   const handlePlayAgain = () => {
     setCurrentIdx(0);
