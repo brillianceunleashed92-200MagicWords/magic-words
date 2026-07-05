@@ -1779,7 +1779,7 @@ export function GameEngine({
     // story_builder still has no read-back on a wrong answer, so the
     // shared tone stays exactly as it is for every activity.
     if (correct) {
-      if (gameType !== 'story_builder') await playCorrectChime();
+      if (gameType !== 'story_builder' && gameType !== 'draw_it') await playCorrectChime();
     } else {
       await playIncorrectTone();
     }
@@ -1868,7 +1868,7 @@ export function GameEngine({
   // actually live and reachable from PlayScreen.jsx (it was mistakenly
   // conflated with the genuinely-unreachable SpellItOut during the earlier
   // UI polish pass and never audited).
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder'].includes(gameType);
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it'].includes(gameType);
 
   return (
     <div style={{
@@ -1986,7 +1986,7 @@ export function GameEngine({
         <WordBuilder key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'draw_it' && (
-        <DrawIt key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} userId={userId} childId={childId} />
+        <DrawIt key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} encouragement={encouragements[encouragIdx % encouragements.length]} />
       )}
       {gameType === 'word_song' && (
         <WordSong key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />

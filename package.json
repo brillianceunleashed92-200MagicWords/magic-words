@@ -4,11 +4,12 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-wordart-sync.mjs && vite build",
+    "build": "node scripts/check-wordart-sync.mjs && node scripts/check-stroke-coverage.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
-    "check:wordart-sync": "node scripts/check-wordart-sync.mjs"
+    "check:wordart-sync": "node scripts/check-wordart-sync.mjs",
+    "check:stroke-coverage": "node scripts/check-stroke-coverage.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
