@@ -92,7 +92,47 @@ name in the inline style instead, which is unique to the actual confetti
 burst.
 
 ## SESSION POLISH
-IN PROGRESS
+- **XP toast**: `GameEngine.jsx` — linger 900ms → 3000ms (before → after).
+  The `xp-float-up` keyframe (`src/index.css`, shared with `App.jsx`'s
+  legacy-tree caller, untouched) was a straight-line opacity 1→0 across
+  its whole duration — bumping just the duration would have made the
+  fade itself slower/washed-out rather than making the toast *linger*.
+  Restructured to pop up, hold at full opacity through 80%, fade only at
+  the very end. Still `pointerEvents: 'none'` (never blocks input) and
+  now gated on `usePrefersReducedMotion()` (animation off entirely under
+  reduced motion — GameEngine's top-level component didn't call the hook
+  at all before this pass; added it). Verified live: toast still visible
+  ~3s after the tap, well after the next question has already loaded.
+- **Sticky back button**: `PlayScreen.jsx`'s Guided Path "Home" button —
+  the only screen in the app using this back-arrow pattern (grepped for
+  the pattern app-wide, confirmed no other screen needed the same fix).
+  `position: sticky; top: 12` + `shadows.chunkSm` + `minHeight: 44`.
+  Verified live: scrolling through the 11-node activity list keeps
+  "Home" pinned at the viewport top, no overlap with content beneath.
+- **End-of-play guidance**: added to `CelebrationRenderer.jsx`'s
+  `pathComplete` block specifically — that celebration IS "when the
+  day's path completes" (fires once, from `PlayScreen.jsx`'s
+  `checkAndFirePathComplete`), not the per-session `SessionComplete`
+  screen (which fires once per activity, far more often — adding it
+  there would be noise, not one clean line). One line, growth-mindset
+  register: "Nova will have a new word ready for you tomorrow!" Verified
+  by code review (triggering a full day's path completion live requires
+  finishing every eligible activity for a word — not re-run for this
+  specific line given the mechanism itself, `queueCelebration`/
+  `CelebrationRenderer`, is unchanged and already proven live in the
+  activity-roster pass; only the JSX addition is new).
+- **Grown-Ups hold gate**: `GrownUpsScreen.jsx`'s `HOLD_MS` 3000 → 1800
+  (before → after), label text updated "3 seconds" → "2 seconds"
+  (rounded for a child-facing instruction, matches the ~1.5–2s target).
+  Already measured wall-clock elapsed time per tick (`Date.now()`, not a
+  frame-count assumption) rather than trusting rAF's frame cadence, so it
+  already tolerated rAF throttling in a backgrounded tab correctly — no
+  shim needed, confirmed by reading the implementation, not assumed.
+  Verified live via a `pointerdown`-only dispatch (no `pointerup` needed —
+  `onPassed()` fires inside the tick once elapsed crosses `HOLD_MS`,
+  same as before): unlocked well under the old 3s mark, then completed
+  the math quick-check normally into the real Grown-Ups dashboard — the
+  gate still genuinely gates, just faster.
 
 ## HINTS
 IN PROGRESS

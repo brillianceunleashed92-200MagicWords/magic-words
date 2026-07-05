@@ -38,8 +38,16 @@
   0%, 100% { transform: rotate(-10deg); }
   50% { transform: rotate(10deg); }
 }
+/* Prompt 7 Part 3: pop up, LINGER at full opacity, only fade at the very
+   end -- was a straight-line opacity 1->0 across the whole animation, so
+   a longer duration (GameEngine.jsx's toast: 900ms -> 3s) would have
+   just made the fade itself slower/more washed-out rather than making
+   the toast linger. Percentages are shared with App.jsx's own 1.4s
+   caller (legacy tree, untouched duration) -- same shape, proportional. */
 @keyframes xp-float-up {
   0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(-40px); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
 }
 /* Errorless-learning wiggle/glow for a missing required field on submit —

@@ -58,6 +58,14 @@ function CelebrationContent({ celebration }) {
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
           Every activity done today · +{payload.sparksBonus} <IconSpark size={13} color={colors.mutedInk} /> bonus Sparks
         </div>
+        {/* Prompt 7 Part 3: one line of end-of-play guidance, growth-
+            mindset register (effort/return framing, not a grade) — this
+            IS "the day's path completes" moment the mission asks for,
+            not a per-session SessionComplete addition (that fires far
+            more often, once per activity, which would be noise here). */}
+        <div style={{ fontFamily: fonts.body, color: colors.mutedInk, marginTop: 10, fontSize: '.9rem' }}>
+          Nova will have a new word ready for you tomorrow!
+        </div>
       </>
     );
   }

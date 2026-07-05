@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { colors, fonts, skyGradient } from '../theme/tokens';
+import { colors, fonts, skyGradient, shadows } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabaseClient';
 import { useSessionPlan } from '../hooks/useSessionPlan';
@@ -294,10 +294,18 @@ export default function PlayScreen({ focusWord, onExit }) {
   if (!gameType) {
     return (
       <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, padding: '1.5rem', fontFamily: fonts.body }}>
+        {/* Prompt 7 Part 3: sticky — the Guided Path's activity list runs
+            long (up to 11 nodes), and this was the only way back to Home
+            while mid-scroll before this fix. `top: 0` pins it to the
+            viewport edge; its own translucent chunk-sm background reads
+            fine against the single continuous sky gradient behind it at
+            any scroll position (no per-section color shift to clash with). */}
         <button onClick={onExit} style={{
+          position: 'sticky', top: 12, zIndex: 20,
           background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 100, color: colors.cloud,
-          padding: '10px 18px', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer', marginBottom: '1rem',
+          padding: '10px 18px', minHeight: 44, fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer', marginBottom: '1rem',
           display: 'inline-flex', alignItems: 'center', gap: 6,
+          boxShadow: shadows.chunkSm, backdropFilter: 'blur(6px)',
         }}>
           <IconArrow size={14} direction="left" color={colors.cloud} /> Home
         </button>

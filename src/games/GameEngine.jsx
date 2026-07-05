@@ -1608,6 +1608,7 @@ export function GameEngine({
   }, []);
 
   const [muted, toggleMuted] = useMuted();
+  const reducedMotion = usePrefersReducedMotion();
 
   const allQuizzes = sessionPlan?.quizzes ?? [];
   // Fall back to the unfiltered list only if filtering would leave nothing
@@ -1665,9 +1666,13 @@ export function GameEngine({
       if (firstTry) xpEarned += 5;
       if (responseTimeMs < 3000) xpEarned += 5;
       sessionXPRef.current += xpEarned;
+      // Prompt 7 Part 3: lingers ~3s now (was 900ms — gone before a
+      // parent glancing over could register it). Still pointer-events:
+      // none (see the toast's own style below), so it never blocks the
+      // next question's input even though it visually persists longer.
       const toastId = ++xpToastIdRef.current;
       setXpToast({ id: toastId, amount: xpEarned });
-      setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 900);
+      setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 3000);
     }
 
     const newCorrect = correctCount + (correct ? 1 : 0);
@@ -1824,7 +1829,7 @@ export function GameEngine({
           position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: 6,
           fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.sun,
-          zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
+          zIndex: 10001, animation: reducedMotion ? 'none' : 'xp-float-up 3s ease forwards',
           pointerEvents: 'none', textShadow: '0 0 20px rgba(255,184,77,0.8)',
           whiteSpace: 'nowrap',
         }}>
