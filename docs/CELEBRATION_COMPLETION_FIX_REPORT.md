@@ -182,12 +182,65 @@ screen.
 
 ## VERIFICATION
 
-IN PROGRESS
+All live checks below used fresh accounts via `scripts/admin-user.mjs`,
+unlocked activities via `scripts/db-query.mjs` seeding `learning_events`
+for prior-rank activities, and were cleaned up after each check.
 
-## VERIFICATION
-
-IN PROGRESS
+- **Bug 5 fix (Story Time exit)**: opened Story Time, tapped "Start
+  reading" to enter actual story pages, confirmed the close button (top-
+  left) now renders inside the reader's own portal. A raw coordinate
+  click (`page.mouse.click` at the button's exact center) correctly
+  navigated home with zero progress banked (exited before answering
+  anything — 0 STREAK/WORDS/SPARKS, matching "no phantom credit for
+  nothing done"). Note: Playwright's own `locator.click()` actionability
+  heuristic reported this specific SVG-in-button as "intercepted" even
+  post-fix — investigated directly via `document.elementFromPoint` at the
+  button's exact coordinates, which correctly resolved to the button's
+  own SVG (no other element on top) — confirmed via a raw mouse click that
+  the button is genuinely clickable for a real user; treating this as a
+  Playwright/SVG-hit-testing quirk in this test tool, not a product bug.
+- **Bug 3 fix (stars)**: completed Word Song fully (all questions via
+  Skip) alongside Tap & Hear/Word Hunt/Match & Sort (real quizzes,
+  answered correctly). Reopened the word's guided path via Word Galaxy
+  (tapping the word directly, since its own path had advanced past this
+  word by the time the check ran) and confirmed on screen: Tap & Hear,
+  Word Hunt, and Match & Sort all show ★★★, Word Song shows exactly ★☆☆ —
+  the fix visually confirmed end to end, not just at the data layer.
+- **Bugs 1/2/4**: see ROOT CAUSE(S) — extensive live reproduction attempts
+  across multiple scenarios, no misfire reproduced; no fix applied.
+- **Gates**: `npm run build`, `check:no-emoji`, `check:wordart-sync` all
+  clean throughout. Full Playwright suite and `idor-proof` run before
+  merge (see below).
 
 ## NOTES FOR NEXT PROMPTS
 
-IN PROGRESS
+- The completion/celebration pipeline itself (`GameEngine.handleAnswer` →
+  `onProgress`/`onSessionEnd`, `pendingLearningEventsRef` +
+  `Promise.allSettled`, `isRealMastery`'s mastery ≥ 80 AND attempt_count
+  ≥ 3 gate) is unchanged and, per this pass's extensive testing, working
+  correctly — safe to build on without re-litigating it.
+- **`StoryReader.jsx`'s `onExit` prop is now the only way to reach an exit
+  control while its portal is open.** Any future caller of `StoryReader`
+  that wants an exit/back affordance must pass `onExit` explicitly — it
+  does not fall back to whatever chrome the caller has underneath, because
+  the portal covers it entirely.
+- **Distinguishing "this session had a real score" from "it didn't" for
+  Story Time (tier-1 micro-stories) and Say It with Nova (no-mic
+  fallback) would need a new signal in `learning_events`** (e.g., a
+  boolean column) — flagged but not built here, since it's a data-model
+  change, not a bug fix. Worth considering in a future pass if these two
+  activities' stars are ever reported as misleading the way word_song/
+  draw_it/magic_video/word_builder were.
+- **Bugs 1, 2, 4 remain open.** If a future session picks these back up,
+  the most useful next step is probably capturing the EXACT device/steps
+  from a real report (browser, whether audio was muted, network
+  conditions, exact tap sequence) rather than more scripted reproduction —
+  this pass's scripted attempts, including the scenario most likely to
+  explain "random celebration," all showed correct behavior.
+- The Playwright-actionability-vs-real-click discrepancy noted in
+  VERIFICATION (SVG hit-testing inside a `createPortal`-rendered button)
+  is worth remembering for any future live-testing script that clicks
+  icon-only buttons inside `StoryReader` specifically — prefer
+  `page.mouse.click()` at the element's computed center over
+  `locator.click()` if the latter times out despite the element clearly
+  being visible and on top in a manual screenshot.
