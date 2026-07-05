@@ -152,7 +152,56 @@ contract.
 
 ## VERIFICATION
 
-IN PROGRESS
+All live checks below ran against the deployed preview
+(`fix/audio-consolidation`), using fresh accounts via
+`scripts/admin-user.mjs` (+ `scripts/db-query.mjs` seeding where a
+specific level/unlock state was needed), cleaned up after each check.
+
+- **Voice — verified first, as instructed.** Monkey-patched
+  `window.speechSynthesis.speak` at page-init to record any call, and
+  captured every `/api/speak` request body. Tapping BottomNav's "Home"
+  and "Grown-ups" tabs: zero `speechSynthesis` calls, one `/api/speak`
+  request each, with the exact tab label as the text — confirming the
+  fix. Tapping a QuestPathNode activity ("Tap & Hear"): also correctly
+  routed through `/api/speak`, zero `speechSynthesis`. Gameplay carrier-
+  sentence prompts (`This word says "cat". Can you find its picture?`)
+  go through the identical `/api/speak` pipeline — same voice, UI and
+  gameplay alike, confirmed end to end, not just at the code level.
+- **Correct-answer sound-only.** Recorded `/api/speak` requests
+  immediately after a correct Tap & Hear answer: the only new requests
+  were the next question's own prompt (pre-fetched), with no spoken-
+  encouragement text ever requested. The chime itself is a local
+  oscillator sound (`soundEffects.js`), not an HTTP call, so silence on
+  the network tab for encouragement text is the correct signature of
+  "sound only."
+- **Highlight sync.** Instrumented a live tier-3 (8-page) story, sampling
+  which word had a highlighted background every 100–150ms. A 6-word
+  sentence ("The cat is small and orange.") showed transitions at
+  405/706/908/1110/1517/1720ms — evenly spaced across the clip's
+  duration, no clustering or end-of-sentence pileup (the old bug's
+  signature). Replay re-triggered cleanly with zero console errors
+  (confirming the new generation-counter guard correctly prevents the
+  old and new rAF loops from fighting each other).
+- **Account indicator.** Screenshotted the bottom nav: a small
+  marigold-colored badge with "E" (the test child's first initial) shows
+  correctly on the Grown-ups tab. Tapping it still correctly lands on the
+  "Grown-Ups Only" hold-gate — the indicator does not bypass the gate,
+  logout stays reachable only through it.
+- **Audio-overlap probe.** A rapid burst of nav taps (8 taps at ~300ms
+  intervals across Home/Galaxy/Grown-ups) was instrumented by monkey-
+  patching the global `Audio` constructor — `gameAudio.js`'s `playAudio()`
+  calls `new Audio(url)` directly without ever appending the element to
+  the document tree, so `document.querySelectorAll('audio')` can never
+  see these clips; an earlier version of this probe used that query and
+  always reported zero, which was a test-methodology bug, not a real
+  finding, caught and fixed before drawing any conclusion from it. The
+  corrected probe recorded 6 distinct `Audio()` instances created across
+  the burst, with a **max of 1 playing concurrently at any polled
+  instant** — confirming the singleton in `gameAudio.js`'s
+  `playAudio`/`currentAudio` correctly stops any prior clip before
+  starting a new one, even under a tap rate faster than a real child's.
+- **Gates**: `npm run build`, `check:no-emoji`, `check:wordart-sync`,
+  Playwright (4/4), `idor-proof` (9/9) — all green on this branch.
 
 ## NOTES FOR NEXT PROMPTS
 
