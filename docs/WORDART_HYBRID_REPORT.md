@@ -164,10 +164,54 @@ composed scenes are flagged below as a Prompt 4+ item requiring a sentence-templ
 N/A this pass — see SCENE ASSESSMENT decision above.
 
 ## VERIFICATION — live checks + contact-sheet evidence + gates
-IN PROGRESS
+DONE. Live-verified with a fresh test account (`scripts/admin-user.mjs`), deleted after.
+
+**RLS gap found and worked around (not a WordArt bug, pre-existing/unrelated):** `word_progress`
+rows written via the service-role admin path (used to fast-forward this test account past Units
+1-2) were invisible to the account's own authenticated reads — confirmed via direct REST calls
+with the real session JWT (0 rows) vs. the Management API (rows present). Root cause: the table
+has a `user_id` column separate from `child_id`; my initial test writes didn't set it, and the
+RLS SELECT policy apparently requires it. Fixed by backfilling `user_id` on those rows. Not a
+product bug in the code touched by this pass — flagged here since it cost real debugging time and
+would resurface for any future test-data seeding via service role.
+
+**Word Match on verb words** — played real 2×2 questions across all 9 verbs (`eat, jump, run,
+swim, fly, dance, sing` targets, with each also appearing as a distractor against the others in
+various combinations — the exact adversarial case the audit was worried about). Confirmed live:
+every pose is distinguishable from its co-tiles, `jump` shows a clear airborne gap, `run` no
+longer collides with anything on-screen, whole screen clean (no layout/z-index issues), session-
+complete summary screen renders all small verb icons correctly.
+
+**Word Hunt on a verb word** — confirmed the `eat` Nova pose renders correctly next to text
+answer options.
+
+**Fill the Story** — played a real session; confirmed the sentence (currently the generic
+"I know the word ___." fallback in local dev, consistent with the SCENE ASSESSMENT finding — no
+per-type template was hit in this environment) and picture-reveal code path execute without
+error across multiple questions; no console errors during the whole flow. Did not manage to
+screenshot the exact ~1.6s reveal window (screenshot-tool round-trip latency raced it out every
+attempt), but the reveal is the same unmodified `<WordArt word={quiz.word} size={92}/>` call
+already proven correct in Word Match/Word Hunt, and the session completed cleanly with a star
+earned, so the code path is confirmed exercised without failure.
+
+**Draw It** — confirmed live: a word without art (`play`) correctly shows the typographic
+fallback chip (pre-existing, correct behavior, not a regression), and a verb with art (`jump`)
+shows the new Nova pose as a drawing reference above the canvas, exactly as intended.
+
+**Guided Path** — walked full paths for three different verb words (`eat`, `sing`, `jump`) across
+Tap & Hear, Word Hunt, Fill the Story, and Draw It with no missing/broken art anywhere.
+
+**prefers-reduced-motion** — satisfied by construction: no new CSS animations were introduced:
+`NovaBase` and all 9 pose components are static SVG shapes (the "motion lines" are plain static
+paths, same convention as the pre-existing `run`/`fast`/`fly` motion lines the brief explicitly
+says are fine to leave static).
+
+**Gates, all green:** `npm run build` (includes `check-wordart-sync.mjs`), `npm run check:no-emoji`,
+`node scripts/idor-proof.mjs` (6/6 relevant checks, 2 live-endpoint checks skip without
+`DEPLOY_BASE_URL`), `npx playwright test` (4/4). Test account deleted after verification.
 
 ## NOTES FOR PROMPT 4 — what the Fill the Story rebuild can rely on (scene coverage, lookup API, generation constraints if applied)
-IN PROGRESS
+DONE.
 
 **Carried over from this pass:**
 - True noun+verb composed scenes were NOT built. If Prompt 4 wants them, the sentence-generation
@@ -175,9 +219,16 @@ IN PROGRESS
   need a deliberate content decision first — introducing a named noun subject per verb sentence —
   before any scene art can be keyed to real pairs. That's a sentence-content change requiring
   explicit sign-off (crosses out of pure art/plumbing scope), not an art-only task.
-- `DrawIt.jsx` (found during source-reading) shows **no WordArt/Nova reference image at all** today
-  — it's a blank canvas with the text prompt "Draw a {word}!" only, and still runs on the old
-  `T`-token (`gameTheme.js`) system rather than the Candy Galaxy tokens used everywhere else in
-  `GameEngine.jsx`. The brief's VERIFY section assumes Draw It already shows Nova/WordArt art
-  during a verb question — it doesn't. Flagged for a decision in this same report once Part 1/2
+- Fill the Story's picture is still the single-word `<WordArt word={quiz.word}>` reveal — now
+  backed by legible Nova verb art instead of the old Buddy blobs, which was this pass's actual
+  disambiguation fix. Prompt 4 inherits a working, legible single-word picture; composed scenes
+  are additive on top of that, not a prerequisite fix.
+- `DrawIt.jsx` had **no WordArt/Nova reference image at all** before this pass — fixed (see
+  Part 2 commits): it now shows the same `<WordArt word={quiz.word}>` reference above the canvas
+  that every other activity uses. Still runs on the old `T`-token (`gameTheme.js`) system rather
+  than Candy Galaxy tokens for everything else on that screen (canvas chrome, buttons) — untouched,
+  out of this pass's scope, a real gap for a future visual-polish pass.
+- RLS gap on `word_progress.user_id` (see VERIFICATION) — worth a real fix outside this pass if
+  service-role test-data seeding becomes a regular pattern; documented here rather than fixed
+  since it's unrelated to WordArt and touching RLS policy is its own scoped change.
   art is ready (see AUDIT section).
