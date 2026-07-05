@@ -223,10 +223,140 @@ mode remains anywhere" per the prompt).
   to DONE (merged) style, one-line summary, pointing at this report.
 
 ## VERIFICATION — coverage-check proof, live checks, overlap-probe result, new spec, gates
-IN PROGRESS
+- **Coverage-check proof**: removed the `m:` entry from `letterStrokes.js` locally, ran
+  `node scripts/check-stroke-coverage.mjs` — failed loudly (`Missing stroke data for: m`, exit 1);
+  restored the file, re-ran — passed (exit 0), and `git status` showed zero diff (byte-identical
+  restore).
+- **Trace end-to-end**: `cat` (3 letters, 1/2/3 strokes) and `dog`/`bird` (subsequent words in the
+  same session) traced fully via synthetic pointer events sampled along each stroke's real
+  geometry — every stroke demoed, traced, filled; every letter ticked mint; word completion
+  played the whole word once and fired the celebration; session correctly advanced through all
+  three words with the star-progress bar and correct-count incrementing normally.
+- **Errorless**: deliberately traced 300px off-path — confirmed via the rendered `style`
+  attribute that progress stayed at 0 and the start-dot/arrow group entered its `scale(1.35)`
+  re-cue pulse; no red, no error text, no lost progress. Idle 5s while mid-stroke correctly
+  re-triggers the demo (normal motion) or a static pulse (reduced motion).
+- **A real bug found and fixed by this verification**: `completeStroke()` never reset
+  `interactive` to `false`, so a second pointerdown during the brief gap before the next
+  stroke/letter (or the 550ms letter-transition `setTimeout`) could re-process the
+  already-completed path and double-fire `completeWord()`/`onAnswer` for one word. Found via
+  rapid re-tracing during automated verification — fixed by setting `interactive` false at the
+  top of `completeStroke()` (commit `51d4480`); re-verified via the Playwright spec and a second
+  full production-preview pass afterward.
+- **prefers-reduced-motion**: verified end to end by monkey-patching `matchMedia` mid-session,
+  then letting the session advance to a fresh word (`key={currentIdx}` remounts `DrawIt`) — the
+  very first pointer trace on that word's first stroke completed with **zero** wait after mount,
+  confirming the demo phase is skipped entirely (contrasted directly against the ~900ms wait
+  normal motion requires, observed in the same test run).
+- **No-art word**: `play` (no `has_art`) — reference card area completely absent, nothing
+  rendered between the Nova porthole and the word strip; tracing itself unaffected.
+- **Scoring**: `onAnswer({correct:true, responseTimeMs, firstTry:true})` fires exactly once per
+  word (after the double-completion fix) — same shape as the pre-rebuild freeform version.
+  `draw_it` unchanged in `SCORELESS_GAME_TYPES`.
+- **Token migration**: whole-screen live screenshots across `cat`/`dog`/`bird`/`play` all show the
+  candy sky-gradient background, chunk-shadow Nova porthole/reference-card/tracing-stage, and the
+  `StarProgress` top bar — zero `gameTheme.js` T-token values anywhere on this screen (grep-
+  confirmed: `DrawIt.jsx` imports only `theme/tokens.js` and `lessonChrome.jsx`).
+- **New Playwright spec**: `tests/draw-it-tracing.spec.js` — tracing happy path + off-path
+  errorless re-cue, both self-provisioning. Full suite green at **default invocation**
+  (`npx playwright test`, no flags): 8/8 passed (grown from 6), proving the `workers: 1` fix.
+- **Gates, all green**: `npm run build` (runs `check-wordart-sync` → `check-stroke-coverage` →
+  `vite build`), `npm run check:no-emoji`, Playwright default invocation (8/8),
+  `scripts/idor-proof.mjs` 9/9 with `DEPLOY_BASE_URL` against the pushed branch's Vercel preview
+  — run **three times**, once against each preview deployment this branch produced as fixes
+  landed (initial rebuild, after the double-completion fix, after the audio-timeout fix), all
+  9/9. This pass didn't touch any server query/RLS surface, and every re-run confirms that
+  stayed true.
+- **Audio audit, real production-preview verification with real ElevenLabs audio** (not just code
+  review): instrumented `HTMLMediaElement.prototype.play` and `window.fetch` on the pushed
+  branch's Vercel preview.
+  - **Content**: every `/api/speak` call this activity ever made was one of — the mount carrier
+    prompt (`Let's trace "cat"!`, etc., one per word, including the session's pre-fetch warm-up
+    for all 6 upcoming words) or the bare completed word (`cat`) on word completion. **Never** a
+    letter sound, never a letter name, confirmed by reading the full captured request-text log,
+    not assumed from source alone.
+  - **Overlap probe (corrected synchronous `.paused` method, per `FILL_THE_STORY_REPORT.md`'s
+    documented methodology)**: instrumented every `play()` call to check the previously-tracked
+    element's `.paused` synchronously at the moment the next `play()` fires. **Zero overlaps**
+    across the mount-prompt → word-complete sequence.
+  - **New trap found and documented (extends the existing hidden-tab-automation family already
+    known in this codebase — rAF throttling in `WORDART_HYBRID_REPORT.md`, async pause/ended
+    event-ordering in `FILL_THE_STORY_REPORT.md`)**: with the browser-automation tab backgrounded
+    (`document.hidden: true` throughout), the word-completion `Audio` element's `play()` call
+    neither resolved, rejected, nor ever fired `ended`/`error` — confirmed by waiting 25+ seconds
+    with no change, far beyond the clip's real duration or any plausible throttling delay. This
+    is Chrome suspending real media *decode/playback* progress for a genuinely hidden tab
+    (distinct from timer/rAF throttling, which only slows callbacks) — it did not reproduce for
+    the two OTHER `/api/speak`-triggered plays earlier in the same run (mount prompts), which
+    both resolved normally, so it's specific to whichever audio element is active exactly when
+    the tab loses visibility, not a systemic block. **This blocks observing the final
+    `onAnswer`-fires-after-celebration step via browser automation in this environment
+    specifically** — it does not affect a real child on a real, foregrounded device (audio would
+    decode/play/end normally), and the identical `await new Promise((resolve)=>{audio.onended=...})`
+    pattern is copied verbatim from Fill the Story's already-shipped, already-production-verified
+    completion flow (that report's own production walk confirmed this exact pattern completes
+    correctly with real audio). Local dev sidesteps this entirely since `/api/speak` 404s there,
+    so `url` is `null` and the whole wait is skipped (`if (!audio) { resolve(); return; }`) —
+    which is exactly how the earlier PART 3 multi-word local-dev walk (cat→dog→bird, all three
+    completing and advancing normally) was able to fully exercise the completion path without
+    ever hitting this specific trap. Flagging this plainly as a real, reproducible environment
+    limitation rather than glossing over it.
+- **Follow-up fix made from this finding (commit `204a230`)**: regardless of whether a real child
+  would ever hit the exact hidden-tab scenario, a stalled `Audio` element that never fires
+  `ended`/`error` would permanently hang `completeWord()` for anyone it happened to — a real
+  robustness gap, not just a test artifact. Raced the audio wait against a 4s timeout
+  (`Promise.race`) so the celebration/`onAnswer` always proceeds even if playback stalls for any
+  reason. Re-verified: full Playwright suite still 8/8 at default invocation after this change;
+  re-ran the exact same production-preview scenario that previously hung indefinitely — this
+  time the celebration and `onAnswer` fired at the 4s mark instead of never, confirmed live (see
+  PRODUCTION VERIFICATION below).
 
 ## PRODUCTION VERIFICATION — push/deploy confirmation, live walk results
-IN PROGRESS
+IN PROGRESS — pre-merge preview verification complete, production leg below.
+
+- Three commits pushed to `fix/draw-it-tracing` as issues surfaced during verification, each
+  producing its own Vercel preview, each confirmed via `gh api .../deployments/<id>/statuses`
+  (`environment_url`) rather than the Vercel MCP connector (wrong account, per standing note):
+  1. Initial rebuild (`8682764`) — preview `magic-words-pzh71rmkk-...`.
+  2. Double-completion fix (`51d4480`) — preview `magic-words-5es0uyfm9-...`. Live walk on this
+     preview found the hidden-tab audio-suspension trap documented above.
+  3. Audio-timeout fix (`204a230`) — preview `magic-words-cbhhui06d-...`. Live walk confirmed the
+     fix: traced `cat` fully, the previously-indefinite hang now resolves at the ~4s timeout mark,
+     celebration fires, session correctly advances to word 2 (`dog`).
+- `scripts/idor-proof.mjs` 9/9 against each of the three previews (see VERIFICATION above).
+- Full Playwright suite re-confirmed 8/8 at default invocation after each fix commit.
+- Merge/push-to-main leg not yet run — see below once approved.
 
 ## NOTES FOR NEXT PROMPTS — anything Quiz Boss / Find the Word should rely on (esp. reusable stroke/trace primitives, celebration sequencing)
-IN PROGRESS
+- **New trap for the trap list**: automated browser verification in a backgrounded
+  (`document.hidden: true`) tab can leave a real `<audio>` element's `play()` neither resolving,
+  rejecting, nor firing `ended`/`error` — indefinitely, confirmed by waiting 25+ seconds. This is
+  distinct from the already-documented rAF-throttling trap (which just slows callbacks) — this
+  is the browser suspending actual media decode/playback progress. Any future activity that
+  `await`s an audio element's `ended` event should either race it against a timeout (as
+  `DrawIt.jsx`'s `completeWord()` now does) or expect this exact hang during automated
+  verification and know it's environment-specific, not a regression.
+- **`letterStrokes.js` / `LETTER_GRID` are reusable** for Quiz Boss or Find the Word if either
+  ever wants letter-level UI — the manifest is generic (not Draw-It-specific), keyed only by
+  lowercase letter, with `d`/geometry derivable at render time (no Draw-It-specific state baked
+  in). The tracing *interaction* code (pointer sampling, tolerance, demo animation) currently
+  lives inline in `DrawIt.jsx`, not extracted into a shared hook/primitive — worth factoring out
+  (e.g. a `useLetterTrace` hook) if a second activity ever needs the same mechanic, but wasn't
+  extracted preemptively since this is still a single consumer.
+- **Celebration sequencing convention confirmed reusable**: `NovaPorthole` + `ConfettiStars` +
+  the `900ms confetti / 1200ms total-before-onAnswer` timing is now used identically by
+  StoryBuilder and DrawIt — worth treating as the standard celebration contract for any future
+  activity rebuild rather than reinventing timing per activity.
+- **Draw It's old Storage-bucket/`magic_moments` "drawing" artifact is gone**, not migrated. The
+  freeform canvas produced a PNG saved to the `drawings` bucket and a `magic_moments` row (kind
+  `drawing`); tracing has no equivalent freeform output to save, so that write was dropped
+  entirely along with the canvas. Parents' Magic Moments feed will simply stop getting new
+  "drawing" entries from this activity going forward — a direct, inevitable consequence of the
+  rebuild (there is no artifact left to capture), not an oversight. Flagging in case a future
+  pass wants to add a *different* kind of Draw-It moment (e.g., "traced cat!" with the WordArt
+  reference) — that would be a new feature, not a restoration.
+- **`gameTheme.js` still has real readers** (`MagicVideo.jsx`, `WordSong.jsx`,
+  `SayItWithNova.jsx`, plus SoundMatch/SpellItOut/SessionComplete/UpgradeModal/GameTypeSelector in
+  `GameEngine.jsx` itself) — Quiz Boss (repurposing Flash Cards/SpellItOut) and Find the Word
+  (replacing Word Song) rebuilds are exactly the passes likely to finally retire it, if they
+  migrate their respective components to Candy tokens too.
