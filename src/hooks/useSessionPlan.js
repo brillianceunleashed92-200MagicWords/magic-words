@@ -129,6 +129,11 @@ async function buildSupabaseFallbackPlan(childId, plan) {
 
     const artWords = words.filter((w) => w.has_art).map((w) => w.word);
     const wordMetaByWord = new Map(words.map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
+    const wordsByType = new Map();
+    for (const w of words) {
+      if (!wordsByType.has(w.word_type)) wordsByType.set(w.word_type, []);
+      wordsByType.get(w.word_type).push(w.word);
+    }
 
     const { data: progress } = await supabase
       .from('word_progress')
@@ -155,7 +160,7 @@ async function buildSupabaseFallbackPlan(childId, plan) {
       difficultyLevel: 'emerging',
       currentUnit,
       wordSequence: focusWords,
-      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery, artWords, wordMetaByWord)),
+      quizzes: focusWords.map((w) => buildLocalQuiz(w, withMastery, artWords, wordMetaByWord, wordsByType)),
       encouragements: [
         'Great job!',
         "You're doing amazing!",
@@ -186,31 +191,70 @@ const FALLBACK_FUNCTION_SENTENCES = {
   do: 'What can you ___?',
 };
 
-function buildLocalQuiz(targetWord, allWords, artWords = [], wordMetaByWord = new Map()) {
+// Mirrors api/session-generator.js's CONTENT_TEMPLATES.verb (Nova-subject
+// set, signed off 2026-07-05) + its deterministic per-word hash pick, so
+// the client fallback tier can actually be checked for parity against the
+// server instead of silently falling through to the generic sentence for
+// every verb. Noun/adjective/number content words aren't mirrored here —
+// they were never in this pass's scope and the generic default already
+// covers them the same way it always has.
+const FALLBACK_VERB_TEMPLATES = ['Watch Nova ___!', 'Nova can ___.', 'Nova likes to ___.', 'See Nova ___!'];
+
+function hashPick(word, templates) {
+  let hash = 0;
+  for (const ch of word) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return templates[hash % templates.length];
+}
+
+// Fill the Story rebuild, Part 5: same known picture-confusable/near-
+// synonym pairs as api/session-generator.js's CONFUSABLE_PAIRS — see that
+// file's comment for why this list can't actually fire against today's
+// has_art set (one side of each pair was deliberately left unillustrated)
+// and is a forward-guard rather than a current behavior change.
+const CONFUSABLE_PAIRS = [
+  ['mom', 'woman'], ['dad', 'man'], ['gold', 'yellow'],
+  ['look', 'see'], ['catch', 'throw'], ['push', 'pull'], ['hop', 'jump'],
+];
+function isConfusableWith(word, target) {
+  return CONFUSABLE_PAIRS.some(([a, b]) => (a === word && b === target) || (a === target && b === word));
+}
+
+function buildLocalQuiz(targetWord, allWords, artWords = [], wordMetaByWord = new Map(), wordsByType = new Map()) {
   const pictureEligible = targetWord.word_type !== 'function' && artWords.includes(targetWord.word);
+  const sameType = (w) => wordMetaByWord.get(w)?.word_type === targetWord.word_type;
+  const notConfusable = (w) => !isConfusableWith(w, targetWord.word);
 
   let distractorWords;
   if (pictureEligible) {
-    // Prefer same-unit distractors first (units are the curriculum's real
-    // topical grouping — Family, Food & Drink, Colors, etc. — a tighter
-    // semantic signal than word_type alone), then same word_type outside
-    // that unit, then the broader has_art pool. Mirrors api/session-
-    // generator.js's buildQuiz so both plan sources behave the same way.
-    const otherArtWords = artWords.filter((w) => w !== targetWord.word);
+    // Distractors are always the SAME word_type as the target — a hard
+    // filter, not a preference, so grammar can never give the answer away.
+    // Within that constraint, same-unit words are still preferred first
+    // (units are the curriculum's real topical grouping — Family, Food &
+    // Drink, Colors, etc. — a tighter semantic signal than word_type
+    // alone), falling back to the same type from the broader has_art pool.
+    // Mirrors api/session-generator.js's buildQuiz so both plan sources
+    // behave the same way.
+    const otherArtWords = artWords.filter((w) => w !== targetWord.word && sameType(w) && notConfusable(w));
     const sameUnit = otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit === targetWord.unit).sort(() => Math.random() - 0.5);
-    const sameTypeOtherUnit = otherArtWords
-      .filter((w) => wordMetaByWord.get(w)?.unit !== targetWord.unit && wordMetaByWord.get(w)?.word_type === targetWord.word_type)
-      .sort(() => Math.random() - 0.5);
-    const rest = otherArtWords
-      .filter((w) => wordMetaByWord.get(w)?.unit !== targetWord.unit && wordMetaByWord.get(w)?.word_type !== targetWord.word_type)
-      .sort(() => Math.random() - 0.5);
-    distractorWords = [...sameUnit, ...sameTypeOtherUnit, ...rest].slice(0, 3);
+    const otherUnit = otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit !== targetWord.unit).sort(() => Math.random() - 0.5);
+    distractorWords = [...sameUnit, ...otherUnit].slice(0, 3);
+    if (distractorWords.length < 3) {
+      const fallback = artWords
+        .filter((w) => w !== targetWord.word && notConfusable(w) && !distractorWords.includes(w))
+        .sort(() => Math.random() - 0.5);
+      distractorWords = [...distractorWords, ...fallback].slice(0, 3);
+    }
   } else {
-    distractorWords = allWords
-      .filter((w) => w.word !== targetWord.word)
-      .map((w) => w.word)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    const sameTypePool = (wordsByType.get(targetWord.word_type) ?? []).filter((w) => w !== targetWord.word && notConfusable(w));
+    distractorWords = sameTypePool.sort(() => Math.random() - 0.5).slice(0, 3);
+    if (distractorWords.length < 3) {
+      const fallback = allWords
+        .filter((w) => w.word !== targetWord.word)
+        .map((w) => w.word)
+        .filter((w) => !distractorWords.includes(w))
+        .sort(() => Math.random() - 0.5);
+      distractorWords = [...distractorWords, ...fallback].slice(0, 3);
+    }
   }
 
   const options = [...distractorWords, targetWord.word].sort(() => Math.random() - 0.5).map((word) => ({ word }));
@@ -220,7 +264,9 @@ function buildLocalQuiz(targetWord, allWords, artWords = [], wordMetaByWord = ne
     word: targetWord.word,
     wordClass: targetWord.word_type,
     pictureEligible,
-    sentence: FALLBACK_FUNCTION_SENTENCES[targetWord.word] ?? 'I know the word ___.',
+    sentence: targetWord.word_type === 'verb'
+      ? hashPick(targetWord.word, FALLBACK_VERB_TEMPLATES)
+      : FALLBACK_FUNCTION_SENTENCES[targetWord.word] ?? 'I know the word ___.',
     options,
     correctIndex,
   };
