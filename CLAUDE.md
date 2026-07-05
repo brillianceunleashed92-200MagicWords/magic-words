@@ -28,6 +28,9 @@
 - Launch from the project root; never prefix commands with cd.
 - Use scripts/db-query.mjs for DB reads, scripts/admin-user.mjs for test accounts.
 
+## Cowork scope rule (2026-07-05)
+- The Cowork (Claude Desktop) sandbox mounts this repo read/create but CANNOT delete files. Git needs delete for every commit, branch op, stash drop, merge, and git rm, so git writes fail there. Cowork = read, analyze, investigate, plan, and write prompt/handoff docs — git READ-ONLY. Anything that commits, merges, pushes, drops stashes, or deletes runs in local Claude Code launched from inside ~/magic-words. If a Cowork session hits a needed git write, it stops and writes a handoff brief — no git write probes in Cowork.
+
 ---
 
 ## COMMAND RULES — READ FIRST

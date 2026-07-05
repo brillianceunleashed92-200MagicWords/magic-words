@@ -35,3 +35,4 @@ playwright-report/
 .playwright-mcp/
 .vercel
 .env*
+CLAUDE.md.backup-*
