@@ -312,7 +312,7 @@ mode remains anywhere" per the prompt).
   PRODUCTION VERIFICATION below).
 
 ## PRODUCTION VERIFICATION — push/deploy confirmation, live walk results
-IN PROGRESS — pre-merge preview verification complete, production leg below.
+DONE.
 
 - Three commits pushed to `fix/draw-it-tracing` as issues surfaced during verification, each
   producing its own Vercel preview, each confirmed via `gh api .../deployments/<id>/statuses`
@@ -325,7 +325,52 @@ IN PROGRESS — pre-merge preview verification complete, production leg below.
      celebration fires, session correctly advances to word 2 (`dog`).
 - `scripts/idor-proof.mjs` 9/9 against each of the three previews (see VERIFICATION above).
 - Full Playwright suite re-confirmed 8/8 at default invocation after each fix commit.
-- Merge/push-to-main leg not yet run — see below once approved.
+
+### Merge to main and production deploy
+- Merged `fix/draw-it-tracing` into `main` locally (`--no-ff`, commit `7fe6c65`), clean, no
+  conflicts. Re-ran the full local gate set on `main` post-merge: `npm run build`,
+  `npm run check:no-emoji`, Playwright default invocation (8/8) — all green.
+- **Push (first approval)**: asked before `git push origin main` per the standing rule; approved,
+  pushed `main` (`653c782..7fe6c65`).
+- **Deployment confirmation**: polled `gh api repos/.../commits/7fe6c65.../status` until
+  `state: success`; corroborated with `curl -sI https://200magicwordsapp.com` → `HTTP/2 200`.
+  Did not use the Vercel MCP connector (wrong account, per standing note).
+- **Production walk** (fresh account `nextgenprecisiondrones+drawithasArt*@gmail.com`, deleted
+  after via the seeding script + `admin-user.mjs delete`):
+  - **Stale-session guard caught mid-walk, handled correctly**: navigating to
+    `https://200magicwordsapp.com/app` in the automation browser initially landed on an
+    already-authenticated `test@yahoo.com` session (Chrome's saved-password autofill had
+    pre-filled the login form with different, pre-existing credentials on this shared browser
+    profile — not app session persistence). Recognized this was not the fresh test account
+    before taking any action, cleared `localStorage`/`sessionStorage` for the production origin,
+    and explicitly typed (via `triple_click` to clear the autofilled field first) the actual
+    test-account credentials before proceeding. Confirmed the correct account was active by
+    reading the Supabase auth-token's `user.email` from `localStorage` before continuing — never
+    interacted with `test@yahoo.com`'s data.
+  - **Full word trace end-to-end on production**: traced `cat` (all 6 strokes across c/a/t) via
+    the same synthetic-pointer-along-real-path-geometry technique. Confirmed via instrumented
+    `HTMLMediaElement.play`/`fetch`:
+    - **Audio content**: every `/api/speak` call was a mount carrier prompt (`Let's trace "X"!`,
+      one per word including the 6-word pre-fetch warm-up) or the bare completed word (`cat`) —
+      never a letter sound or letter name.
+    - **Overlap probe (synchronous `.paused` method)**: zero overlaps across all 4 real `play()`
+      calls observed (mount prompt → word-complete → next word's mount prompt), each subsequent
+      call found the prior element already paused.
+    - **Timeout-fallback fix confirmed working on production**: the celebration fired and the
+      session correctly advanced to word 2 (`dog`) within the expected ~4-6s window — the same
+      scenario that hung indefinitely on the pre-fix preview now resolves via the `Promise.race`
+      timeout.
+  - **Off-path errorless check**: dispatched a pointer move 300px off the guide path — progress
+    stayed at 0 (`stroke-dashoffset` unchanged from the full `stroke-dasharray` length), no
+    error/wrong/incorrect text anywhere in the page body.
+  - **No-art word**: already confirmed clean-absence behavior on the `play` word during PART 1
+    baseline and PART 3 live testing (pre-merge, same code); not re-run separately on production
+    since the reference-card gating logic is identical and untouched by the two post-rebuild
+    fixes (double-completion guard, audio timeout) — neither fix touches `quiz.pictureEligible`
+    or the reference-card JSX.
+- **Docs commit + push (second approval)**: this PRODUCTION VERIFICATION section committed to
+  `main` and pushed with a second explicit approval (see commit log).
+- Test account deleted after (`admin-user.mjs delete`).
 
 ## NOTES FOR NEXT PROMPTS — anything Quiz Boss / Find the Word should rely on (esp. reusable stroke/trace primitives, celebration sequencing)
 - **New trap for the trap list**: automated browser verification in a backgrounded
