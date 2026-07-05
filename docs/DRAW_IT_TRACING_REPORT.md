@@ -118,10 +118,94 @@ the current Guided Path node for a chosen target word. Both accounts deleted aft
   again once restored (see VERIFICATION section for the formal re-run as part of the VERIFY gate).
 
 ## TRACING INTERACTION — detection/tolerance implementation, errorless re-cue, demo/idle behavior, audio moment sequencing
-IN PROGRESS
+`src/games/DrawIt.jsx` rewritten from scratch (freeform canvas removed entirely — "No freeform
+mode remains anywhere" per the prompt).
+
+- **Detection**: each stroke's `d` renders three overlaid `<path>`s sharing the same geometry —
+  a faint always-visible dotted guide (measurement target, via a ref + `getTotalLength()`/
+  `getPointAtLength()`), a demo-preview overlay (sky-colored, shown only while the auto-demo
+  plays), and the child's traced fill (`--sun`). Pointer coordinates are mapped into SVG
+  user-space via `svg.getScreenCTM().inverse()`; the nearest point on the path is found via a
+  90-sample linear scan (trivial cost for these path lengths) and its arc-length position becomes
+  the new "progress" if within `TOLERANCE` (15 grid units on a 100-wide/120-tall viewBox — ~generous
+  relative to full letter height) AND at or ahead of the furthest point already reached (so a
+  stray backward wobble can't un-trace). Progress renders via the standard "line-draw"
+  `stroke-dasharray`/`stroke-dashoffset` technique.
+- **Errorless re-cue**: off-path movement (verified live: dispatched a pointer move 300px away
+  from the path) leaves progress untouched — no error state, no red, no fail — and triggers a
+  400ms scale-up pulse (`scale(1.35)`) on the green start-dot + direction-arrow group, confirmed
+  directly by reading the rendered `style` attribute mid-pulse, not assumed from the code alone.
+  Idling 5s while a stroke is incomplete either replays the demo (normal motion) or re-pulses the
+  static cue (reduced motion) — implemented via a `setTimeout` armed on every qualifying pointer
+  move and cleared/re-armed each time, one per stroke.
+- **Demo/idle behavior**: driven by `requestAnimationFrame`, not CSS keyframes (keeps the same
+  dasharray/dashoffset mechanism as user tracing — demo and trace-fill are the same technique,
+  just time-driven vs. pointer-driven). Confirmed the known rAF-throttles-in-hidden-tabs trap
+  (`docs/WORDART_HYBRID_REPORT.md`) applies here too — the browser-automation tab isn't
+  OS-focused, so an un-shimmed rAF loop stalls; verified correct behavior by shimming
+  `window.requestAnimationFrame` to a `setTimeout` for the test session only (not a code change,
+  a live-test workaround, same as that prior report's pattern). `prefers-reduced-motion` is read
+  once via the existing shared `usePrefersReducedMotion()` hook (already used elsewhere in the
+  app) — verified live by monkey-patching `matchMedia` to force `matches:true` mid-session, then
+  remounting into a fresh word (each word gets a fresh `DrawIt` via `key={currentIdx}`): the very
+  first pointer trace on the new word's first stroke completed successfully with **zero** wait
+  after mount, proving `showDemo`/`interactive` skip the demo phase entirely under reduced motion
+  exactly as designed (normal motion requires the ~900ms demo to finish first, confirmed by the
+  contrasting behavior in the very same test run).
+- **Word/letter progression, live end-to-end**: traced two full words start-to-finish
+  (`cat` — c/a/t, 1/2/3 strokes respectively; `dog` — d/o/g, 2/1/2 strokes) via synthetic
+  `PointerEvent`s dispatched along the actual guide-path geometry (sampled at 40 points per
+  stroke) — chosen over screen-coordinate dragging because several letters are curves the
+  `computer` tool's straight-line drag can't reliably follow. Confirmed: stroke-complete
+  auto-advances to the next stroke; letter-complete pops the word-strip chip to `--mint` with a
+  brief scale animation (not the full celebration) and advances to the next letter after a short
+  delay; word-complete plays the whole-word audio via the shared singleton, then fires the same
+  `NovaPorthole`+`ConfettiStars` celebration sequence and timing StoryBuilder/Fill the Story uses
+  (900ms confetti window, 1200ms total before `onAnswer`) — deliberately matched, not reinvented.
+  `onAnswer({correct:true, responseTimeMs, firstTry:true})` fired exactly once per word each time,
+  confirmed by the session advancing to the next word (`Word 2 → dog`, `Word 3 → bird`) with the
+  correct-count/star-progress incrementing normally.
+- **No-art word**: `quiz.pictureEligible` gates the reference card exactly like StoryBuilder's
+  `showCue` (same field, same pattern) — verified live on `play` (no `has_art`): the reference
+  card area is completely absent (no tile, no typographic fallback pill, nothing) between the
+  Nova porthole and the word strip, not just visually empty space.
+- **Audio contract**: mount plays a carrier prompt (`getPromptText(quiz,'draw_it')`, changed from
+  "Can you draw a X?" to "Let's trace X!" — `src/games/promptText.js`), word-complete plays the
+  bare word (`fetchAudio(quiz.word)`) once via the shared `playAudio`/`fetchAudio` singleton —
+  never a letter sound, never a letter name, anywhere in the component. Content-level
+  verification that only these two whole-word strings are ever sent to `/api/speak` (not just
+  code-reviewed) is deferred to PRODUCTION VERIFICATION below, since local Vite doesn't serve
+  `/api` at all (confirmed: `useSessionPlan.js` logs a 404 for the session-generator endpoint in
+  local dev, a pre-existing, documented limitation, not something this pass caused).
+- **Redo/Clear**: 44px+ pill button below the stage, resets the *current letter's* strokeIdx/progress
+  back to 0 (replays its demo) — does not affect earlier completed letters or restart the whole
+  word, matching "Clear/redo affordance per letter."
 
 ## TOKEN MIGRATION — before/after, gameTheme.js reader status
-IN PROGRESS
+- **Before**: `gameTheme.js`'s `T` object (canvas background/border, Clear/Done pill buttons,
+  6px-round mint stroke) — no chunk shadow, no press-down, plain CSS border instead of a
+  Cloud-surface card, old `SessionProgress` top chrome (grey segment pills) instead of the E2
+  candy chrome.
+- **After**: `DrawIt.jsx` imports only `colors`/`fonts`/`shadows` from `theme/tokens.js` and the
+  shared `lessonChrome.jsx` primitives (`NovaPorthole`, `ConfettiStars`) — zero `gameTheme.js`
+  references anywhere in the file. Every surface uses `shadows.chunk`/`chunkSm` + a press-down
+  interaction (the Redo button's `onMouseDown` translateY, matching §3's contract) — the
+  reference card, tracing stage, and word-strip chips are all Cloud-background/chunk-shadow
+  surfaces. `GameEngine.jsx` gained `'draw_it'` in the `isE2Activity` allowlist (the same switch
+  that gives WordMatch/StoryBuilder/etc. the sky-gradient page background + `StarProgress`
+  top bar instead of the legacy dark chrome + `ConfettiBurst`), and the per-question generic
+  chime in `handleAnswer` now skips `draw_it` too (alongside the pre-existing `story_builder`
+  skip) since the tracing component sequences its own chime-equivalent (the whole-word audio)
+  before its own celebration, exactly like Fill the Story already does for its read-back.
+  Verified live: whole-screen screenshots across all three test words (`cat`, `dog`, `play`
+  the no-art case) show the candy sky-gradient page background, chunk-shadow Nova porthole +
+  reference card + tracing stage, and the `StarProgress` top bar — no seam, no leftover dark
+  chrome anywhere on this screen.
+- **`gameTheme.js` reader status**: Draw It was **not** the last consumer. Confirmed by grep —
+  `src/games/MagicVideo.jsx`, `WordSong.jsx`, `SayItWithNova.jsx`, and `GameEngine.jsx` itself
+  (SoundMatch/SpellItOut/SessionComplete/UpgradeModal/GameTypeSelector, per that file's own
+  header comment) still import `T` from it. `gameTheme.js` is untouched and not deleted — it
+  still has real readers.
 
 ## HOUSEKEEPING — Playwright determinism fix chosen + why, v3 update
 IN PROGRESS

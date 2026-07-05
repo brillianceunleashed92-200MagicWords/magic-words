@@ -44,7 +44,7 @@ export function getPromptText(quiz, gameType) {
     // blank's answer, so naming it in the prompt would defeat the task.
     case 'story_builder': return 'Which word finishes the sentence?';
     case 'word_builder':  return `Can you spell "${word}"?`;
-    case 'draw_it':       return `Can you draw a "${word}"?`;
+    case 'draw_it':       return `Let's trace "${word}"!`;
     case 'word_song':     return `Let's sing about the word "${word}"!`;
     case 'magic_video':   return `Let's watch a video about "${word}"!`;
     case 'story_time':    return `Let's read a story about "${word}"!`;
