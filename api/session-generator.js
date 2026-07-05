@@ -108,7 +108,7 @@ const FUNCTION_SENTENCES = {
 // sentence each (155 words), but not a single robotic template either.
 const CONTENT_TEMPLATES = {
   noun:      ['I see a ___.', 'Look at the ___!', 'I have a ___.', 'Where is the ___?'],
-  verb:      ['I like to ___.', 'Watch me ___!', 'Can you ___?', "Let's ___ together!"],
+  verb:      ['Watch Nova ___!', 'Nova can ___.', 'Nova likes to ___.', 'See Nova ___!'],
   adjective: ['That is so ___!', 'I feel ___ today.', 'The dog is ___.', 'This looks ___.'],
   number:    ['I count to ___.', 'I have ___ toys.', 'Can you find ___ stars?', 'There are ___ apples.'],
 };
@@ -125,39 +125,65 @@ function shuffled(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-// Build one quiz for a target word. Picture-eligible targets only ever
-// get picture-eligible distractors (drawn from the full set of has_art
-// words available to this account's plan, not just the session's own
-// candidate pool, which guarantees all 4 options are real pictures even
-// in a small/thin session). Distractor preference order: same UNIT first
-// (units are the curriculum's real topical grouping — Family, Food &
-// Drink, Colors, Home & Travel, etc. — so "same unit" is a much tighter
-// semantic-group signal than word_type, which is a grammatical category
-// that lumps a person noun in with a food noun and a home-object noun),
-// then same word_type outside that unit, then the broader has_art pool —
-// so a picture quiz on "woman" prefers other Family-unit words (man,
-// baby, boy, girl) over an unrelated grab-bag (frog, cookie, grapes).
-// Non-eligible targets draw distractors from the rest of the session's
-// candidate pool, padding from the art set only if that pool is too thin
-// to reach 3.
-function buildQuiz(target, candidatePool, artWords, wordMetaByWord) {
+// Fill the Story rebuild, Part 5: known picture-confusable/near-synonym
+// pairs from docs/wordart-batch-1-depictability.md and
+// wordart-batch-2-depictability.md. Today's has_art set already resolved
+// every collision named in those reviews at the ART level — one side of
+// each pair (mom/dad, gold, look/see, catch/throw, push/pull, hop) was
+// deliberately left unillustrated specifically to avoid colliding with the
+// word that WAS drawn — so this list can't actually fire against the
+// current curriculum. It's a forward-guard: if a future art batch ever
+// illustrates the skipped side, distractor selection still won't pair it
+// with its documented collision partner.
+const CONFUSABLE_PAIRS = [
+  ['mom', 'woman'], ['dad', 'man'], ['gold', 'yellow'],
+  ['look', 'see'], ['catch', 'throw'], ['push', 'pull'], ['hop', 'jump'],
+];
+function isConfusableWith(word, target) {
+  return CONFUSABLE_PAIRS.some(([a, b]) => (a === word && b === target) || (a === target && b === word));
+}
+
+// Build one quiz for a target word. Distractors are always the SAME
+// word_type as the target — a hard filter, not a preference — so grammar
+// can never give the answer away (a verb template like "Watch Nova ___!"
+// only reads naturally with another verb in the blank). Within that
+// constraint, same-UNIT words are still preferred first (units are the
+// curriculum's real topical grouping — Family, Food & Drink, Colors,
+// Home & Travel, etc. — a tighter semantic-group signal than word_type
+// alone), falling back to the same type from anywhere in the has_art pool
+// (picture-eligible targets) or the full curriculum (everyone else). Every
+// unit in the live curriculum happens to be internally homogeneous by
+// word_type today, so this changes nothing about which words get selected
+// right now — it's a correctness guarantee against a future curriculum
+// edit reintroducing a mixed-type unit, not a behavior change.
+// Confusable/near-synonym pairs (see CONFUSABLE_PAIRS) are excluded from
+// the distractor pool. A same-type/non-confusable fallback pad only
+// engages if the curriculum is ever too thin to reach 3 distractors
+// (not expected in practice, but option count must never silently drop).
+function buildQuiz(target, candidatePool, artWords, wordMetaByWord, wordsByType) {
   const pictureEligible = target.word_type !== 'function' && artWords.includes(target.word);
+  const sameType = (w) => wordMetaByWord.get(w)?.word_type === target.word_type;
+  const notConfusable = (w) => !isConfusableWith(w, target.word);
 
   let distractorWords;
   if (pictureEligible) {
-    const otherArtWords = artWords.filter((w) => w !== target.word);
+    const otherArtWords = artWords.filter((w) => w !== target.word && sameType(w) && notConfusable(w));
     const sameUnit = shuffled(otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit === target.unit));
-    const sameTypeOtherUnit = shuffled(otherArtWords.filter((w) =>
-      wordMetaByWord.get(w)?.unit !== target.unit && wordMetaByWord.get(w)?.word_type === target.word_type));
-    const rest = shuffled(otherArtWords.filter((w) =>
-      wordMetaByWord.get(w)?.unit !== target.unit && wordMetaByWord.get(w)?.word_type !== target.word_type));
-    distractorWords = [...sameUnit, ...sameTypeOtherUnit, ...rest].slice(0, 3);
+    const otherUnit = shuffled(otherArtWords.filter((w) => wordMetaByWord.get(w)?.unit !== target.unit));
+    distractorWords = [...sameUnit, ...otherUnit].slice(0, 3);
+    if (distractorWords.length < 3) {
+      const fallback = shuffled(artWords.filter((w) => w !== target.word && notConfusable(w) && !distractorWords.includes(w)));
+      distractorWords = [...distractorWords, ...fallback].slice(0, 3);
+    }
   } else {
-    const poolWords = candidatePool.filter((w) => w.word !== target.word).map((w) => w.word);
-    distractorWords = shuffled(poolWords).slice(0, 3);
-    while (distractorWords.length < 3 && artWords.length > 0) {
-      const filler = artWords[Math.floor(Math.random() * artWords.length)];
-      if (filler !== target.word && !distractorWords.includes(filler)) distractorWords.push(filler);
+    const sameTypePool = (wordsByType.get(target.word_type) ?? []).filter((w) => w !== target.word && notConfusable(w));
+    const inSession = shuffled(sameTypePool.filter((w) => candidatePool.some((p) => p.word === w)));
+    const elsewhere = shuffled(sameTypePool.filter((w) => !candidatePool.some((p) => p.word === w)));
+    distractorWords = [...inSession, ...elsewhere].slice(0, 3);
+    if (distractorWords.length < 3) {
+      const fallback = shuffled(candidatePool.filter((w) => w.word !== target.word).map((w) => w.word))
+        .filter((w) => !distractorWords.includes(w));
+      distractorWords = [...distractorWords, ...fallback].slice(0, 3);
     }
   }
 
@@ -226,6 +252,11 @@ async function selectCandidateWords(admin, plan, progress) {
 
   const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
   const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
+  const wordsByType = new Map();
+  for (const w of (allWords ?? [])) {
+    if (!wordsByType.has(w.word_type)) wordsByType.set(w.word_type, []);
+    wordsByType.get(w.word_type).push(w.word);
+  }
 
   const progressMap = new Map(progress.map((p) => [p.word, p]));
   const now = Date.now();
@@ -272,7 +303,7 @@ async function selectCandidateWords(admin, plan, progress) {
     }
   }
 
-  return { pool: pool.slice(0, 8), currentUnit, artWords, wordMetaByWord };
+  return { pool: pool.slice(0, 8), currentUnit, artWords, wordMetaByWord, wordsByType };
 }
 
 module.exports = async function handler(req, res) {
@@ -298,7 +329,7 @@ module.exports = async function handler(req, res) {
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
   const { plan, progress } = context;
-  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord } = await selectCandidateWords(admin, plan, progress);
+  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress);
   const difficultyLevel = getDifficultyLevel(progress);
 
   let sessionWords = candidatePool;
@@ -369,7 +400,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
       sessionWords.length
     );
     const chosenWords = sessionWords.slice(0, sessionLength);
-    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord));
+    const quizzes = chosenWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord, wordsByType));
 
     const plan = {
       difficultyLevel,
@@ -392,7 +423,7 @@ Respond with ONLY valid JSON. No explanation, no markdown, no backticks.`;
 
     const fallbackLength = Math.min(6, sessionWords.length);
     const fallbackWords  = sessionWords.slice(0, fallbackLength);
-    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord));
+    const quizzes = fallbackWords.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord, wordsByType));
     return res.status(200).json({
       plan: {
         isFallback:          true,

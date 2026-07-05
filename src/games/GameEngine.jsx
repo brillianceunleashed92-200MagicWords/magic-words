@@ -923,25 +923,36 @@ function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
 }
 
 // ─── ACTIVITY: Fill the Story (StoryBuilder) ───────────────────────────────
-// A sentence with a blank — tap a word chip to select it, tap again to
-// confirm. Errorless-adjacent: a wrong confirm softens the chip and glows
-// the correct one rather than a red flash, matching the other 4 activities.
-function StoryBuilder({ quiz, onAnswer }) {
-  const [selected, setSelected] = useState(null);
-  const [answered, setAnswered] = useState(false);
-  const [filled,   setFilled]   = useState(false);
-  const [novaState, setNovaState] = useState('idle');
-  const [message,   setMessage]   = useState('Tap a word to choose it');
-  const [confetti,  setConfetti]  = useState(false);
+// A sentence with a blank — single tap on a chip places it. Errorless
+// scaffold matches WordMatch's exact contract (DESIGN_BRIEF §5): a first
+// wrong tap wiggles+softens that chip and hint-glows the correct one
+// instead of completing the error; only a second miss on the same
+// question lets it complete. `has_art` targets show the target word's own
+// WordArt as a meaning cue alongside the question (persists through
+// answering — there's no separate post-answer reveal moment anymore);
+// no-art targets (including every function word, since `pictureEligible`
+// is false for those by construction) render exactly as before, cue-free.
+function StoryBuilder({ quiz, onAnswer, encouragement }) {
+  const [answered,     setAnswered]     = useState(false);
+  const [placedIdx,    setPlacedIdx]    = useState(null);
+  const [novaState,    setNovaState]    = useState('idle');
+  const [message,      setMessage]      = useState('Tap a word to place it');
+  const [confetti,     setConfetti]     = useState(false);
+  const [wrongChipIdx, setWrongChipIdx] = useState(null);
+  const [revealCorrect, setRevealCorrect] = useState(false);
+  const [missedOnce,   setMissedOnce]   = useState(false);
   const correctChipRef = useRef(null);
   const startRef = useRef(Date.now());
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    setSelected(null);
     setAnswered(false);
-    setFilled(false);
+    setPlacedIdx(null);
     setNovaState('idle');
-    setMessage('Tap a word to choose it');
+    setMessage('Tap a word to place it');
+    setWrongChipIdx(null);
+    setRevealCorrect(false);
+    setMissedOnce(false);
     startRef.current = Date.now();
   }, [quiz?.word]);
 
@@ -951,55 +962,76 @@ function StoryBuilder({ quiz, onAnswer }) {
     fetchAudio(getPromptText(quiz, 'story_builder')).then(playAudio);
   }, [quiz?.word]);
 
-  // quiz.sentence = "The ___ jumped over the puddle."
-  // quiz.options = [{word, emoji}, ...]
+  // quiz.sentence = "Watch Nova ___!"
+  // quiz.options = [{word}, ...]
   // quiz.correctIndex = int
+  // quiz.pictureEligible = has_art && word_type !== 'function' (server/client both compute this)
 
-  const handleWordTap = (idx) => {
+  const handleChipTap = async (idx) => {
     if (answered) return;
-    if (selected === idx) {
-      confirmAnswer(idx);
-    } else {
-      setSelected(idx);
-      setMessage('Tap again to place it');
-    }
-  };
-
-  const confirmAnswer = (idx) => {
     const correct = idx === quiz.correctIndex;
     const responseTimeMs = Date.now() - startRef.current;
-    setFilled(true);
+
+    if (!correct && !missedOnce) {
+      // First miss: wiggle+soften, then hint-glow the correct chip and let
+      // the child retry immediately — does not complete the error.
+      setMissedOnce(true);
+      setWrongChipIdx(idx);
+      setMessage("Not quite — try the glowing one!");
+      setTimeout(() => {
+        setWrongChipIdx(null);
+        setRevealCorrect(true);
+      }, 450);
+      return;
+    }
+
     setAnswered(true);
+    setPlacedIdx(idx); // single tap places — spring pop into the blank
+
     if (correct) {
+      // Sound choreography per the audio-consolidation rules: success sound
+      // only (no spoken word) at the feedback moment, THEN the completed
+      // sentence read aloud once, THEN the celebration — nothing overlaps.
+      // handleAnswer (GameEngine's session-level callback) skips its own
+      // generic chime for story_builder specifically so this is the only
+      // chime played; it still plays the incorrect tone on a wrong answer.
+      await playCorrectChime();
+      const completedSentence = (quiz.sentence ?? '').replace('___', quiz.word);
+      const url = await fetchAudio(completedSentence);
+      await new Promise((resolve) => {
+        const audio = url ? playAudio(url) : null;
+        if (!audio) { resolve(); return; }
+        audio.onended = resolve;
+        audio.onerror = resolve;
+      });
       setNovaState('correct');
       setConfetti(true);
-      setMessage('That fits perfectly!');
+      setMessage(encouragement ?? `That fits perfectly — "${quiz.word}"!`);
       setTimeout(() => setConfetti(false), 900);
+      setTimeout(() => { setNovaState('idle'); onAnswer({ correct: true, responseTimeMs, firstTry: true }); }, 1200);
     } else {
-      setMessage(`Let's try "${quiz.options[quiz.correctIndex]?.word}" here instead.`);
+      setMessage(`That's okay — it's "${quiz.word}"!`);
+      setTimeout(() => { onAnswer({ correct: false, responseTimeMs, firstTry: true }); }, 1700);
     }
-    setTimeout(() => { setNovaState('idle'); onAnswer({ correct, responseTimeMs }); }, 1600);
   };
 
   const parts = (quiz?.sentence ?? '').split('___');
+  const showCue = !!quiz?.pictureEligible;
 
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
-      <ConfettiStars active={confetti} originRef={correctChipRef} />
+      <ConfettiStars active={confetti && !reducedMotion} originRef={correctChipRef} />
       <NovaPorthole novaState={novaState} message={message} />
 
-      {/* Picture reveal — this activity had no picture at all before.
-          Deliberately shown only AFTER answering (correct or not), never
-          before: the blank is a fill-in-the-blank test, and revealing the
-          target word's art ahead of time would just hand over the answer.
-          Uses the same WordArt registry as every other activity — verbs
-          render via the existing BuddyBase character-performs-the-action
-          art (e.g. RunArt), adjectives via their comparison art, so this
-          reuses what already exists rather than inventing new illustrations. */}
-      {answered && (
+      {/* Picture-as-cue — for has_art targets only, shown WITH the question
+          (before answering), not as a post-answer reveal. The child maps
+          meaning -> whole word, then confirms by placing the matching
+          chip. No-art targets (incl. every function word) render nothing
+          here, same as before this rebuild. */}
+      {showCue && (
         <div style={{
           display: 'flex', justifyContent: 'center', margin: '0 0 18px',
-          animation: 'mw-pop 0.4s ease',
+          animation: reducedMotion ? 'none' : 'mw-pop 0.4s ease',
         }}>
           <div style={{
             background: colors.cloud, borderRadius: 24, padding: 14,
@@ -1017,36 +1049,41 @@ function StoryBuilder({ quiz, onAnswer }) {
         <span>{parts[0]}</span>
         <span style={{
           display: 'inline-block', minWidth: 90, padding: '2px 10px', borderRadius: 12,
-          borderBottom: `3px solid ${filled ? colors.sun : colors.mint}`,
-          color: filled ? colors.sun : colors.mint,
+          borderBottom: `3px solid ${placedIdx !== null ? colors.sun : colors.mint}`,
+          color: placedIdx !== null ? colors.sun : colors.mint,
         }}>
-          {filled && selected !== null ? quiz.options[selected]?.word : '    '}
+          {placedIdx !== null
+            ? <span style={{ display: 'inline-block', animation: reducedMotion ? 'none' : 'mw-pop 0.35s cubic-bezier(.2,.9,.3,1.5)' }}>{quiz.options[placedIdx]?.word}</span>
+            : '    '}
         </span>
         <span>{parts[1]}</span>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', maxWidth: 560, margin: '0 auto' }}>
         {quiz.options.map((opt, idx) => {
-          const isSelected = selected === idx && !answered;
-          const isCorrectChip = answered && idx === quiz.correctIndex;
-          const isWrongChip = answered && idx === selected && !isCorrectChip;
+          const isCorrectChip = idx === quiz.correctIndex;
+          const isWiggleSoften = idx === wrongChipIdx;
+          const isHintGlow = (revealCorrect || answered) && isCorrectChip && idx !== placedIdx;
           return (
             <button
               key={idx}
-              onClick={() => handleWordTap(idx)}
+              onClick={() => handleChipTap(idx)}
               disabled={answered}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 100,
                 border: 'none', cursor: answered ? 'default' : 'pointer',
                 fontFamily: fonts.display, fontWeight: 700, fontSize: '1.05rem', color: colors.ink,
-                background: colors.cloud,
-                boxShadow: isCorrectChip
+                background: colors.cloud, minHeight: 44,
+                boxShadow: isHintGlow
                   ? `${shadows.chunkSm}, 0 0 0 4px rgba(62,224,184,.55), 0 0 20px rgba(62,224,184,.6)`
                   : shadows.chunkSm,
-                opacity: isWrongChip ? 0.55 : 1,
-                filter: isWrongChip ? 'saturate(.55)' : 'none',
-                transform: isSelected ? 'translateY(-4px) scale(1.05)' : 'none',
-                transition: 'all .2s',
+                opacity: isWiggleSoften ? 0.55 : 1,
+                filter: isWiggleSoften ? 'saturate(.55)' : 'none',
+                transform: idx === placedIdx && !reducedMotion ? 'translateY(-4px) scale(1.05)' : 'none',
+                transition: 'transform .2s, opacity .2s, filter .2s, box-shadow .2s',
+                animation: reducedMotion
+                  ? 'none'
+                  : isWiggleSoften ? 'lessonWiggle .45s ease' : isHintGlow ? 'lessonHintPulse 1.4s ease-in-out infinite' : 'none',
               }}
             >
               <span ref={isCorrectChip ? correctChipRef : undefined}>
@@ -1733,8 +1770,16 @@ export function GameEngine({
     // auto-play (each activity's mount effect) never starts until the
     // chime has actually finished — still routed through soundEffects.js's
     // oscillator Promise, so nothing here can overlap other audio.
+    //
+    // story_builder is the one exception on the correct path: it plays its
+    // own success chime BEFORE the read-back sentence (Fill the Story
+    // rebuild's "sound -> read-back -> celebration" sequence), so this
+    // generic chime would be a duplicate/second sound layered after the
+    // read-back if it also fired here. The incorrect path is untouched —
+    // story_builder still has no read-back on a wrong answer, so the
+    // shared tone stays exactly as it is for every activity.
     if (correct) {
-      await playCorrectChime();
+      if (gameType !== 'story_builder') await playCorrectChime();
     } else {
       await playIncorrectTone();
     }
@@ -1927,7 +1972,12 @@ export function GameEngine({
         />
       )}
       {gameType === 'story_builder' && (
-        <StoryBuilder key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+        <StoryBuilder
+          key={currentIdx}
+          quiz={currentQuiz}
+          onAnswer={handleAnswer}
+          encouragement={encouragements[encouragIdx % encouragements.length]}
+        />
       )}
       {gameType === 'spell_it_out' && (
         <SpellItOut key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
