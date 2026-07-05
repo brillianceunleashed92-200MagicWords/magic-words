@@ -21,8 +21,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import WordBuilder from './WordBuilder';
 import DrawIt from './DrawIt';
-import WordSong from './WordSong';
-import MagicVideo from './MagicVideo';
+import FindTheWord from './FindTheWord';
+import QuizBoss from './QuizBoss';
 import StoryTimeActivity from './StoryTimeActivity';
 import SayItWithNova from './SayItWithNova';
 import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio';
@@ -844,83 +844,11 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   );
 }
 
-// ─── ACTIVITY: Quiz Boss (FlashCardChallenge) ──────────────────────────────
-// Show the picture face-up — tap to reveal the word, then self-rate: know
-// it or need practice. Self-rated, not right/wrong-graded, so no errorless
-// scaffold applies — but still candy tokens, chunk shadow, no emoji.
-function FlashCardChallenge({ quiz, nextQuiz, onAnswer }) {
-  const [revealed, setRevealed] = useState(false);
-  const [answered, setAnswered] = useState(false);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    setRevealed(false);
-    setAnswered(false);
-    startRef.current = Date.now();
-  }, [quiz?.word]);
-
-  // Make sure this card's audio is cached the instant it appears (it should
-  // already be warm from session prefetch, but this guards against a miss),
-  // and warm the next card's audio in the background so it's ready when the
-  // child gets there.
-  useEffect(() => {
-    const text = getPromptText(quiz, 'flash_cards');
-    if (text) fetchAudio(text);
-    const nextText = getPromptText(nextQuiz, 'flash_cards');
-    if (nextText) fetchAudio(nextText);
-  }, [quiz?.word, nextQuiz?.word]);
-
-  const handleReveal = () => {
-    if (revealed) return;
-    setRevealed(true);
-    const text = getPromptText(quiz, 'flash_cards');
-    fetchAudio(text).then(url => { if (url) playAudio(url); });
-  };
-
-  const handleKnow = (know) => {
-    if (answered) return;
-    setAnswered(true);
-    const responseTimeMs = Date.now() - startRef.current;
-    setTimeout(() => onAnswer({ correct: know, responseTimeMs, firstTry: true }), 300);
-  };
-
-  if (!quiz) return null;
-
-  return (
-    <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '60vh', justifyContent: 'center' }}>
-      <div style={{ fontFamily: fonts.display, fontWeight: 700, color: 'rgba(255,255,255,.8)', fontSize: '.9rem', marginBottom: 20, textAlign: 'center' }}>
-        Quiz Boss
-      </div>
-      <button onClick={handleReveal} style={{
-        width: '100%', maxWidth: 300, minHeight: 220, background: colors.cloud, border: 'none',
-        borderRadius: 32, padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', cursor: revealed ? 'default' : 'pointer', gap: 12,
-        boxShadow: shadows.chunk,
-      }}>
-        <WordArt word={quiz.word} size={90} />
-        {revealed ? (
-          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '2rem', color: colors.ink }}>{quiz.word}</div>
-        ) : (
-          <div style={{ fontFamily: fonts.display, color: colors.mintDeep, fontSize: '1rem', fontWeight: 700 }}>Tap to reveal!</div>
-        )}
-      </button>
-      {revealed && !answered && (
-        <div style={{ display: 'flex', gap: 14, marginTop: 24 }}>
-          <button onClick={() => handleKnow(false)} style={{
-            fontFamily: fonts.display, fontWeight: 700, fontSize: '.95rem',
-            background: colors.sun, color: colors.starText, border: 'none',
-            borderRadius: 100, padding: '13px 20px', cursor: 'pointer', boxShadow: shadows.chunkSm,
-          }}>Need practice</button>
-          <button onClick={() => handleKnow(true)} style={{
-            fontFamily: fonts.display, fontWeight: 700, fontSize: '.95rem',
-            background: colors.mint, color: colors.mintDeep, border: 'none',
-            borderRadius: 100, padding: '13px 20px', cursor: 'pointer', boxShadow: shadows.chunkSm,
-          }}>I know it!</button>
-        </div>
-      )}
-    </div>
-  );
-}
+// Quiz Boss (app-measured review battle) now lives in ./QuizBoss.jsx — see
+// docs/ACTIVITY_ROSTER_REPORT.md QUIZ BOSS section for why the old
+// self-rating FlashCardChallenge ("I know it / need practice", which just
+// echoed the child's own tap back as `correct` — never actually measured
+// anything) was replaced rather than patched.
 
 // ─── ACTIVITY: Fill the Story (StoryBuilder) ───────────────────────────────
 // A sentence with a blank — single tap on a chip places it. Errorless
@@ -1262,7 +1190,7 @@ export function SessionComplete({
 }) {
   const [confettiActive, setConfettiActive] = useState(true);
   const reducedMotion = usePrefersReducedMotion();
-  // Bug 3 fix: word_song/magic_video/draw_it/word_builder always report
+  // Bug 3 fix: draw_it/word_builder always report
   // `correct: true` (no real pass/fail — see SCORELESS_GAME_TYPES' own
   // comment in questProgress.js for why each one specifically), so their
   // correctCount/total is always 100% — deriving "3 stars" from that isn't
@@ -1461,11 +1389,15 @@ const MLC_TYPES = {
   sound_match:   'Following Commands',
   word_hunt:     'Answering Questions',
   rhyme_time:    'Answering Questions',
-  // Phase 2 Step 7: rebound from flash_cards now that say_it does real
-  // speech capture (Web Speech SpeechRecognition) instead of a
-  // "hear, self-rate" scaffold — closes the gap flagged in
-  // docs/mlc-engine-audit.md. flash_cards is left unbound rather than
-  // double-counted against the same MLC category.
+  // Prompt 6: Find the Word is a real recognition question (hear the
+  // word, pick the matching tile) — the same category as Word Hunt/Rhyme
+  // Time. Quiz Boss (flash_cards) reuses that exact mechanic per question
+  // but stays unbound: it's a review battle OVER words already taught via
+  // the other activities, not a distinct teaching interaction in its own
+  // right (same reasoning that left it unbound before this pass, just
+  // re-confirmed against the new mechanic rather than the old self-rating
+  // one — see docs/mlc-engine-audit.md).
+  find_the_word: 'Answering Questions',
   say_it:        'Verbal Imitation',
   flash_cards:   null,
   story_builder: 'Sentence Completion',
@@ -1868,7 +1800,7 @@ export function GameEngine({
   // actually live and reachable from PlayScreen.jsx (it was mistakenly
   // conflated with the genuinely-unreachable SpellItOut during the earlier
   // UI polish pass and never audited).
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it'].includes(gameType);
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word'].includes(gameType);
 
   return (
     <div style={{
@@ -1964,12 +1896,10 @@ export function GameEngine({
         />
       )}
       {gameType === 'flash_cards' && (
-        <FlashCardChallenge
-          key={currentIdx}
-          quiz={currentQuiz}
-          nextQuiz={quizzes[currentIdx + 1] ?? null}
-          onAnswer={handleAnswer}
-        />
+        <QuizBoss key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+      )}
+      {gameType === 'find_the_word' && (
+        <FindTheWord key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'story_builder' && (
         <StoryBuilder
@@ -1987,12 +1917,6 @@ export function GameEngine({
       )}
       {gameType === 'draw_it' && (
         <DrawIt key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} encouragement={encouragements[encouragIdx % encouragements.length]} />
-      )}
-      {gameType === 'word_song' && (
-        <WordSong key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
-      )}
-      {gameType === 'magic_video' && (
-        <MagicVideo key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'story_time' && (
         <StoryTimeActivity key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} onExit={handleExitEarly} />

@@ -41,8 +41,6 @@ export function useTodayWordActivityQuery(childId, word) {
 // Activities with no real pass/fail outcome — their onAnswer always
 // reports `correct: true` unconditionally (confirmed by reading each
 // component directly, not assumed):
-//   - word_song (WordSong.jsx): a chant-along, no task to get wrong.
-//   - magic_video (MagicVideo.jsx): a watch-the-video placeholder.
 //   - draw_it (DrawIt.jsx): drawing the word by hand IS the point.
 //   - word_builder (WordBuilder.jsx): errorless by construction — a wrong
 //     letter tap is rejected immediately and never added to the spelled
@@ -57,6 +55,14 @@ export function useTodayWordActivityQuery(childId, word) {
 // comment above) instead of a 3 that implies a performance judgment that
 // was never actually possible.
 //
+// word_song and magic_video used to be here too (Prompt 6 removed both:
+// magic_video was cut from the rotation entirely; word_song was replaced
+// by find_the_word, a REAL recognition quiz that varies with accuracy —
+// it does NOT belong in this set). flash_cards (Quiz Boss) was never in
+// this set even under the old self-rating flow (its `correct` value did
+// vary — just unreliably, since it was the child's own self-report, not a
+// measured outcome); it stays out now that it's a real measured battle.
+//
 // story_time and say_it were deliberately NOT added here even though each
 // has a path that also always reports correct:true (Story Time's tier-1
 // micro-stories have no comprehension question; Say It's no-mic-support
@@ -67,7 +73,7 @@ export function useTodayWordActivityQuery(childId, word) {
 // session had no real question" from "it did" would need a new signal
 // threaded through learning_events, which is a feature addition, not the
 // bug fix this pass is scoped to — flagged in NOTES FOR NEXT PROMPTS.
-export const SCORELESS_GAME_TYPES = new Set(['word_song', 'magic_video', 'draw_it', 'word_builder']);
+export const SCORELESS_GAME_TYPES = new Set(['draw_it', 'word_builder']);
 
 // Aggregates raw learning_events rows into a per-activity summary. Not a
 // GROUP BY in Postgres (Supabase's JS client can't do that without an RPC/

@@ -59,8 +59,23 @@ export default function PlayScreen({ focusWord, onExit }) {
   const parentSettingsQ = useParentSettingsQuery(user?.id);
   const { minutesToday, limitReached } = useSessionTimeLimit(childId, parentSettingsQ.data?.daily_minutes_limit);
 
-  const { sessionPlan, planLoading, planError, generatePlanForWord } = useSessionPlan(user, childId, plan);
+  const {
+    sessionPlan, planLoading, planError, generatePlanForWord,
+    reviewSessionPlan, reviewPlanLoading, generateReviewPlan,
+  } = useSessionPlan(user, childId, plan);
   const queryClient = useQueryClient();
+
+  // Quiz Boss (Prompt 6 Part 4) draws its own server-authoritative
+  // review-pool plan the moment it's selected, distinct from the shared
+  // adaptive `sessionPlan` every other activity uses.
+  const isQuizBoss = gameType === 'flash_cards';
+  useEffect(() => {
+    if (isQuizBoss && user && childId) generateReviewPlan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQuizBoss, user?.id, childId]);
+
+  const activeSessionPlan = isQuizBoss ? reviewSessionPlan : sessionPlan;
+  const activePlanLoading = isQuizBoss ? reviewPlanLoading : planLoading;
 
   // A word tapped directly on the Home path/Galaxy map should drive the
   // session, not whatever the default sequencing would pick.
@@ -305,8 +320,8 @@ export default function PlayScreen({ focusWord, onExit }) {
     );
   }
 
-  if (planLoading || !sessionPlan) {
-    return <GalaxyLoader message="Preparing your quest…" />;
+  if (activePlanLoading || !activeSessionPlan) {
+    return <GalaxyLoader message={isQuizBoss ? 'Summoning the Quiz Boss…' : 'Preparing your quest…'} />;
   }
 
   if (sessionResult) {
@@ -330,7 +345,7 @@ export default function PlayScreen({ focusWord, onExit }) {
 
   return (
     <GameEngine
-      sessionPlan={sessionPlan}
+      sessionPlan={activeSessionPlan}
       gameType={gameType}
       childName={activeChild?.name ?? 'Star Learner'}
       onProgress={handleProgress}

@@ -51,6 +51,14 @@ export function useSessionPlan(user, childId, plan = 'free') {
   const [sessionPlan, setSessionPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError]     = useState(null);
+  // Quiz Boss (Prompt 6 Part 4) draws from a distinct, review-only word
+  // pool (server-authoritative spaced-repetition selection, never the
+  // shared adaptive session's current-unit words) — kept in its own state
+  // slot so selecting Quiz Boss never clobbers `sessionPlan`, which every
+  // other activity this visit still reads from.
+  const [reviewSessionPlan, setReviewSessionPlan] = useState(null);
+  const [reviewPlanLoading, setReviewPlanLoading] = useState(false);
+  const [reviewPlanError, setReviewPlanError]     = useState(null);
 
   const generatePlan = useCallback(async (force = false, focusWord = null) => {
     if (!user || !childId) return;
@@ -99,12 +107,51 @@ export function useSessionPlan(user, childId, plan = 'free') {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, childId]);
 
+  // No sessionStorage cache here (unlike the main plan) — a review battle
+  // must reflect the child's *current* mastery/due-dates every time Quiz
+  // Boss is picked, not a cached snapshot from up to an hour ago.
+  const generateReviewPlan = useCallback(async () => {
+    if (!user || !childId) return;
+    setReviewPlanLoading(true);
+    setReviewPlanError(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const response = await fetch('/api/session-generator', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ childId, reviewOnly: true }),
+      });
+      if (!response.ok) throw new Error(`Session generator returned ${response.status}`);
+      const { plan: newPlan } = await response.json();
+      setReviewSessionPlan(newPlan);
+    } catch (err) {
+      console.error('[useSessionPlan] Review plan generation failed:', err.message);
+      setReviewPlanError(err.message);
+      // Degrade to the same real-curriculum fallback as the main plan
+      // (weakest-mastery words) rather than leaving Quiz Boss unplayable —
+      // not a spaced-repetition review pool, but still real words, never
+      // an empty session.
+      const fallback = await buildSupabaseFallbackPlan(childId, plan);
+      setReviewSessionPlan(fallback);
+    } finally {
+      setReviewPlanLoading(false);
+    }
+  }, [user, childId, plan]);
+
   return {
     sessionPlan,
     planLoading,
     planError,
     regeneratePlan:      () => generatePlan(true),
     generatePlanForWord: (word) => generatePlan(true, word),
+    reviewSessionPlan,
+    reviewPlanLoading,
+    reviewPlanError,
+    generateReviewPlan,
   };
 }
 

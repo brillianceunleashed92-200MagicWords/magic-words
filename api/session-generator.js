@@ -238,11 +238,26 @@ async function fetchChildContext(admin, childId, userId) {
   return { plan, progress: progress ?? [] };
 }
 
+// Quiz Boss battle size (Prompt 6, Part 4) — 5-6 real recognition
+// questions over previously-encountered words, never brand-new current-
+// unit vocabulary (that's every other activity's job).
+const REVIEW_BATTLE_SIZE = 6;
+
 // Candidate pool = current unit's unmastered words + words due for
 // spaced-repetition review + a small confidence sample of mastered words,
 // all filtered to the account's actual plan (free tier never sees a word
 // above FREE_TIER_MAX_UNIT, enforced here — not by trusting the client).
-async function selectCandidateWords(admin, plan, progress) {
+//
+// `reviewOnly` (Quiz Boss, Prompt 6 Part 4): the self-rating flashcard
+// flow this replaces drew from whatever the shared session's word list
+// happened to be (same pool every other activity uses) — not actually a
+// review mechanism. This flag switches the pool to previously-encountered
+// words only (any word with attempt_count > 0), skewed toward the
+// lowest-mastery/longest-overdue ones first, so the battle is a real
+// spaced-repetition review rather than a second pass at brand-new
+// current-unit words. Same ownership/plan-gate path as the normal
+// selection — only the pool composition differs.
+async function selectCandidateWords(admin, plan, progress, reviewOnly = false) {
   const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
   const { data: allWords } = await admin
     .from('words')
@@ -283,6 +298,36 @@ async function selectCandidateWords(admin, plan, progress) {
     if (hasUnmastered) break;
   }
 
+  if (reviewOnly) {
+    // Quiz Boss: previously-encountered words only (attempt_count > 0) —
+    // never brand-new current-unit vocabulary. Overdue-longest and lowest-
+    // mastery first (the words most worth re-testing), same MASTERED_THRESHOLD
+    // and plan/unit gate as every other path. A child with too little history
+    // (< REVIEW_BATTLE_SIZE previously-seen words — new accounts, or a plan
+    // that just reset) pads with the weakest current-unit words rather than
+    // returning an empty/short battle.
+    const encountered = withProgress.filter((w) => w.attemptCount > 0);
+    const due = encountered.filter((w) => w.dueForReview);
+    const notYetDue = encountered.filter((w) => !w.dueForReview).sort((a, b) => a.mastery - b.mastery);
+    const seenReview = new Set();
+    const reviewPool = [...shuffled(due), ...notYetDue].filter((w) => {
+      if (seenReview.has(w.word)) return false;
+      seenReview.add(w.word);
+      return true;
+    });
+    if (reviewPool.length < REVIEW_BATTLE_SIZE) {
+      const filler = withProgress
+        .filter((w) => !seenReview.has(w.word) && w.unit === currentUnit)
+        .sort((a, b) => a.mastery - b.mastery);
+      for (const w of filler) {
+        if (reviewPool.length >= REVIEW_BATTLE_SIZE) break;
+        reviewPool.push(w);
+        seenReview.add(w.word);
+      }
+    }
+    return { pool: reviewPool.slice(0, REVIEW_BATTLE_SIZE), currentUnit, artWords, wordMetaByWord, wordsByType };
+  }
+
   const currentUnitWords = withProgress.filter((w) => w.unit === currentUnit && w.mastery < MASTERED_THRESHOLD);
   const dueForReview = withProgress.filter((w) => w.dueForReview && w.unit !== currentUnit);
   const masteredSample = shuffled(withProgress.filter((w) => w.mastery >= MASTERED_THRESHOLD)).slice(0, 2);
@@ -321,6 +366,7 @@ module.exports = async function handler(req, res) {
   const rawFocusWord = req.body?.focusWord;
   const childId = typeof rawChildId === 'string' && /^[0-9a-f-]{36}$/i.test(rawChildId) ? rawChildId : null;
   const focusWord = typeof rawFocusWord === 'string' && /^[a-z']{1,40}$/i.test(rawFocusWord) ? rawFocusWord : null;
+  const reviewOnly = req.body?.reviewOnly === true;
 
   if (!childId) return res.status(400).json({ error: 'childId is required' });
 
@@ -329,8 +375,34 @@ module.exports = async function handler(req, res) {
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
   const { plan, progress } = context;
-  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress);
+  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly);
   const difficultyLevel = getDifficultyLevel(progress);
+
+  // Quiz Boss (Prompt 6 Part 4): a fixed-size review battle, not an
+  // AI-personalized adaptive session — skip the Claude call entirely
+  // (lower latency/cost, and there's no "difficulty ramp" copy to
+  // generate for a deterministic battle-of-N-words). The boss framing
+  // itself is client-side theater; this endpoint's only job here is the
+  // server-authoritative word selection + quiz construction.
+  if (reviewOnly) {
+    const quizzes = candidatePool.map((w) => buildQuiz(w, candidatePool, artWords, wordMetaByWord, wordsByType));
+    return res.status(200).json({
+      plan: {
+        isReviewBattle: true,
+        difficultyLevel,
+        currentUnit,
+        sessionLength: quizzes.length,
+        sessionGoal: 'Defeat the Quiz Boss!',
+        quizzes,
+        wordSequence: candidatePool,
+        encouragements: ['Great job!', 'Amazing!', 'You did it!', "You're a star!", 'Wow!'],
+        wrongAnswerMessages: ["Let's try again!", 'Almost! Keep going!', "You're learning!"],
+        coachingTip: '',
+        generatedAt: new Date().toISOString(),
+        wordCount: quizzes.length,
+      },
+    });
+  }
 
   let sessionWords = candidatePool;
   if (focusWord) {

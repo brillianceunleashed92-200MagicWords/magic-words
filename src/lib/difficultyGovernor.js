@@ -37,7 +37,7 @@ export function getRollingSuccessRate() {
 // mastery-gate demand, to advance faster. Extended to span all 10
 // activity types (Step 2) — the pools are a starting split, easy to
 // retune from one place as real usage data comes in.
-const EASIER_POOL = ['word_match', 'sound_match', 'word_hunt', 'draw_it', 'word_song', 'magic_video'];
+const EASIER_POOL = ['word_match', 'sound_match', 'word_hunt', 'draw_it', 'find_the_word'];
 const HARDER_POOL = ['flash_cards', 'word_builder', 'story_builder', 'spell_it_out', 'say_it'];
 
 // Returns a suggested game id to highlight first in the activity picker,
