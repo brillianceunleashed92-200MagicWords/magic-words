@@ -926,12 +926,20 @@ function StoryBuilder({ quiz, onAnswer, encouragement }) {
       await playCorrectChime();
       const completedSentence = (quiz.sentence ?? '').replace('___', quiz.word);
       const url = await fetchAudio(completedSentence);
-      await new Promise((resolve) => {
-        const audio = url ? playAudio(url) : null;
-        if (!audio) { resolve(); return; }
-        audio.onended = resolve;
-        audio.onerror = resolve;
-      });
+      // Race against a timeout — same guard DrawIt.jsx's word-complete audio
+      // uses (docs/DRAW_IT_TRACING_REPORT.md): a backgrounded/suspended tab
+      // can leave an Audio element's play() neither resolving, rejecting,
+      // nor ever firing 'ended'/'error'. Without this, a stalled read-back
+      // clip would permanently block the celebration and onAnswer.
+      await Promise.race([
+        new Promise((resolve) => {
+          const audio = url ? playAudio(url) : null;
+          if (!audio) { resolve(); return; }
+          audio.onended = resolve;
+          audio.onerror = resolve;
+        }),
+        new Promise((resolve) => setTimeout(resolve, 4000)),
+      ]);
       setNovaState('correct');
       setConfetti(true);
       setMessage(encouragement ?? `That fits perfectly — "${quiz.word}"!`);

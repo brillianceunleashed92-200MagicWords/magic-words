@@ -214,7 +214,45 @@ meter/celebration primitives, not a new one.
   extending the `onAnswer` payload — resolved a different way instead.
 
 ## HOUSEKEEPING
-IN PROGRESS
+- **StoryBuilder audio-stall timeout port**: `GameEngine.jsx`'s
+  `StoryBuilder` read-back (`await new Promise(...audio.onended...)` with
+  no timeout — the exact pattern `DRAW_IT_TRACING_REPORT.md` proved can
+  hang on a backgrounded/suspended tab) now races the same
+  `Promise.race([..., new Promise(resolve => setTimeout(resolve, 4000))])`
+  guard `DrawIt.jsx`'s word-complete audio already uses, copied verbatim
+  (comment cites the source). Two-line change, verified in the production
+  walk below (read-back still plays and completes normally with real
+  audio).
+- **`test@yahoo.com` investigation (report only — not deleted, not a
+  `nextgenprecisiondrones+*` account)**: queried directly (read-only).
+  Created 2026-05-30, **last signed in 2026-07-05 (today)**, 1 child
+  profile, 310 `learning_events` rows, 0 subscriptions. The recent
+  sign-in lines up with this prompt's own "known traps" note about a
+  Chrome-autofill incident landing an automation session in this exact
+  account during the Draw It tracing pass — the 310-event history and
+  May creation date suggest a real, long-standing manual test account
+  someone (Sal or a prior session) set up and reuses, not a one-off
+  accident. Left untouched; flagging for Sal to confirm whether it should
+  be kept as a standing test account or cleaned up deliberately.
+- **`gameTheme.js` reader census** (literal `import` sites, then which
+  components inside them actually use `T`, not just import it — checked
+  line-by-line, not assumed): exactly 2 files still import it —
+  `SayItWithNova.jsx` (untouched, item 5's scope) and `GameEngine.jsx`.
+  Within `GameEngine.jsx`, real (non-comment-text) usages of `T` remain in:
+  `ConfettiBurst`, `SessionProgress`, `SoundMatch`, `SpellItOut`,
+  `GameTypeSelector` (+ its `GAME_TYPES` array), `UpgradeModal`, and the
+  shared `injectCSS()` stylesheet string. `RhymeTime` and `StoryBuilder`
+  each showed one `grep` hit but both were false positives — matches
+  inside `docs/*_REPORT.md` filenames in code comments, not real `T.`
+  property access; both are already fully on Candy tokens. `SessionComplete`
+  was predicted as a `T` reader in this prompt's own text but turned out
+  to already be fully migrated (zero real usage) — the prompt's guess,
+  not this pass's finding, was stale. Full retirement of `gameTheme.js` is
+  not in scope this pass (per the prompt) — this is a report, not a
+  migration.
+- **Master Project Doc v3**: repair item 4 lines (Quiz Boss, Word
+  Song→Find the Word, Magic Video) updated to DONE style once this
+  branch merges (see doc edit alongside this report).
 
 ## VERIFICATION
 IN PROGRESS
