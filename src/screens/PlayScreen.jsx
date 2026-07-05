@@ -321,6 +321,7 @@ export default function PlayScreen({ focusWord, onExit }) {
         sparksEarned={sessionResult.sparks}
         masteredCount={masteredCount}
         totalWordCount={words.length}
+        gameType={gameType}
         onPlayAgain={() => { setSessionResult(null); setGameType(null); }}
         onHome={onExit}
       />

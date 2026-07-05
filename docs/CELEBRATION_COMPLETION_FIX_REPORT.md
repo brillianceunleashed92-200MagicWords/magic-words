@@ -69,11 +69,118 @@ that this pass could not reproduce them after a genuine effort, so they
 remain open if a future session can pin down a reproduction (e.g. via a
 real device/parent report of exact steps, rather than scripted play).
 
+### Bug 5 (exit doesn't save) — real root cause found: Story Time's exit button was unreachable, not broken
+
+Live-tested exit-save on Word Hunt (zero-progress, exit before answering
+anything) and Word Song (partial progress, one question answered then
+exit) on production first, since the mission specifically named Word
+Song. Both worked correctly: progress banked (learning_events/word_progress
+written, Sparks credited), clean return to Home, correct next-focus-word
+state, no phantom quest, no console errors — this exit-save mechanism
+(from an earlier fix in this same lineage, see the `pendingLearningEventsRef`
++ `Promise.allSettled` discipline in `PlayScreen.jsx`) is working as designed
+for every activity that renders inline inside `GameEngine`'s own chrome.
+
+**Story Time is different and genuinely broken.** `StoryReader.jsx` (used
+by the guided-path Story Time activity) renders as a full-screen fixed
+portal (`position: fixed; inset: 0; z-index: 9990`, via `createPortal`
+directly onto `document.body`) — sitting visually and functionally on top
+of whatever the caller has underneath, including `GameEngine`'s own
+close/exit button. Confirmed directly: attempting to click "Exit and save
+progress" while Story Time's reader was open failed with Playwright
+reporting `<div class="candy-galaxy">…</div> intercepts pointer events` —
+the button existed in the DOM and was "visible" by bounding-box, but a
+different element sat on top of it capturing the actual click. This holds
+from the moment the story opens (the cover page, before "Start reading"
+is even tapped) all the way through the last page — there was no way to
+leave a story once opened short of finishing it or a hard reload.
+
+Grepped every activity component for `createPortal` — `StoryReader.jsx`
+is the only activity-level one (the others, `lessonChrome.jsx`'s confetti
+and `CelebrationOverlay.jsx`, are decorative/dismissable overlays, not a
+click-blocking full-screen scrim over the exit control) — so this is an
+isolated issue, not a pattern repeated elsewhere.
+
+Likely why the mission's report named "Word Song" rather than "Story
+Time": the two are adjacent in the guided path's rank order (Word Song is
+rank 4, Story Time rank 6) and easy to misremember mid-session — Word
+Song tested clean in both scenarios above, Story Time reproduced the
+exact failure on the first attempt.
+
 ## FIXED
 
-IN PROGRESS
+**Bug 5 — Story Time's unreachable exit** (`src/components/candy/StoryReader.jsx`,
+`src/games/StoryTimeActivity.jsx`, `src/games/GameEngine.jsx`,
+`src/screens/StoryScreen.jsx`):
+- `StoryReader` now accepts an optional `onExit` prop. When provided, it
+  renders its own close button (top-left, every page including the cover,
+  same `IconClose`/"Exit and save progress" convention as `GameEngine`'s
+  other activity headers) inside its own portal — the only way to reach
+  an exit control while the portal is covering everything underneath.
+- `StoryTimeActivity` now accepts and threads an `onExit` prop down to
+  `StoryReader`. `GameEngine`'s render call for `story_time` now passes
+  `onExit={handleExitEarly}` — the exact same shared exit-save mechanism
+  every other activity already uses (awaits `pendingLearningEventsRef`,
+  banks partial XP/Sparks, returns to the guided path). No new completion
+  logic — Story Time now just has a way to *reach* the existing one.
+- `StoryScreen.jsx` ("New Story Friday", the other `StoryReader` caller,
+  outside the guided path) had the identical gap — no way to back out of
+  a story once opened. Wired its own already-existing `onDone` callback
+  through as `onExit` too, since it's the same component and the same
+  missing-exit-button problem, at zero risk (an optional prop the guided
+  path doesn't share any state with).
+
+**Bug 3 — inflated star ratings** (`src/lib/queries/questProgress.js`,
+`src/games/GameEngine.jsx`, `src/screens/PlayScreen.jsx`): see STARS below.
+
+**Bugs 1, 2, 4** — no fix; see ROOT CAUSE(S) above.
 
 ## STARS
+
+Read every activity's `onAnswer`/`finish` call directly rather than
+assuming. Two star computations exist and both had the same issue:
+`src/lib/queries/questProgress.js`'s `summarizeTodayActivity` (drives the
+guided-path's per-node star display) and `GameEngine.jsx`'s `SessionComplete`
+(drives the session-end screen's star row) — both derived `stars` purely
+from `correct_count / attempts` accuracy, with no awareness that some
+activities can never report anything but `correct: true`:
+
+| Activity | game_type | Real pass/fail? |
+|---|---|---|
+| Tap & Hear, Word Hunt, Match & Sort, Fill the Story | word_match, word_hunt, rhyme_time, story_builder | Yes — real quiz, real correct/incorrect |
+| Quiz Boss | flash_cards | Yes — child's own self-rating (know it / need practice), a genuine (if self-reported) signal |
+| Say It with Nova | say_it | Yes in the common case — real speech-recognition match/mismatch. The no-mic-support fallback ("I said it!" button) always reports true, same class of self-report as Quiz Boss — left alone |
+| Story Time | story_time | Partial — tier 2/3 stories have a real comprehension question; tier 1 micro-stories (see `src/lib/localStory.js`) have none and always report true. Left alone (see below) |
+| Word Song | word_song | **No** — a chant-along, no task to get wrong (`WordSong.jsx` line 56: `onAnswer({correct: true, ...})` unconditionally) |
+| Magic Video | magic_video | **No** — a watch-the-video placeholder shell (`MagicVideo.jsx` line 22: same) |
+| Draw It | draw_it | **No** — drawing the word by hand is the point, not a quiz (`DrawIt.jsx` line 83: same) |
+| Word Builder | word_builder | **No** in effect — a wrong letter tap is rejected immediately and never added to the spelled word, so the only way `onAnswer` ever fires is by eventually spelling it correctly (`WordBuilder.jsx` line 86: same) |
+
+Fix: a new `SCORELESS_GAME_TYPES` set (`word_song`, `magic_video`,
+`draw_it`, `word_builder`) exported from `questProgress.js`. Both star
+computations now check it first — these four always get a fixed, honest
+**1 star** (not 0: matches the existing "errorless learning, any completed
+activity earns at least one star" floor already documented in that file)
+instead of an accuracy-derived 3 that implies a performance judgment that
+was never actually possible. Every other activity keeps the existing
+accuracy-based 1/2/3 formula unchanged.
+
+**Deliberately not touched**: Story Time and Say It with Nova each have a
+path that also always reports `correct: true` (Story Time's tier-1
+micro-stories; Say It's no-mic fallback), but each ALSO has a genuine
+pass/fail path — a blanket override would incorrectly flatten the
+sessions that do carry real signal. Telling "this specific session had no
+real question" apart from "it did" would need a new signal threaded
+through `learning_events` (e.g. a `had_real_score` column or similar) —
+a data-model addition, not the bug fix this pass is scoped to. Flagged in
+NOTES FOR NEXT PROMPTS.
+
+Not modified: the stored `mastery`/`mastery_score` values, or anything
+else `learning_events`/`word_progress` already compute — only the
+*displayed* star rating on the guided-path node and the Session Complete
+screen.
+
+## VERIFICATION
 
 IN PROGRESS
 

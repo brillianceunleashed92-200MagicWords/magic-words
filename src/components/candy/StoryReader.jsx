@@ -6,7 +6,7 @@ import { useWordSpeak } from '../../lib/useWordSpeak';
 import { useKaraokeNarration } from './useKaraokeNarration';
 import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 import { useSpeak } from '../../lib/useSpeak';
-import { IconSpeaker } from '../icons';
+import { IconSpeaker, IconClose } from '../icons';
 
 // Shared full-screen storybook reader — one sentence per page, read aloud
 // with karaoke-style word highlighting, every word also individually
@@ -24,7 +24,17 @@ import { IconSpeaker } from '../icons';
 // name) falls back to synthesis automatically. Full-sentence narration
 // (useKaraokeNarration) always goes through the shared TTS pipeline
 // (fetchAudio/playAudio), regardless of `words`.
-export default function StoryReader({ story, onComplete, words }) {
+//
+// `onExit` (optional) — Bug 5 fix: this is a full-screen fixed portal
+// (inset:0, z-index 9990) rendered via createPortal directly onto
+// document.body, on top of whatever chrome the caller has underneath —
+// including GameEngine's own close/exit button for Story Time in the
+// guided path. Before this prop existed there was no way to leave a story
+// once opened (not even from the cover page) short of finishing it or a
+// hard reload — confirmed live. When provided, renders its own close
+// button (top-left, every page including the cover) using the same
+// IconClose/aria-label convention as GameEngine's other activity headers.
+export default function StoryReader({ story, onComplete, words, onExit }) {
   const [page, setPage] = useState(-1); // -1 = cover
   const [answered, setAnswered] = useState(false);
   const { speakWord: speakTrackedWord } = useWordSpeak(words);
@@ -83,6 +93,19 @@ export default function StoryReader({ story, onComplete, words }) {
 
   return createPortal(
     <div className="candy-galaxy" style={{ position: 'fixed', inset: 0, zIndex: 9990, background: skyGradient, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+      {onExit && (
+        <button
+          onClick={onExit}
+          aria-label="Exit and save progress"
+          style={{
+            position: 'absolute', top: 24, left: 24,
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}
+        >
+          <IconClose size={20} color={colors.cloud} />
+        </button>
+      )}
       <div style={{ background: colors.cloud, borderRadius: 32, padding: '2rem', maxWidth: 420, width: '100%', minHeight: 320, boxShadow: shadows.chunkLg, textAlign: 'center' }}>
         {page === -1 && (
           <>
