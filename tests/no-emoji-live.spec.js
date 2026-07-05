@@ -79,8 +79,9 @@ test("live quiz flow: no emoji in DOM, no image 404s, across the full session", 
   test.skip(!confirmedUser?.id, "requires SUPABASE_SERVICE_ROLE_KEY to provision a confirmed test account");
   // Bumped from the 30s default: dismissing celebrations (now checked every
   // round, since a word can master mid-session) adds real time across 8
-  // rounds, on top of the existing 1600ms-per-round advance delay.
-  test.setTimeout(60000);
+  // rounds, on top of the per-round advance delay (see the wait comment
+  // below for why that grew).
+  test.setTimeout(90000);
 
   page.on("response", (res) => {
     const req = res.request();
@@ -129,7 +130,14 @@ test("live quiz flow: no emoji in DOM, no image 404s, across the full session", 
     const target = (await page.locator("text=/^Tap the picture of/").textContent()).replace("Tap the picture of ", "").trim();
     const targetTile = page.getByText(target, { exact: true }).last();
     await targetTile.click();
-    await page.waitForTimeout(1600); // correct-answer advance delay
+    // Correct-answer advance delay. Was 1600ms; the sound-choreography pass
+    // (chime -> spoken encouragement -> a further 1100ms, all awaited
+    // before GameEngine advances currentIdx — see handleAnswer in
+    // GameEngine.jsx) pushed the real advance well past that, so this test
+    // started intermittently clicking into a tile mid-transition (or one
+    // already detached for the next round). 4000ms comfortably covers the
+    // chime (~480ms) + a cached/short encouragement clip + the 1100ms tail.
+    await page.waitForTimeout(4000);
   }
 
   await expect(page.getByText("Session Complete!")).toBeVisible({ timeout: 10000 });
