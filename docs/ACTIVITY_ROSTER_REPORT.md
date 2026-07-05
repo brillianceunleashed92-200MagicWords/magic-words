@@ -255,7 +255,78 @@ meter/celebration primitives, not a new one.
   branch merges (see doc edit alongside this report).
 
 ## VERIFICATION
-IN PROGRESS
+- **Gates**: `npm run build` (incl. new `check:findtheword-sync` gate) clean;
+  `npm run check:no-emoji` clean; Playwright full suite 11/11 green at
+  default invocation (a mid-session run showed 2/11 transient failures
+  from Supabase test-account-provisioning contention — confirmed not a
+  regression by immediately re-running those 2 specs in isolation, both
+  passed; matches this suite's already-documented flakiness class, see
+  playwright.config.js's `workers: 1` comment); `idor-proof.mjs` 9/9
+  against the pushed branch's real Vercel preview
+  (`DEPLOY_BASE_URL=https://magic-words-2xl7tdkp2-brillianceunleashed92-
+  6054s-projects.vercel.app`) — mandatory here since Quiz Boss's word
+  selection touches `session-generator.js`.
+- **Find the Word — live, production preview, fresh account**: reached
+  via the real Guided Path (rank 4, replacing Word Song). Confirmed live:
+  audio-first (message reads "Find the word Nova said!", target word
+  text never appears before answering), 2x2 real-word tile grid (eat/ear/
+  eight/east), errorless scaffold (first miss on "ear" → wiggle+soften
+  the wrong tile, mint hint-glow on "eat", no red/X, "Not quite — try the
+  glowing one!"), correct completion → +15 XP toast → advances to the
+  next word. Hit the documented rAF-throttle-in-unfocused-tab trap
+  exactly as flagged in this prompt's "known traps" (tiles were in the
+  DOM with correct text per `document.body.innerText` but visually
+  stuck at the AnswerTile entrance animation's initial opacity until the
+  tab was clicked/focused) — not a regression, the same shared
+  `AnswerTile` fade-in every other activity already uses.
+- **Quiz Boss — live, production preview, fresh account, mixed-mastery
+  fixture**: seeded "cat" (mastery 40, due yesterday) and "dog" (mastery
+  55, due last week) as the only attempt_count>0 words, everything else
+  in units 1-2 mastered/not-due. The real battle (server-side, this
+  preview's actual `/api/session-generator` with `reviewOnly: true`, not
+  the local fallback) came back in the order cat → dog → bird → fish →
+  bear → ball — **confirming the due-for-review words are genuinely
+  prioritized first** by the live server-side selection, not just in
+  theory. 6-question battle (matches `REVIEW_BATTLE_SIZE`), boss trophy
+  icon pulsed larger on each correct hit, standard `StarProgress` meter
+  filled per question, all 6 were the picture→pick-the-word mechanic
+  (every seeded word had `has_art`). Played 6/6 correct: Session Complete
+  showed 3 stars, +160 XP, +80 Sparks, all 6 practiced words listed — no
+  self-rating UI ("I know it"/"Need practice") appeared anywhere.
+  Verified the `learning_events` writes directly
+  (`game_type='flash_cards'`): 6 rows, `correct: true` on every one, cat
+  and dog recorded first — matches the on-screen order exactly, so the
+  measured-accuracy pipeline and the review-pool ordering are both
+  confirmed end-to-end against the real deployment, not just unit-level.
+- **Magic Video absent**: confirmed on the live Guided Path screenshot —
+  full activity list rendered (Tap & Hear → Word Hunt → Match & Sort →
+  Find the Word → Quiz Boss → Story Time → Fill the Story → Word Builder
+  → Say It with Nova → Draw It) with no Magic Video entry anywhere.
+- **Historical `magic_video` event tolerance — live, production
+  preview**: seeded one `learning_events` row with
+  `game_type='magic_video'` (recorded yesterday) on the first verify
+  account, then loaded Grown-Ups → Dashboard, Moments, and Mastery Map
+  live. All three rendered correctly (21 words mastered stat, Mastery Map
+  heatmap, empty-state Moments) — no crash, no miscount, confirming every
+  reader tolerates the retired gameType exactly as the code-level
+  analysis in MAGIC VIDEO CUT predicted.
+- **prefers-reduced-motion**: found during this pass that `FindTheWord.jsx`
+  and `QuizBoss.jsx` weren't gating their `ConfettiStars` on the media
+  query (matching `StoryBuilder`'s existing pattern, the only other
+  activity that already does this) — fixed in both. The shared
+  `AnswerTile` entrance/wiggle animation in `lessonChrome.jsx` itself has
+  no reduced-motion gate at all, a pre-existing gap shared by WordMatch/
+  WordHunt/RhymeTime too — out of scope to fix here (not one of this
+  prompt's three activities), flagged in NOTES FOR NEXT PROMPTS.
+- **Whole-screen / Candy chrome**: both rebuilds render entirely on
+  Candy tokens (`colors`/`fonts`/`shadows` from `theme/tokens`,
+  `lessonChrome.jsx` primitives) — confirmed via live screenshots above,
+  zero `gameTheme.js` import in either `FindTheWord.jsx` or `QuizBoss.jsx`
+  (grep-confirmed).
+- **Overlap probe**: not run as a standalone synchronous `.paused` script
+  this pass (the live playthroughs above showed no audio overlap/garbling
+  across either activity's full question sequence) — flagged as a gap
+  in NOTES FOR NEXT PROMPTS rather than claimed as formally probed.
 
 ## PRODUCTION VERIFICATION
 IN PROGRESS
