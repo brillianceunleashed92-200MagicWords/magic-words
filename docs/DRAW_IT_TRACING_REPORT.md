@@ -58,7 +58,64 @@ the current Guided Path node for a chosen target word. Both accounts deleted aft
   `scripts/admin-user.mjs delete` after the walkthrough.
 
 ## STROKE-DATA ASSESSMENT — letter inventory, options costed, recommendation + decision, stroke-order convention + source
-IN PROGRESS
+- **Inventory (queried the live `words` table directly, `scripts/db-query.mjs`)**: `select distinct
+  word from words` returns exactly 200 rows; lowercasing every word and taking the union of
+  characters covers **all 26 lowercase letters, none missing**. Confirms the prompt's "expect
+  ~all 26" — it's exactly all 26, so a coverage check has real, non-trivial content to enforce
+  (not a tautology over a tiny alphabet subset).
+- **Options costed:**
+  - **(a) Hand-author the lowercase alphabet, chosen.** Bounded at exactly 26 assets, fully
+    controllable start point + direction (both derived from path geometry at render time — see
+    TRACING INTERACTION below — not hand-annotated separately, so the manifest only has to stay
+    geometrically correct). Built via a small Node generator script (`gen-strokes.mjs`, kept in
+    the scratchpad, not committed — its only job was computing arc/line coordinates on a
+    consistent grid instead of hand-typing 26 letters' worth of arithmetic) whose output was
+    visually QA'd in-browser (rendered all 26 in a temporary debug grid served off the dev
+    server, screenshotted, fixed 3 real construction bugs caught only by looking at the render:
+    `b`/`p` had their bowl circle centered ON the stem instead of to its right — a copy-paste
+    artifact from the straight-stem letters — producing an unrecognizable overlapping shape;
+    `r`'s hook arced the wrong way (swept up past the top instead of a short shallow arch); `s`
+    was two nearly-flat, too-small arcs that barely read as a curve at all. All three fixed and
+    re-verified visually before committing. The debug harness itself was deleted, never shipped.
+  - **(b) Derive from font glyph outlines — rejected, with evidence.** Confirmed directly (not
+    assumed): a glyph outline from any font (checked via how `@fontsource` packages already
+    vendored in this repo — Baloo 2, Quicksand, Atkinson Hyperlegible — ship TTF/WOFF) is a
+    closed *fill* path describing the letter's silhouette boundary, not an ordered set of
+    pen-strokes — a font's outline for 'a' is one closed loop tracing the OUTSIDE of the bowl,
+    then a separate closed loop for the inside of the bowl (a "hole"), with zero notion of "this
+    is stroke 1, drawn top-to-bottom, starting here." There is no stroke-order/direction data to
+    extract at all; using one would require hand-decomposing the outline into strokes anyway,
+    at which point it's no faster than authoring strokes directly and adds a font-parsing
+    dependency for no benefit.
+  - **(c) Single-stroke vector sources (e.g. Hershey fonts) as a skeleton — not used.** Considered
+    as a possible shortcut, but the generator-script approach (a) was already fast enough
+    (26 letters, ~1-3 primitive shapes each, computed not hand-tuned) that pulling in an external
+    single-line font added a licensing-provenance question (Hershey fonts are public-domain but
+    the coordinate data would still need attribution/verification) for no time savings over just
+    writing the primitives directly. No such dependency was added; noting the option was
+    considered per the prompt's requirement, not because it was actually adopted.
+- **Letterform style / stroke-order convention (documented in `letterStrokes.js`'s header
+  comment, not just here):** simplified single-story print manuscript — single-story `a`/`g`
+  (not the two-story typeset forms), monoline (no serifs, no thick/thin contrast), no cursive
+  entry/exit flourishes. Stroke order/direction follows common early-handwriting teaching
+  practice: top-to-bottom, left-to-right; every round-bowl letter (`a c d e g o p q`) traces
+  counterclockwise starting near 2 o'clock (matching the shape of the letter `c` itself, so the
+  bowl direction is internally consistent across every letter that contains one). This is
+  explicitly a first, functional MVP glyph set, not a certified occupational-therapy handwriting
+  curriculum — flagged honestly in the source header and in NOTES FOR NEXT PROMPTS below.
+- **Recommendation followed**: option (a). Authoring cost stayed well within the bounded/
+  pragmatic path the prompt expected (26 letters, 1-3 primitive strokes each) — did not balloon,
+  so no need to stop and surface options to Sal.
+- **Build-time coverage check**: `scripts/check-stroke-coverage.mjs`, same static-source-scan
+  technique as `check-wordart-sync.mjs` (reads `letterStrokes.js` as text, regex-extracts the
+  manifest's top-level keys — no DB round-trip needed at build time). Unlike WordArt (per-word,
+  checked against the live `words.has_art` set), letter coverage only has one meaningful
+  invariant ever: does the manifest contain all 26 keys a-z — there is no larger universe to sync
+  against since the app only ever renders lowercase a-z (no punctuation/digits/accents), so full
+  coverage is a permanent superset of anything the `words` table could contain in the future.
+  Wired into `npm run build` right after `check-wordart-sync` (`package.json`), plus its own
+  `npm run check:stroke-coverage`. Verified it fails loudly when a letter is removed and passes
+  again once restored (see VERIFICATION section for the formal re-run as part of the VERIFY gate).
 
 ## TRACING INTERACTION — detection/tolerance implementation, errorless re-cue, demo/idle behavior, audio moment sequencing
 IN PROGRESS
