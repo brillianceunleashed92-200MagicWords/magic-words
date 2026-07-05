@@ -172,12 +172,21 @@ export default function DrawIt({ quiz, onAnswer, encouragement }) {
     setWordDone(true);
     const responseTimeMs = Date.now() - startRef.current;
     const url = await fetchAudio(quiz.word);
-    await new Promise((resolve) => {
-      const audio = url ? playAudio(url) : null;
-      if (!audio) { resolve(); return; }
-      audio.onended = resolve;
-      audio.onerror = resolve;
-    });
+    // Race against a timeout — found during verification that a backgrounded/
+    // suspended tab can leave an Audio element's play() neither resolving,
+    // rejecting, nor ever firing 'ended'/'error' (a real browser media-
+    // suspension edge case, not something this component can prevent).
+    // Without this, a stalled clip would permanently block the celebration
+    // and onAnswer, i.e. the child could never finish the word.
+    await Promise.race([
+      new Promise((resolve) => {
+        const audio = url ? playAudio(url) : null;
+        if (!audio) { resolve(); return; }
+        audio.onended = resolve;
+        audio.onerror = resolve;
+      }),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
+    ]);
     setNovaState('correct');
     setConfetti(true);
     setMessage(encouragement ?? `You traced "${quiz.word}"!`);
