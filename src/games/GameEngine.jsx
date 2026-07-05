@@ -36,6 +36,7 @@ import { IconClose, IconSpeaker, IconStar, IconSpark } from '../components/icons
 import { StarProgress, NovaPorthole, AnswerTile, ConfettiStars, LESSON_CHROME_KEYFRAMES } from './lessonChrome';
 import NovaSprite from '../components/candy/NovaSprite';
 import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
+import { SCORELESS_GAME_TYPES } from '../lib/queries/questProgress';
 
 // ─── Question formatter — correct grammar for every word class ────────────────
 // Client-side fallback for any plan that predates wordClass being added to quizzes
@@ -1220,12 +1221,19 @@ function pickEffortPraise(wordsCount, correctCount) {
 export function SessionComplete({
   correctCount, total, childName, wordsPlayed = [], masteredThisSession = [],
   xpEarned = 0, sparksEarned = 0, masteredCount = 0, totalWordCount = 0,
-  onPlayAgain, onHome,
+  gameType, onPlayAgain, onHome,
 }) {
   const [confettiActive, setConfettiActive] = useState(true);
   const reducedMotion = usePrefersReducedMotion();
+  // Bug 3 fix: word_song/magic_video/draw_it/word_builder always report
+  // `correct: true` (no real pass/fail — see SCORELESS_GAME_TYPES' own
+  // comment in questProgress.js for why each one specifically), so their
+  // correctCount/total is always 100% — deriving "3 stars" from that isn't
+  // wrong math, it's an honest computation over a value that never varies,
+  // which reads as an inflated/fake rating. Same fixed 1-star floor as the
+  // guided-path's own per-node summary, so this screen and that one agree.
   const pct   = Math.round((correctCount / total) * 100);
-  const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
+  const stars = SCORELESS_GAME_TYPES.has(gameType) ? 1 : (pct >= 90 ? 3 : pct >= 60 ? 2 : 1);
   const masteredSet = useMemo(() => new Set(masteredThisSession), [masteredThisSession]);
   const effortLine = useMemo(() => pickEffortPraise(wordsPlayed.length, correctCount), [wordsPlayed.length, correctCount]);
 
@@ -1936,7 +1944,7 @@ export function GameEngine({
         <MagicVideo key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'story_time' && (
-        <StoryTimeActivity key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
+        <StoryTimeActivity key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} onExit={handleExitEarly} />
       )}
       {gameType === 'say_it' && (
         <SayItWithNova key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />

@@ -14,7 +14,7 @@ import { GalaxyLoader } from '../components/AuthGuard';
 // (word, tier) match first; falls back to the deterministic local
 // template when no catalog entry exists yet, so catalog coverage can
 // grow incrementally without ever leaving a word/tier unplayable.
-export default function StoryTimeActivity({ quiz, onAnswer }) {
+export default function StoryTimeActivity({ quiz, onAnswer, onExit }) {
   const { words, levelInfo } = useCandyGalaxyData();
   const catalogQ = useStoryCatalogQuery();
   const [startTime] = useState(() => Date.now());
@@ -28,10 +28,10 @@ export default function StoryTimeActivity({ quiz, onAnswer }) {
   // across the whole app, so this is normally instant.
   if (catalogQ.isLoading) return <GalaxyLoader message="Finding your story…" />;
 
-  return <StoryTimeReader quiz={quiz} onAnswer={onAnswer} words={words} levelInfo={levelInfo} catalog={catalogQ.data} startTime={startTime} />;
+  return <StoryTimeReader quiz={quiz} onAnswer={onAnswer} onExit={onExit} words={words} levelInfo={levelInfo} catalog={catalogQ.data} startTime={startTime} />;
 }
 
-function StoryTimeReader({ quiz, onAnswer, words, levelInfo, catalog, startTime }) {
+function StoryTimeReader({ quiz, onAnswer, onExit, words, levelInfo, catalog, startTime }) {
   const [story] = useState(() => {
     const tier = getStoryTier(levelInfo?.level ?? 24);
     return findCatalogStory(catalog, quiz.word, tier) ?? buildLocalStory(quiz, levelInfo?.level);
@@ -41,6 +41,7 @@ function StoryTimeReader({ quiz, onAnswer, words, levelInfo, catalog, startTime 
     <StoryReader
       story={story}
       words={words}
+      onExit={onExit}
       onComplete={(correct = true) => {
         onAnswer({ correct, responseTimeMs: Date.now() - startTime, firstTry: true });
       }}
