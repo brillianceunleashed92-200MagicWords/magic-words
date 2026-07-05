@@ -293,7 +293,91 @@ committed specs; manual scratch accounts also cleaned up via `admin-user.mjs del
   for B's child (403)` check that specifically covers this pass's changes.
 
 ## PRODUCTION VERIFICATION — push/deploy confirmation, live walk results
-IN PROGRESS
+DONE.
+
+- **Merge**: `fix/fill-the-story-rebuild` merged into `main` locally (`--no-ff`), confirmed clean
+  (no conflicts).
+- **Push (first approval)**: asked before `git push origin main` per CLAUDE.md's standing rule
+  that this is the one action requiring explicit manual approval every time — approved, pushed
+  `main` (`e4f5e04..9c39f25`).
+- **Deployment confirmation**: polled `gh api repos/.../commits/9c39f25.../status` until
+  `state: success` ("Deployment has completed"); corroborated with `curl -sI
+  https://200magicwordsapp.com` → `HTTP/2 200`. Did not use the Vercel MCP connector (per the
+  prompt's own note that it's authed to the wrong account).
+- **Production walk** (fresh account `nextgenprecisiondrones+mwprodwalk*@gmail.com`, deleted after
+  via the script's own cleanup):
+  - **Verb question end-to-end incl. read-back**: `eat` rendered with `'Watch Nova ___!'` + its
+    WordArt cue before answering. Instrumented `HTMLMediaElement.prototype.play` with a
+    *synchronous* overlap check (is the previously-tracked element's `.paused` already `true` at
+    the exact instant the next `play()` is called — not an async `pause`/`ended` event listener,
+    which turned out to be an unreliable probe method, see below) across the full miss → retry →
+    correct → read-back → next-question sequence: **zero overlaps**, every subsequent `play()`
+    found the prior element already paused, confirming the singleton's "pause the old one before
+    playing the new one" guarantee holds under this activity's new chime→read-back sequencing with
+    real ElevenLabs audio.
+    - **Correction to the earlier VERIFY-phase probe**: the preview-deployment run used an
+      async `'pause'`/`'ended'` DOM-event listener to detect overlap and got a false positive (an
+      event-ordering artifact — the browser fires the `pause` DOM event asynchronously, so a new
+      element's `play()` call can get logged before the old element's async `pause` event fires,
+      even though `gameAudio.js`'s `playAudio()` calls `.pause()` synchronously *before* starting
+      the new element). Switched to checking `.paused` synchronously instead, which is what
+      actually reflects the code's real call-order guarantee. Re-ran with the corrected method on
+      production: no overlap. Noting the methodology fix here since it's a real trap for whoever
+      writes the next overlap probe.
+  - **Wrong-tap errorless check**: deliberately missed first (tapped `fly` against target `eat`)
+    — wiggle+soften, no red/X, "Not quite — try the glowing one!", no XP awarded yet; second tap on
+    `eat` completed normally (+15 XP, celebration, advanced to `'Nova likes to ___.'` for the next
+    verb with a fresh cue and the star-progress segment ignited).
+  - **Noun question**: not separately re-walked on production this pass — already live-verified
+    against the preview deployment and (via the client-fallback path) local dev during VERIFY;
+    production runs the identical server code path (`buildQuiz` in `api/session-generator.js`),
+    and the noun `CONTENT_TEMPLATES` were untouched by this rebuild, so there's no new production-
+    specific behavior to re-check for nouns specifically. The verb walk above is what actually
+    exercises this rebuild's changed code (Nova templates, cue, errorless, read-back).
+- **Test account cleanup**: production-walk account deleted via its own `finally` block
+  (confirmed by the account-creation script's own DELETE call returning 200); the earlier manual
+  verification account (3 child profiles: Testy/TestyB/TestyC) deleted via
+  `scripts/admin-user.mjs delete`.
+- **Docs commit + push (second approval)**: this report + the two lines below are the final
+  commit of this run, pushed after this section was written (see repo history for the exact SHA).
 
 ## NOTES FOR NEXT PROMPTS — anything the Draw It / Quiz Boss / Find the Word rebuilds should rely on
-IN PROGRESS
+- **The errorless scaffold pattern is now proven in 2 activities** (`WordMatch`, `StoryBuilder`) —
+  same state shape every time: `missedOnce`/`wrongChipIdx` (or `wrongTileIdx`)/`revealCorrect`,
+  450ms wiggle-then-reset, persistent hint-glow via `lessonHintPulse`, second-miss-completes. Copy
+  this shape directly for Draw It / Quiz Boss / Find the Word rather than re-deriving it — it's the
+  `docs/DESIGN_BRIEF.md` §5 "locked" contract, not a per-activity design decision.
+- **`onAnswer({correct, responseTimeMs, firstTry: true})` — `firstTry` is ALWAYS hardcoded `true`**
+  in both activities that now have the errorless scaffold, even when the correct answer came on a
+  retry after a miss. This is deliberate (confirmed in both this pass and the prior
+  errorless-learning pass on `WordMatch`): the scoring/XP contract is out of scope for an
+  interaction rebuild. Don't "fix" this to reflect the real first-try/retry outcome without a
+  separate, explicitly-scoped decision — it would change the XP formula's input.
+- **`handleAnswer`'s generic chime is now activity-conditional** (`if (gameType !== 'story_builder')
+  await playCorrectChime()`). If Quiz Boss or Find the Word also end up wanting their own
+  pre-chime/read-back sequencing (rather than the shared generic chime), the same pattern applies —
+  gate the shared chime call for that `gameType`, keep the incorrect-tone path universal.
+- **Client-side content-template fallbacks are worth auditing**: this pass found
+  `useSessionPlan.js`'s `buildLocalQuiz` had NO per-word-type sentence templates for content
+  words before now (only a flat generic default) — only verb got a mirror added, since that's all
+  this pass touched. If a future prompt touches noun/adjective/number templates server-side, check
+  whether the client fallback needs the same "add a mirror so parity is actually checkable" fix.
+- **The distractor rules (hard word_type filter + `CONFUSABLE_PAIRS` exclusion list) are shared
+  infrastructure** (`buildQuiz`/`buildLocalQuiz`, used by every activity's session plan, not just
+  Fill the Story) — any future word/art additions should check `CONFUSABLE_PAIRS` in both
+  `api/session-generator.js` and `src/hooks/useSessionPlan.js` before assuming a new has_art word
+  is safe to ship; extend the list if the new word collides with an existing one (same test as
+  the depictability review docs already apply at art-creation time).
+- **`docs/200MW_Prompt4_Fill_The_Story.md`'s Part 6 flagged `App.jsx`'s `/app-legacy` route as
+  orphaned but not deleted** (investigated, not fixed — see HOUSEKEEPING above). If a future prompt
+  is actually scoped to decide that file's fate, this report has the readers/reachability findings
+  already done.
+- **Local dev cannot exercise `/api/session-generator`** (Vite doesn't serve `/api` routes) — any
+  future prompt verifying server-only behavior (AI-personalized copy, the real `CONTENT_TEMPLATES`
+  path, forged-request 403s) needs a pushed branch + Vercel preview + `DEPLOY_BASE_URL`, same as
+  this pass did. Budget time for that in the plan up front rather than discovering it mid-verify.
+- **Playwright + Supabase test-account provisioning under multi-worker parallelism can stall** —
+  run new specs that provision their own accounts with `--workers=1` if the full suite seems to
+  hang; each spec passed cleanly standalone and serially, only concurrent-worker account creation
+  showed contention. Worth a `playwright.config.js` change (e.g. scoping workers down) if this
+  keeps happening as the suite grows, but out of scope to change unilaterally this pass.
