@@ -3,6 +3,7 @@ import { T } from './gameTheme';
 import { supabase } from '../supabaseClient';
 import { playAudio, fetchAudio } from './gameAudio';
 import { getPromptText } from './promptText';
+import WordArt from '../components/WordArt';
 
 // Draw It — semantic-encoding activity (MLC 10-activity table). No
 // right/wrong: drawing the word by hand is the point. Saves a PNG to the
@@ -88,6 +89,12 @@ export default function DrawIt({ quiz, onAnswer, userId, childId }) {
     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
       <div style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, marginBottom: '0.5rem' }}>
         Draw a {quiz.word}!
+      </div>
+      {/* Drawing reference — this activity had no picture at all before
+          (docs/200MW_Prompt3_WordArt_Hybrid.md AUDIT). Reuses the same
+          WordArt registry as every other activity, no interaction change. */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+        <WordArt word={quiz.word} size={80} />
       </div>
       <canvas
         ref={canvasRef}

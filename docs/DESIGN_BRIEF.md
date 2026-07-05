@@ -33,6 +33,8 @@ this table and the mockup together):
 | elephant | `#B8B4E8` | `#6B63B5` | `#E8E6FF` |
 | cat | `#FF8A4C` | `#B35A28` | `#FFD9BE` |
 | bird | `#5EC8F2` | `#2E86AB` | `#CDEFFF` |
+| nova (verb set: eat/swim/dance/sing/sleep/sit/fly/jump/run) | `#FF9F1C` | `#B85C00` | `#FFF6E8` |
+| nova tail wisp (accent only) | `#5B4BD6` | — | — |
 | (shared) blush cheeks | `#FF8FA8` | — | — |
 | (shared) eye dot | `#2A2160` | — | — |
 

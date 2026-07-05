@@ -251,16 +251,22 @@ function RabbitArt() {
   );
 }
 
+// DuckArt — was WRONG in the audit: the old bill sat flush against the
+// bottom of the head circle (y 76-90, entirely inside the head's own
+// bounding circle, y 22-90), so it read as a chin-stripe, not a
+// protruding bill. Fixed the same way BirdArt's beak already works
+// (~line 100): the bill now extends past the head circle's edge, which is
+// what actually reads as "beak/bill" in this construction language.
 function DuckArt() {
   return (
     <>
       <GroundShadow />
       <ellipse cx="60" cy="92" rx="26" ry="12" fill={c.duckFill} stroke={c.duckOutline} strokeWidth="4" />
-      <circle cx="60" cy="56" r="34" fill={c.duckFill} stroke={c.duckOutline} strokeWidth="4" />
-      <path d="M32 76q28 16 56 0v10q-28 14-56 0z" fill={colors.tang} stroke={c.duckOutline} strokeWidth="3.5" strokeLinejoin="round" />
-      <ellipse cx="60" cy="80" rx="6" ry="2.5" fill={c.duckOutline} opacity=".4" />
-      <Eye cx={46} cy={50} /><Eye cx={74} cy={50} />
-      <Blush cx={38} cy={62} /><Blush cx={82} cy={62} />
+      <circle cx="60" cy="54" r="34" fill={c.duckFill} stroke={c.duckOutline} strokeWidth="4" />
+      <ellipse cx="60" cy="90" rx="24" ry="12" fill={colors.tang} stroke={c.duckOutline} strokeWidth="3.5" />
+      <path d="M37 90h46" stroke={c.duckOutline} strokeWidth="2.5" opacity=".55" />
+      <Eye cx={46} cy={46} /><Eye cx={74} cy={46} />
+      <Blush cx={36} cy={58} /><Blush cx={84} cy={58} />
     </>
   );
 }
@@ -331,16 +337,22 @@ function MonkeyArt() {
   );
 }
 
+// SharkArt — was WRONG in the audit: same rounded-body + single small fin
+// construction as FishArt, differing only by hue, read as "another fish."
+// Fixed with two cues fish doesn't have: a large, unmistakably triangular
+// dorsal fin (fish's fin notch is small) and a body that tapers to a
+// pointed snout (fish's body is a round ellipse throughout). Friendly per
+// the age range — rounded fin tips, no teeth.
 function SharkArt() {
   return (
     <>
       <GroundShadow cx={60} cy={98} rx={30} ry={6} />
-      <path d="M60 30q10-16 16-4q-4 8-12 10z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
-      <path d="M20 70q-12 6-14 18q12 0 20-8z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
-      <path d="M30 40q40-14 66 20q-26 30-66 14q-10-16 0-34z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
-      <ellipse cx="46" cy="58" rx="16" ry="10" fill={c.sharkInner} />
-      <Eye cx={40} cy={50} r={5.5} />
-      <Blush cx={54} cy={62} rx={6} ry={4} />
+      <path d="M56 22q16-20 22 0q-6 10-20 10z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M18 68q-14 4-16 20q14 0 22-10z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
+      <path d="M26 60q2-28 38-30q30 0 42 28q-10 30-42 32q-36-2-38-30z" fill={c.sharkFill} stroke={c.sharkOutline} strokeWidth="4" strokeLinejoin="round" />
+      <ellipse cx="46" cy="58" rx="15" ry="10" fill={c.sharkInner} />
+      <Eye cx={42} cy={50} r={5.5} />
+      <Blush cx={54} cy={64} rx={6} ry={4} />
     </>
   );
 }
@@ -845,30 +857,68 @@ function BuddyBase({ mouth, extra, eyes, scale = 1, cx = 60, cy = 62 }) {
   );
 }
 
-function EatArt() {
+// Shared "Nova" figure for standalone verb words — flat-vector version of
+// the real shipped Nova (public/nova/nova-base.png, rendered by
+// Higgsfield): flame-swoop hair, small gold body, cream face, comet-tail
+// wisp. Replaces the old flat "Buddy" circle for the 9 verbs only —
+// adjectives (big, sad, happy, etc.) keep Buddy via BuddyBase above; the
+// brief's Part 2 scope is the verb set, not the shared character wholesale.
+// See docs/WORDART_HYBRID_REPORT.md NOVA VERB SET for why this follows
+// Nova's real asset instead of the brief's literal (unshipped-placeholder)
+// gradient spec.
+function NovaBase({ mouth, extra, eyes, cx = 60, cy = 58 }) {
   return (
-    <>
-      <BuddyBase mouth={<ellipse cx="60" cy="72" rx="9" ry="8" fill={c.buddyOutline} />} />
-      <g>
-        <circle cx="92" cy="80" r="12" fill={colors.tang} stroke="#B35A28" strokeWidth="3" />
-        <path d="M84 76a10 10 0 0016 0" fill={c.buddyInner} />
-        <path d="M92 68q2-6 8-6" fill="none" stroke="#1C8C6C" strokeWidth="3" strokeLinecap="round" />
-      </g>
-    </>
+    <g>
+      <GroundShadow cy={114} />
+      {/* comet-tail wisp trailing off the lower-left, echoing Nova's real starry tail */}
+      <path d={`M${cx - 26} ${cy + 44}q-16 6-14 22`} fill="none" stroke={c.novaTail} strokeWidth="5" strokeLinecap="round" opacity=".4" />
+      <circle cx={cx - 40} cy={cy + 66} r="3" fill={c.novaTail} opacity=".5" />
+      <circle cx={cx - 34} cy={cy + 74} r="2" fill={c.novaTail} opacity=".35" />
+      {/* small body */}
+      <ellipse cx={cx} cy={cy + 42} rx="17" ry="14" fill={c.novaFill} stroke={c.novaOutline} strokeWidth="4" />
+      {/* flame-swoop hair — three overlapping points behind the face, Nova's
+          single most identifying silhouette cue (never present on Buddy) */}
+      <ellipse cx={cx - 13} cy={cy - 30} rx="9" ry="16" fill={c.novaFill} stroke={c.novaOutline} strokeWidth="3.5" transform={`rotate(-16 ${cx - 13} ${cy - 30})`} />
+      <ellipse cx={cx + 2} cy={cy - 38} rx="10" ry="19" fill={c.novaFill} stroke={c.novaOutline} strokeWidth="3.5" transform={`rotate(4 ${cx + 2} ${cy - 38})`} />
+      <ellipse cx={cx + 16} cy={cy - 28} rx="8" ry="15" fill={c.novaFill} stroke={c.novaOutline} strokeWidth="3.5" transform={`rotate(20 ${cx + 16} ${cy - 28})`} />
+      {/* face */}
+      <circle cx={cx} cy={cy} r="26" fill={c.novaInner} stroke={c.novaOutline} strokeWidth="4" />
+      {eyes ?? (<><Eye cx={cx - 11} cy={cy - 4} r={5.2} /><Eye cx={cx + 11} cy={cy - 4} r={5.2} /></>)}
+      {mouth}
+      <Blush cx={cx - 18} cy={cy + 8} rx={5.2} ry={3.4} /><Blush cx={cx + 18} cy={cy + 8} rx={5.2} ry={3.4} />
+      {extra}
+    </g>
   );
 }
 
-// wordart-batch-1, Unit 3 (swim, dance, sing)
+function EatArt() {
+  return (
+    <NovaBase
+      mouth={<ellipse cx="60" cy="64" rx="8" ry="7" fill={c.novaOutline} />}
+      extra={
+        <>
+          <circle cx="88" cy="70" r="11" fill={colors.tang} stroke="#B35A28" strokeWidth="3" />
+          <path d="M81 66a8 8 0 0014 0" fill={c.novaInner} />
+          <path d="M88 60q2-5 7-5" fill="none" stroke="#1C8C6C" strokeWidth="3" strokeLinecap="round" />
+        </>
+      }
+    />
+  );
+}
+
+// wordart-batch-1, Unit 3 (swim, dance, sing) — rebuilt on NovaBase, see
+// docs/WORDART_HYBRID_REPORT.md AUDIT for why the old Buddy set failed the
+// label-cover test.
 function SwimArt() {
   return (
-    <g transform="rotate(-8 60 62)">
-      <BuddyBase
-        mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <g transform="rotate(-8 60 58)">
+      <NovaBase
+        mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
         extra={
           <>
-            <path d="M20 70q-14 4-18-8" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
-            <path d="M100 70q14 4 18-8" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
-            <path d="M10 92q14-4 24 2q14-6 24 2q14-6 24 2q14-6 24 2" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".6" />
+            <path d="M22 62q-14 4-18-8" fill="none" stroke={c.novaOutline} strokeWidth="7" strokeLinecap="round" />
+            <path d="M98 62q14 4 18-8" fill="none" stroke={c.novaOutline} strokeWidth="7" strokeLinecap="round" />
+            <path d="M10 94q14-4 24 2q14-6 24 2q14-6 24 2q14-6 24 2" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".6" />
           </>
         }
       />
@@ -882,16 +932,16 @@ function DanceArt() {
   // same visual grammar as run's speed lines) is the cue that makes this
   // read as mid-twirl rather than just "happy."
   return (
-    <BuddyBase
-      mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <NovaBase
+      mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
       extra={
         <>
-          <path d="M30 50q-16-10-10-24" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
-          <path d="M90 50q16-10 10-24" fill="none" stroke={c.buddyOutline} strokeWidth="7" strokeLinecap="round" />
-          <path d="M20 20q10 6 8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
-          <path d="M100 20q-10 6-8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
-          <path d="M30 98q30 14 60 0" fill="none" stroke={colors.bubble} strokeWidth="4" strokeLinecap="round" opacity=".65" />
-          <path d="M22 92q38 20 76 0" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".4" />
+          <path d="M32 42q-16-10-10-24" fill="none" stroke={c.novaOutline} strokeWidth="7" strokeLinecap="round" />
+          <path d="M88 42q16-10 10-24" fill="none" stroke={c.novaOutline} strokeWidth="7" strokeLinecap="round" />
+          <path d="M22 12q10 6 8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+          <path d="M98 12q-10 6-8 16" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".7" />
+          <path d="M30 100q30 14 60 0" fill="none" stroke={colors.bubble} strokeWidth="4" strokeLinecap="round" opacity=".65" />
+          <path d="M22 94q38 20 76 0" fill="none" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" opacity=".4" />
         </>
       }
     />
@@ -900,15 +950,15 @@ function DanceArt() {
 
 function SingArt() {
   return (
-    <BuddyBase
-      mouth={<ellipse cx="60" cy="74" rx="10" ry="9" fill={c.buddyOutline} />}
+    <NovaBase
+      mouth={<ellipse cx="60" cy="66" rx="9" ry="8" fill={c.novaOutline} />}
       extra={
         <>
-          <circle cx="96" cy="40" r="5" fill={colors.bubble} />
-          <path d="M101 40v-18" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" />
-          <path d="M101 22q8 0 8 6" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" fill="none" />
-          <circle cx="20" cy="30" r="4" fill={colors.sky} />
-          <path d="M24 30v-14" stroke={colors.sky} strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="94" cy="32" r="5" fill={colors.bubble} />
+          <path d="M99 32v-18" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" />
+          <path d="M99 14q8 0 8 6" stroke={colors.bubble} strokeWidth="3" strokeLinecap="round" fill="none" />
+          <circle cx="22" cy="22" r="4" fill={colors.sky} />
+          <path d="M26 22v-14" stroke={colors.sky} strokeWidth="2.5" strokeLinecap="round" />
         </>
       }
     />
@@ -918,33 +968,42 @@ function SingArt() {
 // wordart-batch-1, Unit 4 (sleep, sit)
 function SleepArt() {
   return (
-    <BuddyBase
+    <NovaBase
       eyes={
         <>
-          <path d="M40 56q6 4 12 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
-          <path d="M68 56q6 4 12 0" fill="none" stroke={c.buddyOutline} strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M42 50q6 4 12 0" fill="none" stroke={c.novaOutline} strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M66 50q6 4 12 0" fill="none" stroke={c.novaOutline} strokeWidth="3.5" strokeLinecap="round" />
         </>
       }
-      mouth={<ellipse cx="60" cy="74" rx="6" ry="4" fill={c.buddyOutline} />}
+      mouth={<ellipse cx="60" cy="66" rx="6" ry="4" fill={c.novaOutline} />}
       extra={
         <>
           {/* ascending drift-off-to-sleep bubbles — deliberately plain circles, not the letter "Z" (no letterforms in illustrations) */}
-          <circle cx="92" cy="28" r="4" fill={colors.sky} opacity=".8" />
-          <circle cx="102" cy="18" r="6" fill={colors.sky} opacity=".6" />
-          <circle cx="114" cy="6" r="8" fill={colors.sky} opacity=".4" />
+          <circle cx="90" cy="20" r="4" fill={colors.sky} opacity=".8" />
+          <circle cx="100" cy="10" r="6" fill={colors.sky} opacity=".6" />
+          <circle cx="112" cy="-2" r="8" fill={colors.sky} opacity=".4" />
         </>
       }
     />
   );
 }
 
+// SitArt — was WRONG in the audit (a thin bar under a standing pose
+// doesn't read as "seated"). Fixed by drawing unmistakably bent L-shaped
+// legs (thigh + shin at a right angle, the standard seated-figure
+// convention) instead of straight standing legs, and dropping the body
+// lower so the whole silhouette reads as compact/seated rather than tall.
 function SitArt() {
   return (
-    <BuddyBase
-      cy={54}
-      mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <NovaBase
+      cy={50}
+      mouth={<path d="M50 58q10 6 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
       extra={
-        <path d="M40 88q0 14 8 14h24q8 0 8-14" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+        <>
+          <path d="M46 88h-16v18" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M74 88h16v18" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+          <ellipse cx="60" cy="108" rx="26" ry="5" fill="rgba(0,0,0,.1)" />
+        </>
       }
     />
   );
@@ -1054,15 +1113,15 @@ function FlyArt() {
   // airplane in a dive, colored sky-blue so they're visually a distinct
   // "wing" element rather than a body part.
   return (
-    <g transform="rotate(-14 60 62)">
-      <BuddyBase
-        mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <g transform="rotate(-14 60 58)">
+      <NovaBase
+        mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
         extra={
           <>
-            <path d="M26 68q-30-2-34-22q22 2 34 18z" fill={colors.sky} stroke={c.buddyOutline} strokeWidth="3.5" strokeLinejoin="round" />
-            <path d="M94 68q30-2 34-22q-22 2-34 18z" fill={colors.sky} stroke={c.buddyOutline} strokeWidth="3.5" strokeLinejoin="round" />
-            <path d="M-6 40q10-2 16 3" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".7" />
-            <path d="M-4 52q9-2 15 3" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".45" />
+            <path d="M26 60q-30-2-34-22q22 2 34 18z" fill={colors.sky} stroke={c.novaOutline} strokeWidth="3.5" strokeLinejoin="round" />
+            <path d="M94 60q30-2 34-22q-22 2-34 18z" fill={colors.sky} stroke={c.novaOutline} strokeWidth="3.5" strokeLinejoin="round" />
+            <path d="M-6 32q10-2 16 3" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".7" />
+            <path d="M-4 44q9-2 15 3" fill="none" stroke={colors.sky} strokeWidth="4" strokeLinecap="round" opacity=".45" />
           </>
         }
       />
@@ -1070,19 +1129,25 @@ function FlyArt() {
   );
 }
 
+// JumpArt — was WRONG in the audit (straight legs reaching almost to the
+// ground shadow read as standing, not airborne). Fixed with a real visible
+// gap: legs are short and tucked well above NovaBase's fixed ground-shadow
+// line, dust puffs mark where the feet just left, and upward motion lines
+// above the head sell "just launched" — the airborne cue the old pose had
+// no equivalent of at all.
 function JumpArt() {
   return (
-    <BuddyBase
-      cy={46}
-      mouth={<path d="M50 58q10 7 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <NovaBase
+      cy={40}
+      mouth={<path d="M50 48q10 7 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
       extra={
         <>
-          {/* short bent legs reaching down to the ground puffs, clearly below the body */}
-          <path d="M45 80q-6 10 -2 20" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" />
-          <path d="M75 80q6 10 2 20" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" />
-          {/* dust puffs where feet left the ground */}
-          <ellipse cx="42" cy="102" rx="9" ry="4.5" fill="rgba(255,255,255,.55)" />
-          <ellipse cx="78" cy="102" rx="9" ry="4.5" fill="rgba(255,255,255,.4)" />
+          <path d="M30 4q-4-10 2-16" fill="none" stroke={colors.tang} strokeWidth="3.5" strokeLinecap="round" opacity=".6" />
+          <path d="M90 4q4-10-2-16" fill="none" stroke={colors.tang} strokeWidth="3.5" strokeLinecap="round" opacity=".6" />
+          <path d="M46 78q-6 6-4 14" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" />
+          <path d="M74 78q6 6 4 14" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" />
+          <ellipse cx="44" cy="112" rx="9" ry="4.5" fill="rgba(255,255,255,.6)" />
+          <ellipse cx="76" cy="112" rx="9" ry="4.5" fill="rgba(255,255,255,.45)" />
         </>
       }
     />
@@ -1091,19 +1156,19 @@ function JumpArt() {
 
 function RunArt() {
   return (
-    <BuddyBase
-      mouth={<path d="M50 74q10 6 20 0" fill="none" stroke={c.buddyOutline} strokeWidth="4" strokeLinecap="round" />}
+    <NovaBase
+      mouth={<path d="M50 66q10 6 20 0" fill="none" stroke={c.novaOutline} strokeWidth="4" strokeLinecap="round" />}
       extra={
         <>
           {/* two clearly separate running legs, attached at the bottom of the
               body and extending below it — front leg bent forward, back leg
               trails behind, no crossing */}
-          <path d="M46 95q-8 6 -6 17" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" />
-          <path d="M74 95q10 4 12 15" fill="none" stroke={c.buddyOutline} strokeWidth="9" strokeLinecap="round" />
+          <path d="M46 87q-8 6 -6 17" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" />
+          <path d="M74 87q10 4 12 15" fill="none" stroke={c.novaOutline} strokeWidth="9" strokeLinecap="round" />
           {/* speed lines trailing behind */}
-          <path d="M-4 50h20" stroke={colors.tang} strokeWidth="4" strokeLinecap="round" opacity=".75" />
-          <path d="M0 62h18" stroke={colors.tang} strokeWidth="4" strokeLinecap="round" opacity=".5" />
-          <path d="M4 74h14" stroke={colors.tang} strokeWidth="3" strokeLinecap="round" opacity=".35" />
+          <path d="M-4 42h20" stroke={colors.tang} strokeWidth="4" strokeLinecap="round" opacity=".75" />
+          <path d="M0 54h18" stroke={colors.tang} strokeWidth="4" strokeLinecap="round" opacity=".5" />
+          <path d="M4 66h14" stroke={colors.tang} strokeWidth="3" strokeLinecap="round" opacity=".35" />
         </>
       }
     />
