@@ -17,14 +17,19 @@ export const ACTIVITY_DEFS = [
   { id: 'word_match',    label: 'Tap & Hear',      Icon: IconSpeaker,  rank: 1 },
   { id: 'word_hunt',     label: 'Word Hunt',       Icon: IconSearch,   rank: 2 },
   { id: 'rhyme_time',    label: 'Match & Sort',    Icon: InterestMusic, rank: 3 },
-  { id: 'word_song',     label: 'Word Song',       Icon: InterestMusic, rank: 4 },
+  // Prompt 6: replaces Word Song (a Web Speech "chant" placeholder with no
+  // real task — always reported correct:true). Find the Word is Dr.
+  // Blank's own technique: hear the whole word, find it among look-alikes.
+  { id: 'find_the_word', label: 'Find the Word',   Icon: InterestMusic, rank: 4 },
   { id: 'flash_cards',   label: 'Quiz Boss',       Icon: IconTrophy,   rank: 5 },
   { id: 'story_time',    label: 'Story Time',      Icon: IconBook,     rank: 6 },
   { id: 'story_builder', label: 'Fill the Story',  Icon: IconBook,     rank: 7 },
   { id: 'word_builder',  label: 'Word Builder',    Icon: IconSpark,    rank: 8 },
   { id: 'say_it',        label: 'Say It with Nova', Icon: IconMic,     rank: 9 },
   { id: 'draw_it',       label: 'Draw It',         Icon: InterestArt,  rank: 10 },
-  { id: 'magic_video',   label: 'Magic Video',     Icon: IconSpark,    rank: 11 },
+  // Prompt 6: Magic Video cut entirely — non-functional stub, never had
+  // real produced video content, removed from the rotation rather than
+  // left as permanent placeholder theater.
 ];
 
 // Picture-matching activities (Tap & Hear / Word Hunt) may only ever be
@@ -64,6 +69,6 @@ export function getEligibleActivities(word) {
     if (PICTURE_ACTIVITY_IDS.has(a.id)) return wordType !== 'function' && !!hasArt;
     if (a.id === 'rhyme_time') return hasRhyme(w);
     if (a.id === 'draw_it') return isDrawable(wordType);
-    return true; // story_builder, flash_cards, word_builder, story_time, word_song, magic_video, say_it
+    return true; // story_builder, flash_cards, word_builder, story_time, find_the_word (full 200-word manifest coverage — see findTheWordManifest.js), say_it
   }).sort((a, b) => a.rank - b.rank);
 }

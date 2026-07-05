@@ -150,10 +150,12 @@ const EXCEPTIONS = new Set([
 //
 // SessionProgress was PREVIOUSLY exempted here as "only rendered for
 // non-rebuilt activities, same reasoning [dead]" — that was wrong. It's
-// the progress bar for draw_it/word_song/magic_video/story_time/say_it,
-// all five of which are real, live entries in PlayScreen.jsx's activity
-// list (confirmed directly, not assumed) — "not one of the 5 original
-// E2-rebuilt activities" does not mean "unreachable." This exemption
+// the progress bar for every gameType not in GameEngine.jsx's isE2Activity
+// list (sound_match/spell_it_out/story_time/say_it as of Prompt 6 —
+// draw_it and find_the_word both since moved onto the E2/Candy chrome),
+// all of which are real, live entries in PlayScreen.jsx's activity
+// list (confirmed directly, not assumed) — "not one of the E2-rebuilt
+// activities" does not mean "unreachable." This exemption
 // hid a real emoji (⭐) in a genuinely live component from every run of
 // this check until it was found and fixed (story-time-and-audio branch).
 // Removed from the exempt list rather than re-justified, since after the

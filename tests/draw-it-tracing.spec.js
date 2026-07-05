@@ -48,7 +48,7 @@ async function provisionFixture() {
   const [child] = await childRes.json();
   const childId = child.id;
 
-  const priorActivities = ["word_match", "word_hunt", "rhyme_time", "word_song", "flash_cards", "story_time", "story_builder", "word_builder", "say_it"];
+  const priorActivities = ["word_match", "word_hunt", "rhyme_time", "find_the_word", "flash_cards", "story_time", "story_builder", "word_builder", "say_it"];
   await fetch(`${SUPABASE_URL}/rest/v1/learning_events`, {
     method: "POST",
     headers: adminHeaders,

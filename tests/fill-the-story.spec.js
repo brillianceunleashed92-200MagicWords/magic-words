@@ -52,7 +52,7 @@ async function provisionFixture(targetWord) {
     body: JSON.stringify(words.map((w) => ({ user_id: userId, child_id: childId, word: w.word, mastery: 100 }))),
   });
 
-  const priorActivities = ["word_match", "word_hunt", "rhyme_time", "word_song", "flash_cards", "story_time"];
+  const priorActivities = ["word_match", "word_hunt", "rhyme_time", "find_the_word", "flash_cards", "story_time"];
   await fetch(`${SUPABASE_URL}/rest/v1/learning_events`, {
     method: "POST",
     headers: adminHeaders,

@@ -1,6 +1,6 @@
 // Full-sentence TTS carrier prompt for a quiz, tailored to the game type.
 // Extracted out of GameEngine.jsx into its own module so activity
-// components that live in separate files (MagicVideo, SayItWithNova, etc.)
+// components that live in separate files (FindTheWord, SayItWithNova, etc.)
 // can import it without creating a circular import back into
 // GameEngine.jsx (which imports them). Used both to warm the audio cache
 // at session start and to play the live prompt in-game, so the cached
@@ -45,8 +45,12 @@ export function getPromptText(quiz, gameType) {
     case 'story_builder': return 'Which word finishes the sentence?';
     case 'word_builder':  return `Can you spell "${word}"?`;
     case 'draw_it':       return `Let's trace "${word}"!`;
-    case 'word_song':     return `Let's sing about the word "${word}"!`;
-    case 'magic_video':   return `Let's watch a video about "${word}"!`;
+    // Find the Word — the deliberate exception to this file's own
+    // carrier-sentence convention: the question audio IS the target word,
+    // spoken in isolation (Blank's whole-word look-alike discrimination
+    // technique). Wrapping it in a sentence would bury the exact signal
+    // the child needs to match against the tiles.
+    case 'find_the_word': return word;
     case 'story_time':    return `Let's read a story about "${word}"!`;
     case 'say_it':        return `Can you say "${word}"?`;
     default:              return word;
