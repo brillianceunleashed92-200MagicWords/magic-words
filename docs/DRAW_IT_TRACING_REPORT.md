@@ -208,7 +208,19 @@ mode remains anywhere" per the prompt).
   still has real readers.
 
 ## HOUSEKEEPING — Playwright determinism fix chosen + why, v3 update
-IN PROGRESS
+- **Playwright determinism**: `playwright.config.js` now sets `workers: 1` directly (not a CLI
+  flag) — see the comment added there for the full reasoning. `fullyParallel: false` only
+  serializes tests *within* one spec file; separate provisioning spec files (`smoke`,
+  `fill-the-story`, and now `draw-it-tracing`) still ran as separate parallel workers by default,
+  contending on Supabase admin-API account creation (the exact contention documented in
+  `FILL_THE_STORY_REPORT.md` NOTES). Considered splitting provisioning vs. non-provisioning specs
+  into separate Playwright "projects" (would let the static `no-emoji-live` spec run in parallel)
+  but rejected it as more config surface than a 7-spec suite's runtime justifies — a global
+  `workers: 1` is the least invasive fix that guarantees no cross-file contention ever, and
+  doesn't depend on anyone remembering an undocumented flag. Verified: full suite green at
+  `npx playwright test` (default invocation, no flags) — see VERIFICATION below.
+- **v3 doc update**: `docs/200MW_Master_Project_Doc_v3.md` repair item 4's Draw It line updated
+  to DONE (merged) style, one-line summary, pointing at this report.
 
 ## VERIFICATION — coverage-check proof, live checks, overlap-probe result, new spec, gates
 IN PROGRESS
