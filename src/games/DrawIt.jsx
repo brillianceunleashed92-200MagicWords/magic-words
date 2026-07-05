@@ -190,6 +190,12 @@ export default function DrawIt({ quiz, onAnswer, encouragement }) {
 
   function completeStroke() {
     clearIdleTimer();
+    // Lock out further pointer handling immediately — strokeIdx/letterIdx
+    // don't update until the next render (or, for a letter/word boundary,
+    // until a queued setTimeout fires), so without this a second pointerdown
+    // during that gap would re-complete the same already-finished stroke
+    // and double-fire completeWord()/onAnswer for one word.
+    setInteractive(false);
     if (strokeIdx + 1 < strokes.length) {
       setStrokeIdx((i) => i + 1);
       return;
