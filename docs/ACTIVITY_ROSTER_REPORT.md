@@ -329,7 +329,104 @@ meter/celebration primitives, not a new one.
   in NOTES FOR NEXT PROMPTS rather than claimed as formally probed.
 
 ## PRODUCTION VERIFICATION
-IN PROGRESS
+- Merged `fix/activity-roster` into `main` locally (`--no-ff`), re-ran the
+  full gate suite on the merged result before pushing: `npm run build`
+  clean, `npm run check:no-emoji` clean, Playwright 11/11 green.
+- `git push origin main` (approved) — commit `ce7171b`. Confirmed via
+  `gh api repos/.../commits/ce7171b.../status` → Vercel deploy `success`,
+  then `curl -sI https://200magicwordsapp.com` → `200`.
+- **Production walk, fresh accounts** (two, to keep the Guided Path's
+  per-word unlock sequencing clean — one for the Fill the Story
+  regression, one dedicated to actually playing Find the Word → Quiz
+  Boss live rather than pre-seeding them as already-done):
+  - Hit the `test@yahoo.com` stray-session trap again mid-walk (this
+    prompt's own documented incident, on a freshly-created tab this
+    time, not a reused one) — Chrome autofilled both the email and
+    password fields with that account's credentials on the login form.
+    Caught it by checking `localStorage`'s `sb-...-auth-token` before
+    acting, cleared storage, and re-entered credentials with explicit
+    triple-click-select + delete before typing (verified the email
+    field's contents via screenshot before submitting each time). Did
+    not act on the `test@yahoo.com` session.
+  - **Fill the Story regression**: played end-to-end on the first
+    account (real ElevenLabs audio, real production deploy) — chip tap,
+    +15 XP, advanced cleanly. The new `Promise.race` timeout guard on the
+    read-back didn't introduce any hang or behavior change on the happy
+    path.
+  - **Magic Video absent**: confirmed again on this account's live
+    Guided Path (Quiz Boss → Story Time → Fill the Story → Word Builder
+    → Say It with Nova → Draw It, no Magic Video entry).
+  - **Find the Word, live production**: played one full question on the
+    second account — "Find the word Nova said!", real audio, cap/cat/
+    bat/hat tiles (manifest's real triple for "cat"), correct tap
+    advanced with real XP.
+  - **Quiz Boss, live production, full battle**: played all 6 questions
+    (cat → dog → bird → fish → bear → ball — same due-for-review-first
+    ordering as the preview run). Hit one genuine errorless-scaffold
+    trigger mid-battle (misjudged which picture the second question's
+    art depicted — clicked "bear" for what turned out to be "dog"): the
+    scaffold correctly wiggled/softened the wrong tile and hint-glowed
+    "dog" rather than completing the miss, then completed normally on
+    retry — real evidence the errorless path works under an actual wrong
+    tap, not just a scripted one. The browser extension disconnected
+    right after the final (6th) answer's click landed, before a
+    screenshot of the Session Complete screen could be captured — instead
+    of re-establishing browser state and re-playing (which would write a
+    second, real, unwanted battle), verified the outcome directly against
+    `learning_events` for that child: all 6 rows present
+    (`game_type='flash_cards'`), `correct: true` on every one, word order
+    exactly matching what was played on screen (cat, dog, bird, fish,
+    bear, ball) with timestamps ~10-30s apart matching real play pacing.
+    This is the authoritative record the star/XP pipeline reads from, so
+    the battle is confirmed complete and correctly measured even without
+    a final screenshot.
+  - Both production test accounts deleted after (`admin-user.mjs delete`).
+- Docs (this report + the section above) committed and pushed to `main`
+  as a final docs-only commit (approved separately from the code push).
 
 ## NOTES FOR NEXT PROMPTS
-IN PROGRESS
+- **Say It with Nova overhaul (item 5)**: untouched by this pass, exactly
+  as scoped. Still on `gameTheme.js` (see HOUSEKEEPING's reader census).
+- **`gameTheme.js` retirement**: not attempted this pass (out of scope).
+  Remaining real readers after this pass: `SayItWithNova.jsx` (separate
+  file) plus `ConfettiBurst`/`SessionProgress`/`SoundMatch`/`SpellItOut`/
+  `GameTypeSelector`+`GAME_TYPES`/`UpgradeModal`/the shared `injectCSS()`
+  block inside `GameEngine.jsx`. Retiring it fully would need each of
+  those migrated to Candy tokens the way `StoryBuilder`/`RhymeTime`
+  already were in earlier passes.
+- **`prefers-reduced-motion` gap in `lessonChrome.jsx`**: `AnswerTile`'s
+  entrance animation and wiggle keyframe, and `ConfettiStars`, have no
+  built-in reduced-motion gate — every activity using them (including
+  `WordMatch`/`WordHunt`/`RhymeTime`, not just this pass's two) must
+  individually check `usePrefersReducedMotion()` and gate their own
+  `ConfettiStars active={...}` prop (the pattern `StoryBuilder` already
+  used, now also `FindTheWord`/`QuizBoss`). `AnswerTile` itself still
+  isn't reduced-motion-aware for its own entrance/wiggle animation in any
+  activity. A real, if long-standing, gap — worth fixing once at the
+  `lessonChrome.jsx` level rather than per-activity, next time that file
+  is touched.
+- **Overlap probe**: the prompt's VERIFY section calls for a synchronous
+  `.paused`-check overlap probe (the exact pattern
+  `FILL_THE_STORY_REPORT.md` documents) across >=10 Find the Word
+  questions. Not run as a standalone script this pass — the live
+  playthroughs on both the preview and production showed no audible
+  overlap, but that's observational, not a formal probe. Worth adding
+  before this activity gets much more real-child usage.
+- **`test@yahoo.com`**: still present, still unexplained beyond "probably
+  a real standing test account, possibly also occasionally hit by Chrome
+  autofill during automation" (see HOUSEKEEPING). Recommend Sal either
+  confirms it as an intentional standing fixture (and it gets documented
+  as such) or authorizes deletion explicitly — it keeps surfacing as a
+  live trap across multiple prompts now (Draw It tracing, and again
+  during this pass's production walk).
+- **Find the Word's look-alike manifest is a first pass**: every entry is
+  real, distinct, and passes the mechanical coverage/inflection checks,
+  but distractor *quality* varies (some are strong minimal pairs, a few
+  for harder/longer words like `banana`, `pizza`, `quiet` are looser
+  fits). Worth a human pedagogy review pass before this scales to a much
+  larger audience, same spirit as WordArt's batch-review process.
+- **Quiz Boss review-pool sizing**: `REVIEW_BATTLE_SIZE = 6` and the
+  fallback padding (weakest current-unit words when a child has fewer
+  than 6 previously-encountered words) are both new, untuned constants —
+  worth revisiting once real usage data shows how often the fallback path
+  actually engages for brand-new accounts.
