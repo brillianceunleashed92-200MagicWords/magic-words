@@ -25,17 +25,23 @@ export default function CandyGalaxyShell() {
   const { user, isLoading, authError } = useAuth();
   const navTab = useUIStore((s) => s.navTab);
   const setNavTab = useUIStore((s) => s.setNavTab);
+  const activeChildId = useUIStore((s) => s.activeChildId);
   const { speak } = useSpeak();
   const [questWord, setQuestWord] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showStory, setShowStory] = useState(false);
 
   const childrenQ = useChildProfilesQuery(user?.id);
+  // Same "active child" derivation as useCandyGalaxyData.js (activeChildId
+  // from the store, falling back to the first child) — needed here too,
+  // one level up, just for the account-indicator initial on BottomNav.
+  const activeChild = childrenQ.data?.find((c) => c.id === activeChildId) ?? childrenQ.data?.[0] ?? null;
 
   return (
     <AuthGuard user={user} isLoading={isLoading} fallback={<LoginScreen authError={authError} />} loadingMessage="Loading your galaxy…">
       <CandyGalaxyInner
         childrenQ={childrenQ}
+        activeChild={activeChild}
         navTab={navTab}
         setNavTab={setNavTab}
         speak={speak}
@@ -54,7 +60,7 @@ export default function CandyGalaxyShell() {
 // exists — avoids conditionally calling useChildProfilesQuery with a
 // null id across renders in a way that would trip the rules-of-hooks
 // linter for a component this size.
-function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
+function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -101,7 +107,7 @@ function CandyGalaxyInner({ childrenQ, navTab, setNavTab, speak, questWord, setQ
       {navTab === 'galaxy' && <GalaxyScreen onOpenWord={(word) => { setQuestWord(word); setNavTab('play'); }} />}
       {navTab === 'grownups' && <GrownUpsScreen />}
 
-      {navTab !== 'play' && <BottomNav active={navTab} onSelect={setNavTab} speak={speak} />}
+      {navTab !== 'play' && <BottomNav active={navTab} onSelect={setNavTab} speak={speak} childInitial={activeChild?.name?.trim()?.[0]?.toUpperCase()} />}
       <CelebrationRenderer />
     </>
   );
