@@ -36,6 +36,12 @@ export const wordArtColors = {
   frogFill: '#3EE0B8', frogOutline: '#1C8C6C', frogInner: '#D6FFF3',
   buddyFill: '#FFC531', buddyOutline: '#B8890A', buddyInner: '#FFF1D6',
   blush: '#FF8FA8', dot: '#2A2160',
+  // Nova verb set (wordart-legibility pass) — flat-vector version of the
+  // real shipped Nova (public/nova/nova-base.png): warm flame-hair/body,
+  // pale cream face. Distinct from buddyFill so Nova reads as its own
+  // character, not a Buddy recolor. See docs/DESIGN_BRIEF.md §1.
+  novaFill: '#FF9F1C', novaOutline: '#B85C00', novaInner: '#FFF6E8',
+  novaTail: '#5B4BD6',
   // wordart-batch-1, Unit 1 (fish, bear, ball, book, cup)
   fishFill: '#4DD4E8', fishOutline: '#1B7A8C', fishInner: '#D6F7FC',
   bearFill: '#C98A52', bearOutline: '#7A4E24', bearInner: '#F0DAC0',
