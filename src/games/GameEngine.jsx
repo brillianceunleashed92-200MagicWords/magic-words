@@ -987,6 +987,28 @@ function StoryBuilder({ quiz, onAnswer }) {
       <ConfettiStars active={confetti} originRef={correctChipRef} />
       <NovaPorthole novaState={novaState} message={message} />
 
+      {/* Picture reveal — this activity had no picture at all before.
+          Deliberately shown only AFTER answering (correct or not), never
+          before: the blank is a fill-in-the-blank test, and revealing the
+          target word's art ahead of time would just hand over the answer.
+          Uses the same WordArt registry as every other activity — verbs
+          render via the existing BuddyBase character-performs-the-action
+          art (e.g. RunArt), adjectives via their comparison art, so this
+          reuses what already exists rather than inventing new illustrations. */}
+      {answered && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', margin: '0 0 18px',
+          animation: 'mw-pop 0.4s ease',
+        }}>
+          <div style={{
+            background: colors.cloud, borderRadius: 24, padding: 14,
+            boxShadow: shadows.chunkSm,
+          }}>
+            <WordArt word={quiz.word} size={92} />
+          </div>
+        </div>
+      )}
+
       <div style={{
         textAlign: 'center', margin: '8px 0 24px', fontFamily: fonts.display, fontWeight: 700,
         fontSize: 'clamp(1.2rem,4vw,1.6rem)', color: colors.cloud, lineHeight: 1.8,
