@@ -120,7 +120,7 @@ export default function QuizBoss({ quiz, onAnswer }) {
 
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
-      <ConfettiStars active={confetti} originRef={correctTileRef} />
+      <ConfettiStars active={confetti && !reducedMotion} originRef={correctTileRef} />
 
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
         <div style={{

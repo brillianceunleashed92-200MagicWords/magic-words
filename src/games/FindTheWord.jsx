@@ -19,6 +19,7 @@ import { playAudio, fetchAudio } from './gameAudio';
 import { IconSpeaker } from '../components/icons';
 import { NovaPorthole, AnswerTile, ConfettiStars } from './lessonChrome';
 import { getLookalikes } from './findTheWordManifest';
+import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
 
 function shuffled(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -42,6 +43,7 @@ export default function FindTheWord({ quiz, onAnswer }) {
   const [missedOnce,    setMissedOnce]    = useState(false);
   const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     setOptionState(buildOptions(quiz?.word));
@@ -101,7 +103,7 @@ export default function FindTheWord({ quiz, onAnswer }) {
 
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
-      <ConfettiStars active={confetti} originRef={correctTileRef} />
+      <ConfettiStars active={confetti && !reducedMotion} originRef={correctTileRef} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1 }}>
           <NovaPorthole novaState={novaState} message={message} />
