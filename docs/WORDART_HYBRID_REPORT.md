@@ -232,3 +232,64 @@ DONE.
   service-role test-data seeding becomes a regular pattern; documented here rather than fixed
   since it's unrelated to WordArt and touching RLS policy is its own scoped change.
   art is ready (see AUDIT section).
+
+## PRODUCTION VERIFICATION
+DONE. Everything in the original VERIFICATION section above ran against local dev. This section
+re-runs the same checks against the live `https://200magicwordsapp.com` deployment on commit
+`cf654dd`, using a real `SUPABASE_SERVICE_ROLE_KEY` supplied in the shell environment (never
+echoed/logged — used only implicitly via env for the admin API calls below).
+
+**Sanity check.** `GET /auth/v1/admin/users?page=1&per_page=1` against the production Supabase
+project returned `200` (status code only, no response body inspected/logged) — confirms the key
+is valid before running anything destructive.
+
+**Full Playwright suite: 4/4 pass** (previously 2/4 pass + 2 skip in the pre-push run, because the
+skipped tests `test.skip` on `!confirmedUser?.id`, which needs the admin key). No code changes —
+same suite, just run with a valid key in the environment this time.
+
+**`node scripts/idor-proof.mjs` with `DEPLOY_BASE_URL=https://200magicwordsapp.com`: 9/9 checks
+pass**, including the two live-endpoint checks that could only `SKIP` before (no `DEPLOY_BASE_URL`
+in the earlier local-only runs): `create-portal-session` correctly rejects an unauthenticated
+request (401) and correctly accepts A's own verified token (not 401); `session-generator` correctly
+rejects A forging B's `childId` (403). All the direct-table/RPC checks (word_progress, child_profiles,
+earn_sparks) also passed against the live project, not just local. Test users provisioned and
+cleaned up by the script itself.
+
+**Production walk — fresh test account (`nextgenprecisiondrones+prodwalk*@gmail.com`, via
+`scripts/admin-user.mjs create`), deleted after.**
+- Created child "Rae" through the real onboarding flow (not seeded directly) — confirmed the
+  parental gate (`GrownUpsScreen.jsx`'s `HoldGate`/`MathGate`) and onboarding form both work live.
+  One environment-specific snag, not a product bug: the browser-automation tab wasn't OS-focused,
+  so `document.hidden` was `true` and the hold-gate's `requestAnimationFrame` loop never advanced
+  (browsers throttle rAF in hidden tabs) — worked around by monkey-patching
+  `window.requestAnimationFrame` to a `setTimeout` shim for that one interaction. Not something a
+  real user hits; flagging only because it cost debugging time and would resurface for any future
+  automated walk of this same gate.
+- Used the new `admin-user.mjs seed-progress` command to fast-forward past Units 1–2 (all 20 real
+  words per the live `words` table — note this is 20, not the 16 a stale hardcoded reference list
+  in `App.jsx` would suggest; the real curriculum data lives in Supabase, confirmed by querying the
+  `words` table directly rather than trusting old in-repo constants) so the session generator's
+  `currentUnit` logic advanced to Unit 3 (the Nova verb set) for real gameplay.
+- **Word Match (Tap & Hear) on two Nova verbs — confirmed live:** `eat` and `jump` both appeared as
+  quiz targets among the other 5 verb distractors (`swim`, `fly`, `run`, `dance`, `sing`). `jump`
+  showed the clear airborne gap above the ground-shadow (matches the NOVA VERB SET fix above);
+  `eat` was clearly distinguishable via its food prop. No visual collisions on-screen with any
+  distractor tile, matching the earlier local-only verification.
+- **Draw It on a verb with art — confirmed live:** both `eat` and `jump` showed the correct Nova
+  pose as a drawing reference above the canvas (`jump`'s reference clearly showed the airborne
+  pose); canvas drawing and the Clear/Done controls worked. Did not additionally re-verify the
+  no-art fallback chip (e.g. `play`) in Draw It specifically — already confirmed correct in the
+  original local VERIFICATION pass above and unchanged since.
+- **Fill the Story — played a full real 8-question session end to end** (`eat, jump, run, swim,
+  fly, dance, sing, play`), including the "tap once to select, tap again to place" interaction,
+  through to the session-complete summary screen. Confirmed against production, not just the
+  local dev fallback path noted in the original VERIFICATION section.
+- **Whole-screen checks throughout:** Home, Play (guided path), Word Galaxy map, and every
+  activity screen visited rendered cleanly on the live deployment — no layout breaks, no
+  console errors (checked via `read_console_messages` with an error-only filter — none found).
+- Test account and its child/word_progress rows deleted via `scripts/admin-user.mjs delete`
+  after the walk (`status: 200`).
+
+**Gates:** `npm run build`, `npx playwright test` (4/4), `node --env-file=.env.local
+scripts/idor-proof.mjs DEPLOY_BASE_URL=https://200magicwordsapp.com` (9/9) all green against
+production on commit `cf654dd`.
