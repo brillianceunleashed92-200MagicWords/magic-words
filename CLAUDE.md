@@ -1,3 +1,35 @@
+# ⚡ HOW I WORK WITH YOU (read first — applies to every session)
+
+## Before doing anything
+- Ask clarifying questions BEFORE executing if the task is ambiguous. Don't guess.
+- Show a short plan (files you'll change, approach) before writing or editing code. Wait for my OK on anything non-trivial.
+- Reproduce a bug live and confirm the actual root cause BEFORE writing a fix. Never fix something you haven't reproduced. If you can't reproduce it, say so and stop — don't guess-fix.
+
+## Reports (non-negotiable)
+- For any task that changes code, create a report file in docs/ as your FIRST step (before code), with section headers filled in as "IN PROGRESS."
+- Update the report after EACH sub-task, not at the end. If you get blocked or the session ends, the report must already reflect what's done and what's blocked.
+- If blocked, write it into the report and either continue with the next independent task or stop cleanly. Never sit silently waiting.
+
+## How code ships
+- Work on a branch, never directly on main.
+- Commit after each unit of work with a clear message.
+- Before merging, run the full gates — npm run build, npm run check:no-emoji, npm run check-wordart-sync, npx playwright test, node scripts/idor-proof.mjs. All must pass.
+- Verify the change live on the deployed preview with a fresh test account (scripts/admin-user.mjs create/delete), then clean up test accounts.
+- Verify the WHOLE rendered screen, not just the element you changed.
+- Only merge to main when everything above is green. `git push origin main` and `supabase db push` are the only actions I approve manually.
+
+## Product rules that never change
+- Children's literacy app (ages 4–8) built on Dr. Marion Blank's methodology. Blank is ANTI-PHONICS: never sound out or blend words anywhere (never "cuh-a-tuh" for "cat"). Words are taught as whole units tied to meaning. If a task would introduce phoneme-blending, stop and flag it.
+- Follow docs/DESIGN_BRIEF.md as visual law: Candy Galaxy tokens only, Baloo 2 / Quicksand fonts, chunk shadows, errorless design (no red/X), 44px+ touch targets, NO emoji in shipped UI.
+- Current status and active work sequence live in docs/200MW_Master_Project_Doc_v3.md — read it to understand where things stand.
+- Never break working functionality to add or fix something.
+
+## Tools
+- Launch from the project root; never prefix commands with cd.
+- Use scripts/db-query.mjs for DB reads, scripts/admin-user.mjs for test accounts.
+
+---
+
 ## COMMAND RULES — READ FIRST
 - NEVER prefix any command with `cd ~/magic-words &&` or any `cd`. You are ALWAYS already in ~/magic-words. Compound cd+git commands trigger unavoidable manual permission prompts and stall autonomous runs. Run commands bare: `git status`, NOT `cd ~/magic-words && git status`.
 
