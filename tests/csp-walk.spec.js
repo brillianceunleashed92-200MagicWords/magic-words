@@ -141,6 +141,15 @@ test("CSP walk: every live activity + Galaxy + Parent Portal + checkout, zero vi
     await gotoAndDrain("/update-password");
     await expect(page.getByText("Link expired")).toBeVisible({ timeout: 10000 });
 
+    // ── LEGAL_PAGES_R1: the three published policy routes — public,
+    // no auth needed, but still real routes the CSP must cover. ──
+    await gotoAndDrain("/privacy");
+    await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible({ timeout: 10000 });
+    await gotoAndDrain("/terms");
+    await expect(page.getByRole("heading", { name: "Terms of Service" })).toBeVisible({ timeout: 10000 });
+    await gotoAndDrain("/refunds");
+    await expect(page.getByRole("heading", { name: "Cancellation & Refund Policy" })).toBeVisible({ timeout: 10000 });
+
     // ── Every rotation activity: re-seed ranks-ahead, reload, enter, wait
     // for render + any auto-playing audio, exit via the shared close. ──
     for (let i = 0; i < RANK_ORDER.length; i++) {

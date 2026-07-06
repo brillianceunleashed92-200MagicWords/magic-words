@@ -6,6 +6,7 @@ import Method from "./sections/Method";
 import HowItWorks from "./sections/HowItWorks";
 import Audience from "./sections/Audience";
 import ClosingCTA from "./sections/ClosingCTA";
+import Footer from "./sections/Footer";
 
 export default function Landing() {
   const { scrollRef, background } = useDawnBackground();
@@ -23,6 +24,7 @@ export default function Landing() {
       <HowItWorks />
       <Audience />
       <ClosingCTA />
+      <Footer />
     </main>
   );
 }

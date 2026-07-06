@@ -76,6 +76,13 @@ export default function UpgradeBanner({ variant = 'subtle', title, message, surf
           Couldn't start checkout: {checkout.error.message}
         </div>
       )}
+      {/* LEGAL_PAGES_R1 Phase 2 — the point-of-sale disclosure, adjacent
+          to the purchase CTA per the doc's instruction; checkout flow
+          itself untouched. */}
+      <div style={{ marginTop: 10, fontSize: '.72rem', opacity: 0.7, color: prominent ? colors.starText : colors.mutedInk }}>
+        Subscriptions renew automatically until cancelled. Cancel anytime in Settings.
+        {' '}See our <a href="/refunds" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Refund Policy</a>.
+      </div>
     </div>
   );
 }

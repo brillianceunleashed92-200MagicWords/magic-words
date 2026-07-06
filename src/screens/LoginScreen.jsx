@@ -35,6 +35,19 @@ async function handleGoogleSignIn() {
   });
 }
 
+// LEGAL_PAGES_R1 Phase 2 — persistent links to the three published
+// policies, required on "the auth screens at minimum" per the doc.
+// Rendered under every LoginScreen mode (sign_in, sign_up, reset_request).
+function AuthFooterLinks() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16, fontSize: 11, opacity: 0.55 }}>
+      <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#fff" }}>Privacy Policy</a>
+      <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "#fff" }}>Terms of Service</a>
+      <a href="/refunds" target="_blank" rel="noreferrer" style={{ color: "#fff" }}>Refund Policy</a>
+    </div>
+  );
+}
+
 // Extracted verbatim from the legacy App.jsx (was a nested component with
 // no logic changes) so the new componentized shell can reuse it without
 // touching auth behavior — restyling the auth surface itself is out of
@@ -214,7 +227,7 @@ export default function LoginScreen({ authError }) {
       <div style={{
         fontFamily: "'Nunito', system-ui, sans-serif",
         background: "#0F0A1E", minHeight: "100vh", color: "#fff",
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20,
       }}>
         <div style={cardStyle}>
           <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D55" }}>
@@ -271,6 +284,7 @@ export default function LoginScreen({ authError }) {
             {hcaptchaWidget}
           </form>
         </div>
+        <AuthFooterLinks />
       </div>
     );
   }
@@ -279,7 +293,7 @@ export default function LoginScreen({ authError }) {
     <div style={{
       fontFamily: "'Nunito', system-ui, sans-serif",
       background: "#0F0A1E", minHeight: "100vh", color: "#fff",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20,
     }}>
       <div style={cardStyle}>
         <div style={{ fontFamily: "'Fredoka One', sans-serif", fontSize: 28, color: "#FFE66D", textShadow: "0 0 20px #FFE66D55" }}>
@@ -397,6 +411,11 @@ export default function LoginScreen({ authError }) {
           {hcaptchaWidget}
         </form>
       </div>
+      {/* Not rendered in sign_up mode — the B6 consent checkbox already
+          links Privacy Policy + Terms of Service inline there; a second,
+          redundant copy directly below would duplicate those exact links
+          on the same screen. */}
+      {authMode !== "sign_up" && <AuthFooterLinks />}
     </div>
   );
 }

@@ -34,6 +34,7 @@ const Landing = lazy(() => import('./pages/landing/Landing.jsx'))
 const CandyGalaxyShell = lazy(() => import('./CandyGalaxyShell.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'))
+const RefundPolicy = lazy(() => import('./pages/RefundPolicy.jsx'))
 const UpdatePassword = lazy(() => import('./pages/UpdatePassword.jsx'))
 
 createRoot(document.getElementById('root')).render(
@@ -45,6 +46,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="/" element={<Landing />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/refunds" element={<RefundPolicy />} />
             {/* feat/auth-r1 Phase 3 — the resetPasswordForEmail redirect
                 target. Deliberately a sibling of /app, never nested inside
                 it: CandyGalaxyShell's AuthGuard treats any session
