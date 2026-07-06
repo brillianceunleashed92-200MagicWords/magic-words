@@ -136,6 +136,11 @@ test("CSP walk: every live activity + Galaxy + Parent Portal + checkout, zero vi
 
   const { email, userId, childId } = await provisionFixture("main");
   try {
+    // ── feat/auth-r1 Phase 3: /update-password, reached with no active
+    // session (the real state a cold recovery-link click lands in) ──
+    await gotoAndDrain("/update-password");
+    await expect(page.getByText("Link expired")).toBeVisible({ timeout: 10000 });
+
     // ── Every rotation activity: re-seed ranks-ahead, reload, enter, wait
     // for render + any auto-playing audio, exit via the shared close. ──
     for (let i = 0; i < RANK_ORDER.length; i++) {
