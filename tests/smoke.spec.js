@@ -97,6 +97,37 @@ test("sign up shows the post-signup confirmation screen", async ({ page }) => {
   }
 });
 
+test("sign-up consent checkbox: disabled until checked, links both Privacy Policy and Terms of Service", async ({ page }) => {
+  // FIX R1 Phase 1 (B6) — the consent checkbox previously linked only
+  // /privacy; it must now cover both documents without weakening the
+  // parental-consent language, and must still mechanically gate submit.
+  // No real signUp() call here (avoids the email rate limit) — this only
+  // exercises the pre-submit UI state.
+  await page.goto("/app");
+  await page.getByRole("button", { name: "Create account" }).first().click();
+  await page.getByPlaceholder("you@example.com").fill(`nextgenprecisiondrones+mwclickwrap${Date.now()}@gmail.com`);
+  await page.getByPlaceholder("••••••••").fill("TestPass!23456");
+
+  const submit = page.locator('button[type="submit"]');
+  const checkbox = page.getByRole("checkbox");
+
+  await expect(checkbox).not.toBeChecked();
+  await expect(submit).toBeDisabled();
+
+  const privacyLink = page.getByRole("link", { name: "Privacy Policy" });
+  const termsLink = page.getByRole("link", { name: "Terms of Service" });
+  await expect(privacyLink).toHaveAttribute("href", "/privacy");
+  await expect(privacyLink).toHaveAttribute("target", "_blank");
+  await expect(termsLink).toHaveAttribute("href", "/terms");
+  await expect(termsLink).toHaveAttribute("target", "_blank");
+
+  await checkbox.check();
+  await expect(submit).toBeEnabled();
+
+  await checkbox.uncheck();
+  await expect(submit).toBeDisabled();
+});
+
 test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   test.skip(!confirmedUser?.id, "requires SUPABASE_SERVICE_ROLE_KEY to provision a confirmed test account");
 

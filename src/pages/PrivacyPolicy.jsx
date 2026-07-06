@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
       <p>
         A parent can permanently delete their account and all associated child data
         at any time from Settings → Delete account & all data. This removes every
-        child profile, all progress, stories, and drawings immediately.
+        child profile, all progress, and stories immediately.
       </p>
       <h3 style={{ color: '#4ECDC4', marginTop: 20 }}>Contact</h3>
       <p>Questions about this policy can be sent to the app's support contact.</p>

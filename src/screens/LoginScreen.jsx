@@ -138,9 +138,11 @@ export default function LoginScreen({ authError }) {
                 style={{ marginTop: 2, flexShrink: 0 }}
               />
               <span>
-                I am the parent or guardian of the child who will use this app, and I
+                I am the parent or guardian of the child who will use this app, I
                 consent to the data collection described in our{" "}
-                <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#4ECDC4" }}>Privacy Policy</a>.
+                <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#4ECDC4" }}>Privacy Policy</a>,
+                {" "}and I agree to the{" "}
+                <a href="/terms" target="_blank" rel="noreferrer" style={{ color: "#4ECDC4" }}>Terms of Service</a>.
               </span>
             </label>
           )}

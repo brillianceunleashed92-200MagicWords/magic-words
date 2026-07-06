@@ -63,7 +63,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   const {
     sessionPlan, planLoading, planError, generatePlanForWord,
     reviewSessionPlan, reviewPlanLoading, generateReviewPlan,
-  } = useSessionPlan(user, childId, plan);
+  } = useSessionPlan(user, childId, plan, activeChild?.placement_unit);
   const queryClient = useQueryClient();
 
   // Quiz Boss (Prompt 6 Part 4) draws its own server-authoritative

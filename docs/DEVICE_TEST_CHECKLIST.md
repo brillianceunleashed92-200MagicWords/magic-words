@@ -135,3 +135,21 @@ to autofill it on the Magic Words login screen.
 documented in `DRAW_IT_TRACING_REPORT.md`'s known-traps list for this
 one account; if a similar hijack happens again with a different test
 account in the future, the same manual removal step applies.
+
+## 7. Say-It browser check (B1 runtime item)
+
+**Do**: with DevTools' Network tab open, run one Say-It attempt in Chrome
+and Safari; note which external endpoints the BROWSER itself contacts
+for speech recognition (the app's own traffic will show none — Say It
+only uses the browser's built-in `SpeechRecognition`/
+`webkitSpeechRecognition` API, never a call this app makes itself; see
+`docs/FORENSICS_R1_REPORT.md`'s B1 finding).
+
+**Observe**: screenshot the Network tab per browser, noting any
+speech-recognition-related host contacted outside this app's own
+origin/Supabase.
+
+**Record**: which vendor endpoint(s), if any, appear per browser — this
+resolves the one sub-question B1 marked `UNVERIFIABLE-STATICALLY`
+(exact speech-recognition vendor depends on browser-vendor internals,
+not this app's code) and feeds the final Privacy Policy §2b language.
