@@ -306,10 +306,11 @@ own text**: `magic_moments.kind` has a CHECK constraint
 a new `'tracing'` value. Wrote `supabase/migrations/0031_magic_moments_
 tracing_kind.sql` (widens the constraint to add `'tracing'`; RLS policy
 from `0008` is unchanged — it scopes by `child_id → parent_id` ownership
-regardless of `kind`) but have NOT pushed it — that needs Sal's explicit
-approval same as any other schema change. All the application code below
-is written and ready; the `INSERT` will 400 against production until the
-migration is approved and pushed.
+regardless of `kind`). **Presented this to Sal as the required stop;
+approved, and pushed via `supabase db push --linked`** — confirmed live
+via `pg_get_constraintdef`: the constraint now reads `kind = ANY
+(ARRAY['star_ignition', 'drawing', 'audio_reading', 'milestone',
+'streak', 'tracing'])`.
 
 **Why a new kind, not reusing `drawing`**: `drawing` predates the
 letter-tracing rebuild (Prompt 5) and represented a genuinely different
@@ -339,12 +340,39 @@ misrepresent historical data, not just be a naming quibble.
 - Historical `drawing`-kind rows: unaffected by construction — the
   `drawing` entry in `KIND_LABELS` and its rendering path are untouched;
   only a new `tracing` entry was added alongside it. Build clean.
-- The actual live insert/render round-trip is blocked on the migration
-  above — will be verified live once it's pushed, added to this pass's
-  VERIFICATION section rather than claimed done here.
+- **Live round-trip verified**: fresh test account, seeded ranks 1-9 done
+  for "cat" (unlocks Draw It), inserted a `tracing` moment for that
+  child (same row shape `handleProgress`'s new code path produces),
+  opened Grown-Ups → Moments in the running app — renders `Traced
+  "cat"!` with the real WordArt cat illustration as the thumbnail
+  (confirms both the new `KIND_LABELS` entry and WordArt's has_art
+  path work together correctly). Test account deleted after
+  verification.
 
 ## TEST ACCOUNT
-IN PROGRESS
+**test@yahoo.com — re-verified read-only, then deleted with explicit
+approval**, per the mission's own instruction that this is precisely the
+destructive-op stop the standing rules require ("a chat-level approval
+is not sufficient for this one"). Facts re-confirmed before asking:
+created 2026-05-30, last sign-in 2026-07-05 (same day as this session —
+almost certainly this session's own Chrome-autofill hijack rather than a
+real user, consistent with the known trap documented in memory), 1
+child profile, 310 `learning_events`, 28 `word_progress` rows, 15
+`magic_moments`, 0 subscriptions (and therefore no Stripe linkage —
+`stripe_customer_id` lives on the `subscriptions` row itself). Presented
+these facts to Sal directly (not summarized/abbreviated) and got
+explicit confirmation before acting.
+
+Deleted via the same cascade path `admin-user.mjs delete` uses (Supabase
+auth admin `DELETE`, which cascades through `child_profiles` →
+`learning_events`/`word_progress`/`magic_moments` via existing FK
+`ON DELETE CASCADE`). Verified zero orphan rows afterward across all
+four tables.
+
+**Device checklist item added** (see below): the saved Chrome password
+for this address can't be removed by this automation session (no access
+to the browser's saved-password store) — flagged as a manual step for
+whoever does the device-checklist pass.
 
 ## HOUSEKEEPING
 IN PROGRESS
