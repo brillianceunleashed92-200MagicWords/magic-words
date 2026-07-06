@@ -94,7 +94,20 @@
 - "Last updated" bumped, annotated with "(Prompt 10)".
 
 ## VERIFICATION / PRODUCTION VERIFICATION — walks, gates, snapshots, timing close-out
-IN PROGRESS
+
+**A2 screen**: covered in the SESSION COMPLETE A2 section above — spec green, 2 live activity-type walkthroughs (Quiz Boss, Story Time) with screenshots.
+
+**Deletion — full app walk**: `tests/csp-walk.spec.js` doubles as this pass's "whole-screen rule at maximum breadth" check, since it already visits every live rotation activity (all 10), Galaxy, and all 4 Parent Portal tabs — exactly the deletion's blast radius (shared `GameEngine.jsx` machinery). `tests/placement-adventure.spec.js`'s 3 specs (unaffected by anything deleted, but a real exercise of the guided-path/PlayScreen integration this pass touched) also passed clean. Grep-zero table and bundle delta: see DELETION section above. `/app-legacy` redirect: verified live.
+
+**CSP**: zero real violations on both the pre-flip production walk and the post-flip enforcing-preview walk (11 raised, all one filtered Vercel-preview-toolbar artifact — see CSP section). Audio (`blob:`) played across every activity in both walks. TEST-mode checkout call succeeded (`{"status":200,"hasUrl":true}`) from inside a page running the real enforcing policy.
+
+**Gates, final state, all against this branch's HEAD**:
+- `npm run build` — clean (incl. `check-wordart-sync`/`check-stroke-coverage`/`check-findtheword-sync`).
+- `npm run check:no-emoji` — clean.
+- Full Playwright suite, default invocation: **24/24** (incl. the new `csp-walk.spec.js` and `session-complete-a2.spec.js`; no existing spec needed changes or removal — none referenced any deleted identifier).
+- `idor-proof.mjs` against the branch preview: **16/16** — confirms no server-side query behavior changed this pass (expected; this was a client-code deletion + a header change, not a data-access change).
+
+**Test accounts**: every account this pass provisioned (`mwa2verify*`, `mwa2story*`, `mwcspmain*`, plus every idor-proof/Playwright-spec-provisioned account) deleted after use via `scripts/admin-user.mjs delete` or each spec's own cleanup.
 
 ## NOTES FOR THE FINAL PASS — the precise Stripe-live runbook inputs + anything left for the launch sweep
 
