@@ -8,6 +8,8 @@ import PlayScreen from './screens/PlayScreen';
 import GalaxyScreen from './screens/GalaxyScreen';
 import GrownUpsScreen from './screens/GrownUpsScreen';
 import ChildOnboardingScreen from './screens/ChildOnboardingScreen';
+import PlacementChoiceScreen from './screens/PlacementChoiceScreen';
+import PlacementAdventureScreen from './screens/PlacementAdventureScreen';
 import StoryScreen from './screens/StoryScreen';
 import UpgradeResultScreen from './screens/UpgradeResultScreen';
 import BottomNav from './components/candy/BottomNav';
@@ -63,6 +65,14 @@ export default function CandyGalaxyShell() {
 function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
   const location = useLocation();
   const navigate = useNavigate();
+  // Placement Adventure (Prompt 8) — global store, not local state, so
+  // SettingsTab's "Retake placement" (nested under GrownUpsScreen's
+  // prop-less tab renderer) can trigger the same flow this component
+  // renders. See useUIStore.js's comment for why.
+  const placementFlow = useUIStore((s) => s.placementFlow);
+  const placementChildId = useUIStore((s) => s.placementChildId);
+  const startPlacementFlow = useUIStore((s) => s.startPlacementFlow);
+  const clearPlacementFlow = useUIStore((s) => s.clearPlacementFlow);
 
   if (childrenQ.isLoading) {
     return <GalaxyLoader message="Loading your galaxy…" />;
@@ -78,11 +88,32 @@ function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, qu
   }
 
   // First-run (brand-new account) or "+ Add child" from the switcher —
-  // both go through the same onboarding flow.
+  // both go through the same onboarding flow, then the placement choice
+  // (Prompt 8) before ever reaching Home.
   if (childrenQ.data?.length === 0 || showAddChild) {
     return (
       <ChildOnboardingScreen
-        onDone={() => { setShowAddChild(false); setNavTab('home'); }}
+        onDone={(child) => { setShowAddChild(false); startPlacementFlow(child.id, 'choice'); }}
+      />
+    );
+  }
+
+  if (placementFlow === 'choice') {
+    return (
+      <PlacementChoiceScreen
+        childId={placementChildId}
+        onChooseBeginner={() => { clearPlacementFlow(); setNavTab('home'); }}
+        onChoosePlacement={() => startPlacementFlow(placementChildId, 'adventure')}
+      />
+    );
+  }
+
+  if (placementFlow === 'adventure') {
+    return (
+      <PlacementAdventureScreen
+        childId={placementChildId}
+        onComplete={() => { clearPlacementFlow(); setNavTab('home'); }}
+        onExit={() => { clearPlacementFlow(); setNavTab('home'); }}
       />
     );
   }

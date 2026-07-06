@@ -919,6 +919,7 @@ function StoryBuilder({ quiz, onAnswer, encouragement }) {
   const [wrongChipIdx, setWrongChipIdx] = useState(null);
   const [revealCorrect, setRevealCorrect] = useState(false);
   const [missedOnce,   setMissedOnce]   = useState(false);
+  const [audioUrl,     setAudioUrl]     = useState(null);
   const correctChipRef = useRef(null);
   const startRef = useRef(Date.now());
   const reducedMotion = usePrefersReducedMotion();
@@ -937,8 +938,16 @@ function StoryBuilder({ quiz, onAnswer, encouragement }) {
   // Previously silent — every other activity now speaks a carrier prompt
   // on mount, this one had none at all.
   useEffect(() => {
-    fetchAudio(getPromptText(quiz, 'story_builder')).then(playAudio);
+    setAudioUrl(null);
+    fetchAudio(getPromptText(quiz, 'story_builder')).then((url) => {
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
   }, [quiz?.word]);
+
+  // Hint audit (Prompt 8 Part 4 housekeeping): the one deferred replay
+  // gap flagged in the Prompt 7 polish pass's hint audit -- same pattern
+  // as WordHunt/RhymeTime/FindTheWord's speaker button.
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   // quiz.sentence = "Watch Nova ___!"
   // quiz.options = [{word}, ...]
@@ -1007,7 +1016,23 @@ function StoryBuilder({ quiz, onAnswer, encouragement }) {
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
       <ConfettiStars active={confetti && !reducedMotion} originRef={correctChipRef} />
-      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <NovaPorthole novaState={novaState} message={message} />
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the sentence again"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5, marginBottom: 20,
+          }}
+        >
+          <IconSpeaker size={20} color={colors.cloud} />
+        </button>
+      </div>
 
       {/* Picture-as-cue — for has_art targets only, shown WITH the question
           (before answering), not as a post-answer reveal. The child maps

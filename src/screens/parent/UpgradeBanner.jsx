@@ -6,7 +6,7 @@ import { useCreateCheckoutSession } from '../../lib/queries/checkout';
 // shown once a child crosses 20 mastered words) and SettingsTab (subtle
 // variant, always available). Per the gating spec: upgrade prompts only
 // ever render in the parent portal, never in the child-facing app.
-export default function UpgradeBanner({ variant = 'subtle' }) {
+export default function UpgradeBanner({ variant = 'subtle', title, message }) {
   const { user } = useAuth();
   const checkout = useCreateCheckoutSession();
 
@@ -26,12 +26,12 @@ export default function UpgradeBanner({ variant = 'subtle' }) {
       boxShadow: prominent ? shadows.chunkSm : undefined,
     }}>
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: prominent ? '1.1rem' : '.95rem', color: prominent ? colors.starText : colors.ink, marginBottom: 6 }}>
-        {prominent ? 'Unlock everything with Family' : 'Upgrade to Family'}
+        {title ?? (prominent ? 'Unlock everything with Family' : 'Upgrade to Family')}
       </div>
       <div style={{ color: prominent ? colors.starText : colors.mutedInk, fontSize: '.85rem', marginBottom: 14, opacity: prominent ? 0.9 : 1 }}>
-        {prominent
+        {message ?? (prominent
           ? "Your Star Learner has mastered 20+ words! Unlock Units 6-18 and every game type for the whole family."
-          : 'Unlocks Units 6-18 and every game type for all your children.'}
+          : 'Unlocks Units 6-18 and every game type for all your children.')}
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button

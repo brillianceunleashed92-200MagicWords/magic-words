@@ -101,6 +101,23 @@ be extended to all 5 activities during this rebuild:
 - Only a second miss on the same question lets the error complete and advances the session.
 - **No red anywhere in this flow. No X marks, ever.**
 
+### 5a. Sanctioned exception — Placement Adventure probes only (Prompt 8)
+
+Placement Adventure's ladder (`src/components/candy/PlacementProbe.jsx`) is a genuine,
+narrowly-scoped exception to the scaffold above, not a silent deviation — the brief stays
+authoritative, and this carve-out exists specifically because the scaffold's own signal
+(hint-glow, second-chance completion) would destroy the measurement this one flow exists to
+take:
+
+- **No hint-glow, no second-chance completion.** A miss simply glides forward — one tap per
+  question, always, right or wrong.
+- **A miss must be indistinguishable from a hit in TONE, not just color.** The tapped tile
+  always gets the same `correct-flash` mint glow; Nova's message is the same literal string
+  either way. Only the boolean reported to the server differs — a child (or a parent watching)
+  cannot tell from the screen whether an answer was right.
+- **Scope**: this exception applies ONLY inside the placement ladder, during onboarding.
+  Every other activity in the app keeps the full scaffold above, unchanged.
+
 ## 6. Correct-answer celebration — locked
 
 - Tile gets a `--mint` glow ring (`correct-flash`).

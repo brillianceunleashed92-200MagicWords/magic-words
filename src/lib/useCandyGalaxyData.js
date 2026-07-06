@@ -6,7 +6,7 @@ import { useSparksQuery } from './queries/sparks';
 import { useStreakQuery } from './queries/streaks';
 import { useUserStatsQuery } from './queries/userStats';
 import { useChildProfilesQuery } from './queries/childProfiles';
-import { useSubscriptionQuery, maxChildrenForPlan, isUnitLocked } from './queries/subscription';
+import { useSubscriptionQuery, maxChildrenForPlan, isUnitLocked, FREE_TIER_MAX_UNIT } from './queries/subscription';
 import { getLevelInfo } from './levels';
 import { isStarSleepy } from './starKeeper';
 import { useUIStore } from '../stores/useUIStore';
@@ -73,10 +73,21 @@ export function useCandyGalaxyData() {
   // "next" quest — once everything unlocked is mastered, this falls back
   // to the last unlocked word (Home shows a "come back for more" state
   // rather than silently handing them a locked word to attempt).
+  //
+  // Placement Adventure (Prompt 8): a placed child's floor (already
+  // min(measured, plan cap) — never fabricates word_progress) shifts
+  // which word this recommendation scans FROM, mirroring the same floor
+  // applied server-side in session-generator.js's selectCandidateWords.
+  // Below-floor words are untouched here — they still render via
+  // GalaxyScreen's existing status derivation (locked, same as any
+  // never-reached word), just never chosen as "current."
+  const placementFloor = activeChild?.placement_unit
+    ? Math.min(activeChild.placement_unit, plan === 'family' ? 18 : FREE_TIER_MAX_UNIT)
+    : null;
   const currentWord = useMemo(() => {
-    const playable = words.filter((w) => !w.premiumLocked);
+    const playable = words.filter((w) => !w.premiumLocked && (!placementFloor || w.unit >= placementFloor));
     return playable.find((w) => w.mastery < MASTERED_THRESHOLD) ?? playable[playable.length - 1] ?? null;
-  }, [words]);
+  }, [words, placementFloor]);
 
   const sleepyStars = useMemo(
     () => words.filter((w) => w.mastery >= MASTERED_THRESHOLD && w.sleepy),

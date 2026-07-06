@@ -2,6 +2,7 @@ import { colors, fonts, shadows } from '../../theme/tokens';
 import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
 import { useWeeklyStatsQuery } from '../../lib/queries/weeklyStats';
 import { useParentDigest } from '../../lib/queries/parentDigest';
+import { FREE_TIER_MAX_UNIT } from '../../lib/queries/subscription';
 import UpgradeBanner from './UpgradeBanner';
 
 const UPGRADE_PROMPT_THRESHOLD = 20;
@@ -38,9 +39,22 @@ export default function DashboardTab() {
         ))}
       </div>
 
-      {plan !== 'family' && masteredCount >= UPGRADE_PROMPT_THRESHOLD && (
+      {/* Placement Adventure (Prompt 8): a free child's floor is already
+          capped to min(measured, 5) before it's ever written server-side
+          — this is purely the upgrade hook surfacing the TRUE measured
+          level (never shown to the child, per the mission — child-facing
+          copy never mentions a paywall). Takes priority over the
+          mastered-words banner below when both would apply, so a placed-
+          above-5 child doesn't see two competing upgrade pitches. */}
+      {plan !== 'family' && activeChild?.placement_unit > FREE_TIER_MAX_UNIT ? (
+        <UpgradeBanner
+          variant="prominent"
+          title="Nova found their level!"
+          message={`Your Star Learner measured at Unit ${activeChild.placement_unit} — unlock Units 6-18 with the Family Plan.`}
+        />
+      ) : plan !== 'family' && masteredCount >= UPGRADE_PROMPT_THRESHOLD ? (
         <UpgradeBanner variant="prominent" />
-      )}
+      ) : null}
 
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
         AI Insight

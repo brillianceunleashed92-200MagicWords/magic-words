@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { playAudio, fetchAudio } from './gameAudio';
 import { colors, fonts, shadows } from '../theme/tokens';
 import WordArt from '../components/WordArt';
+import { IconSpeaker } from '../components/icons';
 import { validSuffixesFor, pickValidSuffix, inflect } from '../lib/wordMorphology';
 
 function shuffle(arr) {
@@ -58,6 +59,7 @@ export default function WordBuilder({ quiz, onAnswer }) {
   // every single tile. Static (no pulse animation) — a plain colored
   // ring, so there's nothing to gate on reduced-motion in the first place.
   const [hintActive, setHintActive] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
 
   // Slot count must always equal the real target's length, and the tray
   // must always contain exactly the target's letters (shuffled) — both
@@ -79,8 +81,16 @@ export default function WordBuilder({ quiz, onAnswer }) {
   // the carrier-sentence rewrite (see src/games/promptText.js for the
   // same "Can you spell X?" phrasing used elsewhere).
   useEffect(() => {
-    fetchAudio(`Can you spell "${target}"?`).then(playAudio);
+    setAudioUrl(null);
+    fetchAudio(`Can you spell "${target}"?`).then((url) => {
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
   }, [target]);
+
+  // Hint audit (Prompt 8 Part 4 housekeeping): the other deferred replay
+  // gap flagged in the Prompt 7 polish pass's hint audit -- this activity
+  // never had a speaker button, only the letter-position hint.
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   function tapLetter(idx) {
     if (built.includes(idx)) return;
@@ -104,8 +114,22 @@ export default function WordBuilder({ quiz, onAnswer }) {
       <div style={{ margin: '8px 0 12px', display: 'flex', justifyContent: 'center' }}>
         <WordArt word={quiz.word} size={90} />
       </div>
-      <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.cloud, marginBottom: '1.5rem' }}>
-        Build the word{suffix ? ` (add "${suffix}")` : ''}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: '1.5rem' }}>
+        <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.cloud }}>
+          Build the word{suffix ? ` (add "${suffix}")` : ''}
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the word again"
+          style={{
+            width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5,
+          }}
+        >
+          <IconSpeaker size={16} color={colors.cloud} />
+        </button>
       </div>
 
       <div style={{

@@ -32,6 +32,20 @@ export const useUIStore = create(
       sessionTimeLimitMinutes: null,
       setSessionTimeLimitMinutes: (mins) => set({ sessionTimeLimitMinutes: mins }),
 
+      // Placement Adventure (Prompt 8): 'choice' | 'adventure' | null, plus
+      // which child it's for. Lives in the global store (not local
+      // component state) specifically so SettingsTab's "Retake placement"
+      // button — nested inside GrownUpsScreen's generic tab renderer,
+      // which passes no props to its ActiveComponent — can trigger the
+      // same flow CandyGalaxyShell renders, without prop-drilling a
+      // callback through every tab component's signature. Not persisted:
+      // resets on refresh like grownUpsUnlocked, since a half-finished
+      // placement is never meant to resume anyway.
+      placementFlow: null,
+      placementChildId: null,
+      startPlacementFlow: (childId, flow = 'choice') => set({ placementFlow: flow, placementChildId: childId }),
+      clearPlacementFlow: () => set({ placementFlow: null, placementChildId: null }),
+
       // Celebration queue — the 5 ranked moments are pushed here and drained
       // one at a time so two celebrations never overlap (e.g. a word
       // mastered mid-quest that also happens to complete the quest).
