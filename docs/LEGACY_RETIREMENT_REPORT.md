@@ -2,8 +2,8 @@
 
 ## RUN TIMING — start / end / total (+ approval-wait note)
 - Start: 2026-07-06T12:34:24Z
-- End: IN PROGRESS
-- Total: IN PROGRESS
+- End: 2026-07-06T14:14:54Z
+- Total: ~1h40m (two brief approval waits: the initial approach/autonomy check-in, and the `git push origin main` confirmation — both answered promptly, no long idle gaps)
 
 ## PRE-FLIGHT — sync state, key presence
 - `git status` clean on `main` before branching; `git log origin/main..main` empty (main == origin/main).
@@ -108,6 +108,26 @@
 - `idor-proof.mjs` against the branch preview: **16/16** — confirms no server-side query behavior changed this pass (expected; this was a client-code deletion + a header change, not a data-access change).
 
 **Test accounts**: every account this pass provisioned (`mwa2verify*`, `mwa2story*`, `mwcspmain*`, plus every idor-proof/Playwright-spec-provisioned account) deleted after use via `scripts/admin-user.mjs delete` or each spec's own cleanup.
+
+### MERGE
+
+`chore/legacy-retirement` merged into `main` locally (`--no-ff`). Gates re-run clean on the merged result: `npm run build`, `npm run check:no-emoji`, full local Playwright suite **24/24** (zero flakes this run). Pushed to `origin/main` with explicit user approval.
+
+### PRODUCTION VERIFICATION
+
+**Deployment confirmed**: `gh api .../commits/<sha>/status` → `state: "success"`; `curl -sI https://200magicwordsapp.com` → `HTTP/2 200`; `curl -sI ... | grep content-security-policy` → header key is `content-security-policy` (not `-report-only`) — the flip is live in production, not just locally verified against `vercel.json`.
+
+**Security re-run for real against production**: `idor-proof.mjs` **16/16** with `DEPLOY_BASE_URL=https://200magicwordsapp.com`.
+
+**CSP re-walk against production for real**: `tests/csp-walk.spec.js` — **0 violations, 0 filtered** (the Vercel preview-toolbar artifact doesn't exist on production at all, confirmed both by this run and by the earlier `curl | grep vercel.live` check finding zero matches in production's HTML). Real TEST-mode checkout call succeeded (`{"status":200,"hasUrl":true}`) from inside a production page running the real enforcing policy.
+
+**Production walk** (fresh account `mwprodfinal...`, fixture: 4 prior guided-path activities seeded so Quiz Boss is next):
+- Signed in live on `200magicwordsapp.com`, played all 6 Quiz Boss questions correctly (eat/jump/run/swim/fly/dance).
+- **Session Complete A2 rendered exactly as designed, live in production, with CSP enforcing**: real name "ProdFinalKid", +160 XP, +80 Sparks, all 3 stars, all 6 word chips (WordArt art, not emoji), "26/200 words shining" progress bar, growth-mindset effort copy ("You stuck with it — that's how words stick!") — screenshotted.
+- `/app-legacy/anything` redirect confirmed live: lands on `/app`'s real Home screen (URL bar shows `/app`, not `/app-legacy`), showing the same account's real progress (1 streak, 26 words, 80 sparks) — screenshotted.
+- Test account deleted after verification.
+
+**`analytics-report.mjs` run against production** (confirms the instrument still works post-deletion, per the doc's own ask): ran clean, all 8 metric groups returned real numbers (41 signups, 37 children, 32 activated; placement funnel 15/2/11/30 completed/retaken/skipped/started; paywall views by surface incl. this session's own `dashboard_mastered`/`dashboard_true_level`/`settings` events; 11 `checkout_started` events, reflecting this pass's + the prior pass's real checkout-call verifications).
 
 ## NOTES FOR THE FINAL PASS — the precise Stripe-live runbook inputs + anything left for the launch sweep
 
