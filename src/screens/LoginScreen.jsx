@@ -1,5 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+// chore/captcha Phase 2 — inert by default: when this env var is unset
+// (all of Phase A ships with it unset in production), HCAPTCHA_SITE_KEY
+// is '', the widget below never renders, execute() is never called, and
+// no captchaToken is ever attached — byte-for-byte the pre-existing
+// signUp/signInWithPassword calls. Only becomes live once Phase 6 (the
+// separately gated Supabase-side flip) sets both this var AND the
+// server-side security_captcha_enabled flag together.
+const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || '';
 
 // Extracted verbatim from the legacy App.jsx (was a nested component with
 // no logic changes) so the new componentized shell can reuse it without
@@ -15,6 +25,7 @@ export default function LoginScreen({ authError }) {
   const [busy, setBusy] = useState(false);
   const [signedUpEmail, setSignedUpEmail] = useState("");
   const [consentChecked, setConsentChecked] = useState(false);
+  const hcaptchaRef = useRef(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,6 +39,28 @@ export default function LoginScreen({ authError }) {
         setLocalError("Please confirm you're the parent/guardian to continue.");
         return;
       }
+
+      // Executed fresh per attempt, never cached — hCaptcha tokens expire
+      // in ~2 minutes, so a retried submit must fetch a new one, not reuse
+      // a stale/expired one from an earlier attempt. No-op entirely when
+      // HCAPTCHA_SITE_KEY is unset (the widget below isn't even mounted).
+      let captchaToken;
+      if (HCAPTCHA_SITE_KEY) {
+        try {
+          const result = await hcaptchaRef.current?.execute({ async: true });
+          captchaToken = result?.response;
+        } catch {
+          setLocalError("Please complete the check and try again.");
+          return;
+        } finally {
+          hcaptchaRef.current?.resetCaptcha();
+        }
+        if (!captchaToken) {
+          setLocalError("Please complete the check and try again.");
+          return;
+        }
+      }
+
       const res = authMode === "sign_up"
         ? await supabase.auth.signUp({
             email, password,
@@ -37,9 +70,15 @@ export default function LoginScreen({ authError }) {
             // for this product (see docs/COPPA_DATA_INVENTORY.md's open
             // items). user_metadata is the simplest durable place for this;
             // no new table needed for a single boolean + timestamp.
-            options: { data: { parental_consent: true, parental_consent_at: new Date().toISOString() } },
+            options: {
+              data: { parental_consent: true, parental_consent_at: new Date().toISOString() },
+              ...(captchaToken ? { captchaToken } : {}),
+            },
           })
-        : await supabase.auth.signInWithPassword({ email, password });
+        : await supabase.auth.signInWithPassword({
+            email, password,
+            ...(captchaToken ? { options: { captchaToken } } : {}),
+          });
       if (res.error) setLocalError(res.error.message);
       else if (authMode === "sign_up") setSignedUpEmail(email);
     } finally {
@@ -166,6 +205,16 @@ export default function LoginScreen({ authError }) {
           }}>
             {busy ? "Working…" : authMode === "sign_up" ? "Create account" : "Sign in"}
           </button>
+
+          {HCAPTCHA_SITE_KEY && (
+            <HCaptcha
+              ref={hcaptchaRef}
+              sitekey={HCAPTCHA_SITE_KEY}
+              size="invisible"
+              onError={() => setLocalError("Please complete the check and try again.")}
+              onChalExpired={() => setLocalError("Please complete the check and try again.")}
+            />
+          )}
         </form>
       </div>
     </div>
