@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { colors, fonts, shadows } from '../theme/tokens';
 import NovaSprite from '../components/candy/NovaSprite';
 import { IconStar } from '../components/icons';
+import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
 
 // ─── Star progress segments — ignites left to right ───────────────────────
 export function StarProgress({ current, total }) {
@@ -69,18 +70,27 @@ export function NovaPorthole({ novaState = 'idle', message }) {
 // errorless scaffold states (wiggle+soften, hint-glow, correct-flash) ──────
 export function AnswerTile({ children, index = 0, onTap, disabled, state, minHeight = 140 }) {
   const [entered, setEntered] = useState(false);
+  // Prompt 7 Part 2: gated HERE, at the primitive, instead of per-activity
+  // — every consumer (WordMatch/WordHunt/RhymeTime included, which never
+  // individually checked this) now inherits a real reduced-motion floor:
+  // no entrance slide-in, no wiggle shake, no hint-glow pulse. The static
+  // feedback (softened opacity on a miss, the glow's box-shadow itself)
+  // stays — only the motion/animation is suppressed.
+  const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
+    if (reducedMotion) { setEntered(true); return; }
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => setEntered(true));
       return () => cancelAnimationFrame(raf2);
     });
     return () => cancelAnimationFrame(raf1);
-  }, []);
+  }, [reducedMotion]);
 
   const isWiggle = state === 'wiggle';
   const isSoften = state === 'soften' || state === 'wiggle-soften';
   const isHintGlow = state === 'hint-glow';
   const isCorrectFlash = state === 'correct-flash';
+  const shown = entered || reducedMotion;
 
   return (
     <button
@@ -93,17 +103,17 @@ export function AnswerTile({ children, index = 0, onTap, disabled, state, minHei
         boxShadow: isHintGlow || isCorrectFlash
           ? `${shadows.chunk}, 0 0 0 5px rgba(62,224,184,.55), 0 0 26px rgba(62,224,184,.6)`
           : shadows.chunk,
-        opacity: entered ? (isSoften ? 0.55 : 1) : 0,
+        opacity: shown ? (isSoften ? 0.55 : 1) : 0,
         filter: isSoften ? 'saturate(.55)' : 'none',
-        transform: entered ? 'none' : 'translateY(28px) scale(.85)',
+        transform: shown ? 'none' : 'translateY(28px) scale(.85)',
         transitionProperty: 'transform, opacity, box-shadow, filter',
-        transitionDuration: '.55s, .5s, .2s, .35s',
+        transitionDuration: reducedMotion ? '0s' : '.55s, .5s, .2s, .35s',
         transitionTimingFunction: 'cubic-bezier(.2,.9,.3,1.5)',
-        transitionDelay: entered ? '0s' : `${index * 0.1}s`,
-        animation: isWiggle ? 'lessonWiggle .45s ease' : isHintGlow ? 'lessonHintPulse 1.4s ease-in-out infinite' : 'none',
+        transitionDelay: shown ? '0s' : `${index * 0.1}s`,
+        animation: reducedMotion ? 'none' : (isWiggle ? 'lessonWiggle .45s ease' : isHintGlow ? 'lessonHintPulse 1.4s ease-in-out infinite' : 'none'),
       }}
       onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)'; }}
-      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.transform = entered ? 'none' : 'translateY(28px) scale(.85)'; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.transform = shown ? 'none' : 'translateY(28px) scale(.85)'; }}
     >
       {children}
     </button>
@@ -112,7 +122,12 @@ export function AnswerTile({ children, index = 0, onTap, disabled, state, minHei
 
 // ─── SVG star confetti — short-lived burst on correct ──────────────────────
 export function ConfettiStars({ active, originRef }) {
-  if (!active) return null;
+  // Prompt 7 Part 2: gated at the primitive — consumers that already
+  // passed `active={confetti && !reducedMotion}` (StoryBuilder, Find the
+  // Word, Quiz Boss) are now double-gated (harmless); WordMatch/WordHunt/
+  // RhymeTime, which never gated this at all, are covered for free.
+  const reducedMotion = usePrefersReducedMotion();
+  if (!active || reducedMotion) return null;
   const rect = originRef?.current?.getBoundingClientRect?.();
   const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
   const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2.4;

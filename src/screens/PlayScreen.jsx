@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { colors, fonts, skyGradient } from '../theme/tokens';
+import { colors, fonts, skyGradient, shadows } from '../theme/tokens';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../supabaseClient';
 import { useSessionPlan } from '../hooks/useSessionPlan';
@@ -10,6 +10,7 @@ import { useSaveWordProgressMutation } from '../lib/queries/wordProgress';
 import { useSaveXPMutation } from '../lib/queries/userStats';
 import { useEarnSparksMutation } from '../lib/queries/sparks';
 import { useUpdateStreakMutation } from '../lib/queries/streaks';
+import { useAddTracingMomentMutation } from '../lib/queries/magicMoments';
 import { useUIStore } from '../stores/useUIStore';
 import { useSpeak } from '../lib/useSpeak';
 import { logSessionResult, getRollingSuccessRate } from '../lib/difficultyGovernor';
@@ -88,6 +89,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   const saveXP = useSaveXPMutation(user?.id, childId);
   const earnSparks = useEarnSparksMutation(childId);
   const updateStreak = useUpdateStreakMutation(user?.id, childId);
+  const addTracingMoment = useAddTracingMomentMutation(childId);
 
   // Option B guided path — the full word record (word_type/has_art) for
   // whichever word this session is actually about, falling back to the
@@ -140,6 +142,15 @@ export default function PlayScreen({ focusWord, onExit }) {
       attempt_number: 1,
     }).then(({ error }) => { if (error) console.error('[learning_events]', error.message); });
     pendingLearningEventsRef.current.push(insertPromise);
+
+    // Prompt 7 Part 6: Draw It's letter-tracing rebuild left the Moments
+    // feed with no content source for this activity (no drawn artifact
+    // to store anymore) — a completed trace is itself worth a lightweight
+    // moment. Fire-and-forget like the learning_events insert above; a
+    // failed moment insert shouldn't affect gameplay or word_progress.
+    if ((playedGameType ?? gameType) === 'draw_it' && correct) {
+      addTracingMoment.mutateAsync(word).catch((err) => console.error('[magic_moments]', err.message));
+    }
 
     const wasMasteredBefore = isRealMastery(prevMastery, before?.attemptCount);
     const isMasteredNow = isRealMastery(result.mastery, result.attempt_count);
@@ -294,10 +305,18 @@ export default function PlayScreen({ focusWord, onExit }) {
   if (!gameType) {
     return (
       <div className="candy-galaxy" style={{ minHeight: '100vh', background: skyGradient, padding: '1.5rem', fontFamily: fonts.body }}>
+        {/* Prompt 7 Part 3: sticky — the Guided Path's activity list runs
+            long (up to 11 nodes), and this was the only way back to Home
+            while mid-scroll before this fix. `top: 0` pins it to the
+            viewport edge; its own translucent chunk-sm background reads
+            fine against the single continuous sky gradient behind it at
+            any scroll position (no per-section color shift to clash with). */}
         <button onClick={onExit} style={{
+          position: 'sticky', top: 12, zIndex: 20,
           background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 100, color: colors.cloud,
-          padding: '10px 18px', fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer', marginBottom: '1rem',
+          padding: '10px 18px', minHeight: 44, fontFamily: fonts.display, fontWeight: 700, cursor: 'pointer', marginBottom: '1rem',
           display: 'inline-flex', alignItems: 'center', gap: 6,
+          boxShadow: shadows.chunkSm, backdropFilter: 'blur(6px)',
         }}>
           <IconArrow size={14} direction="left" color={colors.cloud} /> Home
         </button>

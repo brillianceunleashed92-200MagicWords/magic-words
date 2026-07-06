@@ -665,6 +665,10 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
   const [wrongTileIdx,  setWrongTileIdx]  = useState(null);
   const [revealCorrect, setRevealCorrect] = useState(false);
   const [missedOnce,    setMissedOnce]    = useState(false);
+  // Hint audit (Prompt 7 Part 4): WordHunt had no replay affordance at
+  // all before this — the prompt auto-played once on mount with no way
+  // to hear it again. Same minimum every other activity already has.
+  const [audioUrl, setAudioUrl] = useState(null);
   const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
 
@@ -681,9 +685,15 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchAudio('Which word matches this picture?').then(url => { if (!cancelled && url) playAudio(url); });
+    setAudioUrl(null);
+    fetchAudio('Which word matches this picture?').then(url => {
+      if (cancelled) return;
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
     return () => { cancelled = true; };
   }, [quiz?.word]);
+
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   const handleTap = (idx) => {
     if (answered) return;
@@ -716,7 +726,23 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
       <ConfettiStars active={confetti} originRef={correctTileRef} />
-      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <NovaPorthole novaState={novaState} message={message} />
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the word again"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5, marginBottom: 20,
+          }}
+        >
+          <IconSpeaker size={20} color={colors.cloud} />
+        </button>
+      </div>
       <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
         <WordArt word={quiz.word} size={110} style={{ margin: '0 auto' }} />
       </div>
@@ -767,6 +793,8 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   });
 
   const correctIdx = options ? options.findIndex(o => o.correct) : quiz?.correctIndex ?? 0;
+  // Hint audit (Prompt 7 Part 4): same replay gap as WordHunt had.
+  const [audioUrl, setAudioUrl] = useState(null);
 
   useEffect(() => {
     setAnswered(false);
@@ -781,9 +809,15 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   useEffect(() => {
     if (!quiz?.word) return;
     let cancelled = false;
-    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => { if (!cancelled && url) playAudio(url); });
+    setAudioUrl(null);
+    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => {
+      if (cancelled) return;
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
     return () => { cancelled = true; };
   }, [quiz?.word]);
+
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   const handleTap = (idx) => {
     if (answered) return;
@@ -818,7 +852,23 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
       <ConfettiStars active={confetti} originRef={correctTileRef} />
-      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <NovaPorthole novaState={novaState} message={message} />
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the word again"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5, marginBottom: 20,
+          }}
+        >
+          <IconSpeaker size={20} color={colors.cloud} />
+        </button>
+      </div>
       <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 'clamp(2rem,8vw,3rem)', color: colors.sun }}>
           {quiz.word}
@@ -1608,6 +1658,7 @@ export function GameEngine({
   }, []);
 
   const [muted, toggleMuted] = useMuted();
+  const reducedMotion = usePrefersReducedMotion();
 
   const allQuizzes = sessionPlan?.quizzes ?? [];
   // Fall back to the unfiltered list only if filtering would leave nothing
@@ -1665,9 +1716,13 @@ export function GameEngine({
       if (firstTry) xpEarned += 5;
       if (responseTimeMs < 3000) xpEarned += 5;
       sessionXPRef.current += xpEarned;
+      // Prompt 7 Part 3: lingers ~3s now (was 900ms — gone before a
+      // parent glancing over could register it). Still pointer-events:
+      // none (see the toast's own style below), so it never blocks the
+      // next question's input even though it visually persists longer.
       const toastId = ++xpToastIdRef.current;
       setXpToast({ id: toastId, amount: xpEarned });
-      setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 900);
+      setTimeout(() => setXpToast(t => t?.id === toastId ? null : t), 3000);
     }
 
     const newCorrect = correctCount + (correct ? 1 : 0);
@@ -1808,7 +1863,7 @@ export function GameEngine({
   // actually live and reachable from PlayScreen.jsx (it was mistakenly
   // conflated with the genuinely-unreachable SpellItOut during the earlier
   // UI polish pass and never audited).
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word'].includes(gameType);
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word', 'say_it'].includes(gameType);
 
   return (
     <div style={{
@@ -1824,7 +1879,7 @@ export function GameEngine({
           position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: 6,
           fontFamily: fonts.display, fontWeight: 800, fontSize: '1.5rem', color: colors.sun,
-          zIndex: 10001, animation: 'xp-float-up 0.9s ease forwards',
+          zIndex: 10001, animation: reducedMotion ? 'none' : 'xp-float-up 3s ease forwards',
           pointerEvents: 'none', textShadow: '0 0 20px rgba(255,184,77,0.8)',
           whiteSpace: 'nowrap',
         }}>

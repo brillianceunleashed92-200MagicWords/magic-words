@@ -3,8 +3,14 @@ import { colors, fonts, shadows } from '../../theme/tokens';
 import { IconStar, IconPlay, IconLock, IconSpark } from '../icons';
 
 // A single word-star node on the scroll-driven Word Galaxy path
-// (mockup D `.node`). status: 'done' | 'current' | 'locked' | 'premium'.
-// 'premium' (Phase 2 Step 6 — Units 6+ on the free tier) is deliberately
+// (mockup D `.node`). status: 'done' | 'current' | 'inProgress' |
+// 'locked' | 'premium'. 'inProgress' (Prompt 7, Part 1) is real,
+// attempted-but-sub-mastery progress on a word that isn't this moment's
+// single adaptive `currentWord` — tappable and shows its real percent,
+// distinct from a genuinely never-touched `locked` word (see
+// GalaxyScreen.jsx's status derivation for the reproduced bug this
+// fixes: every such word used to render as a flat, indistinguishable
+// lock icon). 'premium' (Phase 2 Step 6 — Units 6+ on the free tier) is deliberately
 // distinct from plain progression-locked: the word is still fully
 // visible with a warm gold "teaser" glow, not hidden behind a flat gray
 // lock — enticing, not just blocked. Per the master prompt's gating
@@ -39,6 +45,14 @@ export default function WordNode({ word, status, percent, x, y, show, onTap, spe
   const styleByStatus = {
     done: { background: colors.sun, color: colors.starText },
     current: { background: colors.bubble, color: '#fff' },
+    // Same mint used for the errorless-scaffold hint-glow elsewhere —
+    // an already-established "keep going" cue, deliberately calmer than
+    // `current`'s pulse since it isn't the primary recommendation.
+    inProgress: {
+      background: colors.mint,
+      color: colors.mintDeep,
+      border: '3px solid rgba(255,255,255,.55)',
+    },
     locked: {
       background: 'rgba(255,255,255,.16)',
       color: 'rgba(255,255,255,.65)',
@@ -84,6 +98,7 @@ export default function WordNode({ word, status, percent, x, y, show, onTap, spe
         {status === 'premium' && <IconSpark size={11} color={colors.starText} />}
         {status === 'done' && <><IconStar size={11} color={colors.starText} /> 100%</>}
         {status === 'current' && <><IconPlay size={9} color="#fff" /> {percent}%</>}
+        {status === 'inProgress' && <><IconPlay size={9} color={colors.mintDeep} /> {percent}%</>}
       </div>
       {status === 'done' && (
         <div style={{ position: 'absolute', top: -10, right: -4, filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>

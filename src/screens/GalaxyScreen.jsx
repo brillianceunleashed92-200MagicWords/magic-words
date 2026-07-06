@@ -18,9 +18,24 @@ export default function GalaxyScreen({ onOpenWord }) {
     return words.map((w) => {
       const done = w.mastery >= MASTERED_THRESHOLD;
       const isCurrent = !done && currentWord && w.word === currentWord.word;
+      // Bug (Prompt 7, Part 1): the adaptive engine only ever names ONE
+      // word `currentWord` at a time. Before this fix, every other
+      // unmastered word rendered as a flat `locked` node regardless of
+      // its own real mastery/attempt history — a child who played
+      // "dance" several times (real mastery > 0, just not yet 80%, and
+      // not this moment's single adaptive recommendation) saw it as an
+      // indistinguishable, non-tappable lock icon, identical to a word
+      // never touched at all. Reproduced directly: seeded a word with
+      // mastery 45/attempt_count 4 that wasn't `currentWord` and it
+      // rendered `locked` with no percent shown. `inProgress` is a new,
+      // fourth, tappable status for exactly that shape — real progress
+      // that isn't (right now) the single spotlighted recommendation —
+      // so "touched but not mastered" is visually and functionally
+      // distinct from "never reached."
+      const inProgress = !done && !isCurrent && w.mastery > 0;
       return {
         ...w,
-        status: w.premiumLocked ? 'premium' : done ? 'done' : isCurrent ? 'current' : 'locked',
+        status: w.premiumLocked ? 'premium' : done ? 'done' : isCurrent ? 'current' : inProgress ? 'inProgress' : 'locked',
         percent: w.mastery,
       };
     });

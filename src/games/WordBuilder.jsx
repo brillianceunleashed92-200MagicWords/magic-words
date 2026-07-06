@@ -47,6 +47,17 @@ export default function WordBuilder({ quiz, onAnswer }) {
   const [built, setBuilt] = useState([]);
   const [wrong, setWrong] = useState(false);
   const [startTime] = useState(() => Date.now());
+  // Progressive hint (Prompt 7 Part 4): a first-letter POSITION highlight
+  // only — never speaks or sounds out the letter, just marks which tray
+  // tile to tap next. Struggle signal chosen: first wrong tap, matching
+  // the same "first miss" trigger every other errorless scaffold in the
+  // app already uses (WordMatch/WordHunt/FindTheWord) rather than an
+  // arbitrary idle timer that could fire while a child is still thinking
+  // normally. Once triggered it stays on for the rest of this word (not
+  // re-armed per letter) — one nudge into the pattern, not a hint on
+  // every single tile. Static (no pulse animation) — a plain colored
+  // ring, so there's nothing to gate on reduced-motion in the first place.
+  const [hintActive, setHintActive] = useState(false);
 
   // Slot count must always equal the real target's length, and the tray
   // must always contain exactly the target's letters (shuffled) — both
@@ -78,6 +89,7 @@ export default function WordBuilder({ quiz, onAnswer }) {
     const expectedSoFar = target.slice(0, attempted.length);
     if (attempted !== expectedSoFar) {
       setWrong(true);
+      setHintActive(true);
       setTimeout(() => setWrong(false), 400);
       return;
     }
@@ -113,22 +125,31 @@ export default function WordBuilder({ quiz, onAnswer }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {tiles.map((letter, i) => (
-          <button
-            key={i}
-            onClick={() => tapLetter(i)}
-            disabled={built.includes(i)}
-            style={{
-              width: 52, height: 52, borderRadius: 14, border: 'none', cursor: built.includes(i) ? 'default' : 'pointer',
-              background: colors.sun, color: colors.starText,
-              fontFamily: fonts.display, fontSize: '1.3rem', fontWeight: 800, textTransform: 'uppercase',
-              boxShadow: shadows.chunkSm,
-              opacity: built.includes(i) ? 0.35 : 1,
-            }}
-          >
-            {letter}
-          </button>
-        ))}
+        {tiles.map((letter, i) => {
+          // First unbuilt tile whose letter matches the next slot needed —
+          // with duplicate letters (e.g. "bee"), any matching instance is
+          // an equally correct affordance, so the first one found is fine.
+          const isNextHintTile = hintActive && !built.includes(i) && letter === target[built.length]
+            && tiles.findIndex((l, j) => !built.includes(j) && l === target[built.length]) === i;
+          return (
+            <button
+              key={i}
+              onClick={() => tapLetter(i)}
+              disabled={built.includes(i)}
+              style={{
+                width: 52, height: 52, borderRadius: 14, border: 'none', cursor: built.includes(i) ? 'default' : 'pointer',
+                background: colors.sun, color: colors.starText,
+                fontFamily: fonts.display, fontSize: '1.3rem', fontWeight: 800, textTransform: 'uppercase',
+                boxShadow: isNextHintTile
+                  ? `${shadows.chunkSm}, 0 0 0 4px ${colors.mint}, 0 0 16px rgba(62,224,184,.7)`
+                  : shadows.chunkSm,
+                opacity: built.includes(i) ? 0.35 : 1,
+              }}
+            >
+              {letter}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -7,7 +7,14 @@ import MasteryMapTab from './parent/MasteryMapTab';
 import SettingsTab from './parent/SettingsTab';
 import { IconGrownUps, IconStar, IconLock } from '../components/icons';
 
-const HOLD_MS = 3000;
+// Prompt 7 Part 3: shortened from 3000ms — still a real, deliberate child
+// gate (a young child won't hold a button still for ~2s by accident),
+// just not so long it reads as broken/unresponsive to a grown-up in a
+// hurry. Measures wall-clock elapsed time per tick (Date.now(), not a
+// frame-count assumption), so it already tolerates rAF throttling in a
+// backgrounded/unfocused tab correctly — a slower tick rate just means
+// fewer progress-bar updates before it still crosses HOLD_MS on time.
+const HOLD_MS = 1800;
 
 function HoldGate({ onPassed }) {
   const [holding, setHolding] = useState(false);
@@ -37,7 +44,7 @@ function HoldGate({ onPassed }) {
     <div style={{ textAlign: 'center', color: colors.cloud, fontFamily: fonts.body }}>
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconGrownUps size={40} color={colors.cloud} /></div>
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', marginBottom: 6 }}>Grown-Ups Only</div>
-      <div style={{ opacity: 0.85, marginBottom: 24 }}>Press and hold the star for 3 seconds</div>
+      <div style={{ opacity: 0.85, marginBottom: 24 }}>Press and hold the star for 2 seconds</div>
       <button
         aria-label="Hold to unlock"
         onPointerDown={startHold}
