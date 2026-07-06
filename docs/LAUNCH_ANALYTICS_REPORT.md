@@ -2,8 +2,8 @@
 
 ## RUN TIMING — start / end / total
 - Start: 2026-07-06T02:57:19Z
-- End: IN PROGRESS
-- Total wall-clock: IN PROGRESS
+- End: 2026-07-06T12:08:38Z
+- Total wall-clock: ~9h11m
 
 ## PRE-FLIGHT — sync state, key presence
 - `git status` clean on `main` before branching; `git log origin/main..main` empty (main == origin/main).
@@ -148,5 +148,45 @@ Corrected remainder for the eventual legacy-deletion pass: `SoundMatch`/`SpellIt
 
 **Test accounts**: `mwcheckout*`, `mwtruelevel*`, plus every Playwright-spec-provisioned account (`mwstorytime*`, `mwfts*`, etc.) and the diagnostic `mwdiag*` account created while root-causing the measured_unit issue — all deleted after use via `scripts/admin-user.mjs delete`.
 
+### MERGE
+
+`feat/launch-analytics` merged into `main` locally (`--no-ff`). Gates re-run clean on the merged result: `npm run build`, `npm run check:no-emoji`, full local Playwright suite **22/22** (one `reduced-motion.spec.js` flake on the first full-suite run — the same documented residual-provisioning-flake class as `find-the-word.spec.js` earlier, passed clean in isolation on retry, not a regression). Pushed to `origin/main` with explicit user approval.
+
+### PRODUCTION VERIFICATION
+
+**Deployment confirmed**: `gh api .../commits/<sha>/status` → `state: "success"`; `curl -sI https://200magicwordsapp.com` → `HTTP/2 200`.
+
+**Security re-run for real against production** (not just the preview): `idor-proof.mjs` **16/16** with `DEPLOY_BASE_URL=https://200magicwordsapp.com`.
+
+**Production walk** (fresh account `mwprodwalk...`, fixture: 5 prior guided-path activities seeded so Story Time is next, 20 words at 100% mastery to also exercise the mastered-words paywall banner):
+- Signed in live on `200magicwordsapp.com`, guided path correctly showed Story Time as "You're here!" (rank 6, 5 of 10 done today).
+- Entered Story Time: **the new chrome rendered exactly as designed** — skyGradient background, shared top bar (close ×, gold StarProgress, mute speaker), white card unchanged inside, screenshotted.
+- Exited mid-story (page 1, before Finish) via the shared close button — returned cleanly to Home, 0 STREAK / 0 SPARKS confirmed (zero phantom credit for an incomplete story), screenshotted.
+- Visited Grown-Ups → Dashboard (mastered-words banner, this fixture has 20 words at 100%) and → Settings (subtle banner) — both fired `paywall_viewed`, queried directly afterward: `{"surface":"dashboard_mastered"}` and `{"surface":"settings"}` rows present with correct timestamps, no PII in either payload.
+- `checkout_started` (from the earlier preview-stage verification call, same production Supabase project) also present in the same query window.
+- Test account deleted after verification.
+
+**`analytics-report.mjs` run against production** (first real launch-metrics snapshot, `--days 14`):
+```
+1. SIGNUPS BY DAY: 2026-07-02:1, 07-03:31, 07-04:1, 07-05:3, 07-06:1 — all_time_signups:40
+2. CHILDREN CREATED: 07-02:2, 07-03:30, 07-05:3, 07-06:1 — all_time_children:36
+3. ACTIVATION: activated_children:31 / total_children:36
+4. D1/D7 RETURN: cohort_size:31, returned_d1:0, returned_d7:0
+5. STREAK DISTRIBUTION: bucket "1-2": 20 children
+6. PLACEMENT FUNNEL: completed:12, retaken:2, skipped:8, started:22 (all-time == 14-day window — all placement activity so far is recent)
+   free_children_measured_above_5_upsell_pipeline: 0 (the one test child that had measured_unit:9 was deleted post-verification)
+7. SUBSCRIPTIONS: active_subscriptions:0, no new/cancellations in window
+8. PAYWALL/CHECKOUT: dashboard_mastered:1 view, dashboard_true_level:1 view, settings:5 views, checkout_started_events:1
+```
+Note on metric 3/4: `avg_hours_to_activation` reads negative for this dataset — a real, documented artifact of pre-existing test/seed data created out of chronological order (see `ANALYTICS.md`'s known limitations), not a query bug; every account created fresh during this pass's own verification (which necessarily has `learning_events` after `child_profiles.created_at`) was deleted before this snapshot, so it doesn't contaminate the number either way.
+
+See RUN TIMING at the top of this report for the close-out timestamp/total.
+
 ## NOTES FOR NEXT PROMPTS — what the Stripe-live pass and the launch sweep should rely on
-IN PROGRESS
+- **`product_events` taxonomy is now 6 event types**: `placement_started`/`completed`/`skipped`/`retaken` (Prompt 8) + `paywall_viewed`/`checkout_started` (this pass). Extend the same `EVENT_SCHEMAS` allowlist pattern in `api/track.js` for any future client-originated event — never add a new event type without also adding its payload-key allowlist there, and extend the `product_events_event_type_check` constraint in a migration.
+- **`subscriptions.created_at`** now exists and is safe to rely on for "how long has this user been subscribed" — but remember the resubscribe-after-cancel gap documented in `ANALYTICS.md` (cancellation history is lost on resubscribe, since the table is a single upserted row per user, not an event log). If the Stripe-live pass or a future billing-analytics need requires real subscription history, that's the point to consider an event-sourced table instead of extending this one further.
+- **`measured_unit` vs `placement_unit`**: any future feature reading a child's placement level should stop and ask which one it actually wants — `measured_unit` is the true, unfloored signal (only ever shown to the parent as an upsell hook); `placement_unit` is the enforced floor actually used to gate content. Conflating them was the exact bug this pass fixed.
+- **The `ownChrome` prop pattern** (`StoryReader.jsx`) — a component supporting both a self-contained full-screen invocation and an embedded-in-shared-chrome invocation via one boolean — is reusable if any other activity component ever needs the same dual life (standalone screen + guided-path activity).
+- **`/app-legacy` deletion pass, when it happens**: re-read this report's `gameTheme.js` census table first. `SoundMatch`/`SpellItOut`/`UpgradeModal`/`GameTypeSelector` go with it; `SessionProgress` becomes dead alongside them; **`SessionComplete` does not** and needs its own plan.
+- **Real device/mobile walk still not done** for either Placement Adventure or the new Story Time chrome (both prior passes' own notes flag this) — worth doing before or during the launch sweep, not deferred indefinitely.
+- **`scripts/analytics-report.mjs`** is the launch dashboard going forward — run it with `--days N` for any investor/standup update rather than writing new ad-hoc SQL each time; extend its query list (not a new script) if a new metric is ever needed, keeping the single-file/read-only-by-construction property intact.
