@@ -375,7 +375,116 @@ to the browser's saved-password store) — flagged as a manual step for
 whoever does the device-checklist pass.
 
 ## HOUSEKEEPING
-IN PROGRESS
+
+**Formal overlap probes** — `tests/overlap-probes.spec.js`, closing
+`ACTIVITY_ROSTER_REPORT.md`'s disclosed gap ("Overlap probe: not run as
+a standalone synchronous `.paused` script"). Runs against PRODUCTION
+(`test.use({ baseURL: 'https://200magicwordsapp.com' })`) with real
+ElevenLabs audio — local Vite serves no `/api` routes, so `/api/speak`
+404s there and every `audioUrl` would be `null`, making a local overlap
+probe meaningless. Method matches `FILL_THE_STORY_REPORT.md`'s
+documented approach exactly: `HTMLMediaElement.prototype.play`
+instrumented via `page.addInitScript` (runs before any page script),
+checking the PREVIOUSLY tracked element's `.paused` synchronously the
+moment each new `play()` fires — not async `pause`/`ended` events, which
+is the exact false-positive trap that report already found and
+documented.
+- **Find the Word**: real production run, self-provisioning account,
+  seeded a small multi-word pool so the session had more than one real
+  question. **4 questions answered, 6 real `play()` calls, 0 overlaps.**
+- **Quiz Boss**: real production run, seeded review-pool history across
+  5 additional words (the spaced-repetition/weakest-mastery selection
+  needs more than one word to pull from). **8 taps across the review
+  battle, 9 real `play()` calls, 0 overlaps.**
+- **Honest shortfall against the mission's "≥10 questions each"**: both
+  runs came in under 10 (4 and 8). A guided-path session's own quiz
+  count is capped (confirmed in `useSessionPlan.js`: `.slice(0, 6)`), so
+  reaching a strict ≥10 would need two separate sessions per activity
+  (two accounts, given the guided path is scoped to one child's one day)
+  — tried once with a larger 7-word pool for Find the Word specifically
+  and hit a real, reproducible regression instead (the click into the
+  activity silently no-op'd, leaving the child on the guided-path screen
+  — not investigated further, see below) rather than push through it.
+  Reporting the actual achieved counts rather than rounding up: this is
+  real, zero-overlap, real-production-audio evidence, materially more
+  than the zero formal runs that existed before this pass, just not
+  quite the letter of "≥10."
+- **New, unexplained flake found and NOT fixed (out of scope, flagged
+  honestly)**: with a larger (7-word) `word_progress` pool seeded ahead
+  of entering Find the Word, the "Find the Word" guided-path tile click
+  stopped navigating into the activity at all — the page snapshot at
+  failure showed the child still sitting on the guided-path list,
+  correctly showing "Find the Word" as the active/current tile, but
+  never having transitioned into the game screen. Reproduced twice with
+  the 7-word pool, did not reproduce at all across several runs with a
+  3-word pool. Not investigated further (this is exactly the kind of
+  "don't fix blind" situation the standing rules call out — no root
+  cause identified yet, and chasing it would have consumed the rest of
+  this pass's remaining budget on a housekeeping nice-to-have). Flagged
+  for whoever picks up the next automatable-gaps pass; reproduction
+  recipe: seed 3 done ranks + a 7-word `word_progress` pool for a fresh
+  child, then click "Find the Word" from the guided path.
+
+**`gameTheme.js` endgame census** — now that Say It with Nova migrated
+off it (Part 5), `grep -rl "gameTheme" src/` returns exactly one file:
+`GameEngine.jsx`. Every remaining `T`-dependent piece was traced to its
+actual reachability, not assumed dead or alive:
+- `SoundMatch`, `SpellItOut`, `GAME_TYPES`, `GameTypeSelector`,
+  `UpgradeModal` are only ever rendered from `App.jsx`'s legacy
+  `renderLearnTab` — and `App.jsx` itself is only mounted at the
+  `/app-legacy/*` route (`main.jsx`). **`grep -rn "app-legacy" src/`
+  (excluding `main.jsx` itself) returns zero results** — nothing in the
+  live `CandyGalaxyShell` app (the actual production app every real user
+  and this whole redesign has targeted since Phase 3) links to
+  `/app-legacy` anywhere. It's reachable only by typing the URL directly.
+- **This is a bigger finding than the mission's scoped ask**: the
+  mission asked to delete `SoundMatch`/`SpellItOut` specifically if
+  confirmed unreachable, and migrate a short list of "small live
+  remainders" (`ConfettiBurst`/`SessionProgress`/`GameTypeSelector`+
+  `GAME_TYPES`/`UpgradeModal`/`injectCSS`) if trivial. What this census
+  actually found is that the ENTIRE legacy `App.jsx` (~1676 lines per
+  the CLAUDE.md snapshot — the old pre-redesign monolith, XP/level
+  system, freemium gates, everything) is orphaned, not just a handful of
+  `gameTheme.js` leftovers. Deleting `gameTheme.js`'s remaining consumers
+  from `GameEngine.jsx` without also touching `App.jsx` would break
+  `App.jsx`'s own imports (`import { GameTypeSelector, UpgradeModal }
+  from './games/GameEngine'`) — a real build/runtime break, not a clean
+  no-op deletion.
+- **Decision: report, don't delete.** Removing an entire ~1676-line
+  legacy application (its own XP model, freemium gates, dashboards) is a
+  materially larger and riskier change than "housekeeping," is nowhere
+  named as planned work in `200MW_Master_Project_Doc_v3.md`, and doesn't
+  fit inside this pass's own scope guards. Recommend a dedicated,
+  explicitly-scoped "delete /app-legacy" task reviewed on its own before
+  any of it is removed — not bundled into this pass as a footnote.
+- **`ConfettiBurst`/`SessionProgress` — corrected finding, NOT part of the
+  orphaned set, and a real live bug**: both only render on the `{
+  !isE2Activity && ... }` / `isE2Activity ? <StarProgress/> :
+  <SessionProgress/> }` branches — initially assumed dead alongside
+  `SoundMatch`/`SpellItOut` since both are also gated on `!isE2Activity`,
+  but checking which `gameType`s actually take that branch found
+  **`story_time` (rank 6, live, reachable from every real Guided Path
+  today) is NOT in `isE2Activity`'s list** — it still renders through
+  gameTheme.js's legacy dark chrome. **Reproduced live**: fresh test
+  account, played into Story Time — the outer screen is still the old
+  dark indigo background (`T.bg`) around `StoryReader`'s own already-
+  Candy-themed white card, a real, currently-visible seam every child
+  hits today, not just legacy dead weight.
+  - **Why not a trivial one-line fix**: adding `'story_time'` to
+    `isE2Activity` looked trivial at first, but `StoryTimeActivity` →
+    `StoryReader` already renders its OWN close button internally (the
+    dark rounded-square X visible top-left in the reproduction) — the
+    `isE2Activity` branch in `GameEngine.jsx` ALSO renders its own
+    close/mute/`StarProgress` row above whatever the activity renders.
+    Flipping the boolean without also deduplicating that chrome would
+    produce two overlapping close buttons, not a clean migration.
+  - **Decision: report, don't fix blind.** This needs its own small,
+    deliberate pass (migrate `story_time`'s outer wrapper to Candy tokens
+    AND remove `StoryReader`'s internal close button so `GameEngine`'s
+    shared one is the only one) rather than a rushed fix inside this
+    already-large pass's remaining time. Flagged for the next prompt;
+    genuinely closes the visual seam once picked up, unlike the orphaned
+    `SoundMatch`/`SpellItOut`/`GameTypeSelector` set above.
 
 ## DEVICE TEST CHECKLIST
 IN PROGRESS
