@@ -123,7 +123,30 @@ Corrected remainder for the eventual legacy-deletion pass: `SoundMatch`/`SpellIt
 - "Last updated" date bumped.
 
 ## VERIFICATION / PRODUCTION VERIFICATION — fixtures, gates, walk, timing close-out
-IN PROGRESS
+
+**Branch pushed for a real preview** (`feat/launch-analytics` → `origin`, no approval gate): Vercel preview deployed successfully (`https://magic-words-enuj00t48-brillianceunleashed92-6054s-projects.vercel.app`), used for every check below that needs a real deployed server.
+
+**Migration 0034 pushed** (`supabase db push --linked`, explicit user approval obtained first). Re-verified `information_schema.table_privileges` on `child_profiles`: only `postgres`/`service_role` retain UPDATE — confirmed the blanket 0033 revoke covers the new `measured_unit` column automatically, no new grant/revoke needed.
+
+**Derivation map**: `scripts/analytics-report.mjs --days 30` run twice against real production data (once before 0034 — 7 of 8 metric groups returned real numbers, the placement-unit-distribution query correctly failed with `column measured_unit does not exist`, proving it queries the real column rather than silently returning empty; once after 0034 — all 8 groups run clean). Real numbers observed: 40 signups, 36 children, 30 activated, streak distribution, 15/9/6/2 placement started/completed/skipped/retaken.
+
+**A real bug found and fixed during this exact verification, not a separate issue**: the local Playwright suite (including specs I never touched, `fill-the-story.spec.js` and `smoke.spec.js`) started failing at a generic "Loading your galaxy…" hang the moment `childProfiles.js`'s select-list started requesting `measured_unit` — because migration 0034 hadn't been pushed to production yet at that point in the session, so every `child_profiles` read errored and react-query's retry loop kept `isLoading` true indefinitely. Confirmed via a raw REST call (`42703: column child_profiles.measured_unit does not exist`) before assuming anything about the browser/environment. Resolved by pushing 0034 — re-ran both previously-failing specs afterward and they passed clean, confirming the diagnosis.
+
+**New events, live against the preview** (TEST-mode Stripe, no live payment surface touched):
+- `checkout_started`: called `/api/create-checkout-session` directly with a fresh account's real JWT — returned a real `checkout.stripe.com/c/pay/cs_test_...` URL, and a `product_events` row (`checkout_started`, `payload: {"interval":"month"}`) appeared immediately, queried directly.
+- `paywall_viewed`: confirmed the dedup is client-side (`sessionStorage`, checked before any network call) by design — the server intentionally has no session concept and accepts every well-formed call (verified: two direct calls both returned `{"ok":true}`), since server-side dedup would require a session/device identifier the endpoint deliberately doesn't collect. The "once per session per surface" guarantee lives entirely in `usePaywallViewedTracker`'s synchronous `sessionStorage` check, which cannot race (no `await` between the check and the set).
+- Disallowed event name / payload key: rejected 400 (idor checks, see below).
+- Forged identity: has no effect — the endpoint never reads identity from the request body at all (idor checks, see below).
+
+**idor-proof.mjs against the preview** (`DEPLOY_BASE_URL=...vercel.app`): **16/16 passed**, including all 5 new `/api/track` checks and a re-run of the placement direct-column-write check (now also covering `measured_unit` implicitly, since the revoke is table-level).
+
+**True-level fix, rerun against the preview** (Persona-A shape, scripted directly against `/api/session-generator`, not the UI — same technique as `PLACEMENT_ADVENTURE_REPORT.md`): passed rungs 1/3/5/7/9, failed rung 12 with 0/2 → finalized at `{placementUnit: 5, trueMeasuredUnit: 9}`. Confirmed directly in the database (`placement_unit: 5, measured_unit: 9`). **Dashboard banner LIVE on the preview** (screenshot taken): "Nova found their level! Your Star Learner measured at Unit 9 — unlock Units 6-18 with the Family Plan." — the exact positive case the prior pass's report flagged as skipped.
+
+**Story Time**: full session on the new chrome (skyGradient, shared top bar with close/StarProgress/mute) confirmed live via a passing-run trace screenshot — white card unchanged, exactly one close control (structurally guaranteed, not just visually: `ownChrome={false}` removes `StoryReader`'s internal button entirely rather than hiding it). `tests/story-time-chrome.spec.js` passed twice consecutively (14.6s, 16.8s) — enters Story Time, taps "Start reading," exits mid-story via the shared close, confirms a clean return Home with zero phantom XP credit. Reduced-motion: no animation logic was touched by this migration (`usePrefersReducedMotion` usage in `StoryReader.jsx` is unchanged), so the existing reduced-motion guarantee carries over unchanged — not independently re-tested with a new spec, per the doc's scope (chrome migration only, narration/animation system untouched).
+
+**Gates**: `npm run build` clean (incl. `check-wordart-sync`/`check-stroke-coverage`/`check-findtheword-sync`, all part of the build script). `npm run check:no-emoji` clean. Full local Playwright suite: **22/22** (one `find-the-word.spec.js` flake on the first full-suite run, passed clean in isolation on retry — the documented residual-provisioning-flake class, not a regression). `idor-proof.mjs` **16/16** against the preview.
+
+**Test accounts**: `mwcheckout*`, `mwtruelevel*`, plus every Playwright-spec-provisioned account (`mwstorytime*`, `mwfts*`, etc.) and the diagnostic `mwdiag*` account created while root-causing the measured_unit issue — all deleted after use via `scripts/admin-user.mjs delete`.
 
 ## NOTES FOR NEXT PROMPTS — what the Stripe-live pass and the launch sweep should rely on
 IN PROGRESS
