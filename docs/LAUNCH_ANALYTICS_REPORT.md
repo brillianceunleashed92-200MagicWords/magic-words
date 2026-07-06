@@ -113,7 +113,14 @@ Privilege re-verification (not assumed, per the 0032→0033 lesson): pending a r
 Corrected remainder for the eventual legacy-deletion pass: `SoundMatch`/`SpellItOut`/`UpgradeModal`/`GameTypeSelector` are genuinely `/app-legacy`-only and safe to delete together with that tree; `SessionProgress` is live but only reachable via the two legacy-only game types (so it becomes dead *with* them); `SessionComplete` is live and independent of `/app-legacy` — it cannot be deleted alongside that tree and would need its own migration off `gameTheme.js`'s `T` if that file is ever removed.
 
 ## HOUSEKEEPING — v3 updates incl. the child_profiles write constraint
-IN PROGRESS
+
+`docs/200MW_Master_Project_Doc_v3.md` updated:
+- LAUNCH SPRINT item 2 added, marked DONE, summarizing this whole pass.
+- COMPLETION ESTIMATE refreshed: Parent Loop 75%→78%, overall 80%→85%; gap list now reads "device-verified items, Stripe live + legal + key rotation, launch sweep" (Placement + analytics both moved from "gap" to "done").
+- New standing constraint note: post-0033, all `child_profiles` writes are service-role-only — future avatar/name-edit work needs a server endpoint, not a direct client `.update()`.
+- BACKLOG's `story_time` chrome migration bullet removed (done this pass); `/app-legacy` bullet corrected with the `SessionComplete` census finding (live, not legacy-only).
+- KEY REFERENCE: idor count updated 10→16 (with a pointer to this report for why the historical figure was already slightly off); migrations table list updated with `child_profiles.measured_unit`, `subscriptions.created_at`, `product_events`.
+- "Last updated" date bumped.
 
 ## VERIFICATION / PRODUCTION VERIFICATION — fixtures, gates, walk, timing close-out
 IN PROGRESS
