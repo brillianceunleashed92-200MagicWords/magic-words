@@ -81,10 +81,34 @@
 **Rollback plan**: if production CSP enforcement causes an unexpected real-world breakage after merge, the fix is a single-commit revert: `git revert 3ec3bfb` (the exact commit that changed `Content-Security-Policy-Report-Only` → `Content-Security-Policy` in `vercel.json`) — no other commit in this branch touches `vercel.json`, so this revert is clean and isolated, restoring Report-Only without undoing any of the legacy deletion or Session Complete A2 work that landed alongside it.
 
 ## HOUSEKEEPING — v3 updates incl. the new rule
-IN PROGRESS
+
+`docs/200MW_Master_Project_Doc_v3.md` updated:
+- LAUNCH SPRINT item 3 added, DONE, summarizing all three threads (A2 correction, deletion, CSP).
+- New HARD-WON SESSION RULE: "additive migrations land BEFORE any code reading the new column runs against the shared database (local dev and previews included)" — the Prompt 9 `measured_unit` sequencing incident, with the actual failure mode (react-query retry loop reading as a generic environment flake) spelled out so it's recognizable if it recurs.
+- Second new rule: don't trust a prior report's prose-only claims about code without a fresh, boundary-precise re-check — the exact lesson this pass's `SessionComplete`/`gameTheme.js` correction taught.
+- BACKLOG: removed the `/app-legacy` deletion and Session Complete A2 entries (both done).
+- CURRENT STATE #1 and #4: updated to reflect `/app-legacy` deletion and CSP enforcing.
+- KEY REFERENCE: noted `tests/csp-walk.spec.js` as the standing CSP regression check.
+- OPEN ITEMS: removed the "don't flip CSP" line (resolved).
+- COMPLETION ESTIMATE refreshed (Child Loop 85→87%, Parent Loop 78→80%, overall 85→90%) with the gap list narrowed to purely Sal-gated items + the Stripe-live flip.
+- "Last updated" bumped, annotated with "(Prompt 10)".
 
 ## VERIFICATION / PRODUCTION VERIFICATION — walks, gates, snapshots, timing close-out
 IN PROGRESS
 
 ## NOTES FOR THE FINAL PASS — the precise Stripe-live runbook inputs + anything left for the launch sweep
-IN PROGRESS
+
+**Stripe-live flip — exact inputs, read directly from the current code, not assumed:**
+- Env vars to swap (Vercel project settings, production environment): `STRIPE_SECRET_KEY` (test `sk_test_...` → live `sk_live_...`), `STRIPE_PRICE_FAMILY_MONTHLY`, `STRIPE_PRICE_FAMILY_YEARLY` (live-mode price IDs — test-mode prices don't carry over, they're mode-scoped in Stripe), `STRIPE_WEBHOOK_SECRET` (live-mode webhooks get their own signing secret, separate from test mode's).
+- Webhook re-point: `api/stripe-webhook.js` is mode-agnostic code — the only live-mode-specific setup is in the Stripe Dashboard itself: a live-mode webhook endpoint pointing at the same `/api/stripe-webhook` URL must be created (test and live mode webhooks are entirely separate configurations in Stripe, confirmed by how `STRIPE_WEBHOOK_SECRET` is mode-scoped), subscribed to at least `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` (the three events `api/stripe-webhook.js` actually handles).
+- `scripts/verify-checkout.mjs`: a recovered one-off (its own header says "review before Stripe-live cutover... deleted after use") that drives a REAL checkout through the full loop (checkout → webhook → `subscriptions` row → plan gating) using Playwright against a live Vercel URL, with Stripe's test card `4242...` hardcoded. **Do not run this against live-mode Stripe as-is** — it submits a real payment form; the final pass needs to either adapt it for a real (small, refundable) live-mode charge with explicit user sign-off, or find another way to prove the live webhook path works (e.g. Stripe's own live-mode test clocks/events, if available) before trusting real customer charges to flow through correctly.
+- No code changes are anticipated for the flip itself — this is a config/dashboard cutover, not an engineering pass, per the doc's own framing ("the small Stripe-live flip that follows"). Confirm this assumption still holds by re-reading `api/create-checkout-session.js`/`api/stripe-webhook.js` fresh at that time rather than trusting this note if any Stripe-adjacent code has changed since.
+
+**What this pass leaves for the launch sweep**: per the doc's own framing, everything else is Sal-gated, not engineering work:
+- Real device/mobile session (mic behavior for Say It with Nova, real-device celebration-misfire repro attempts, a skim of the 200 look-alike triples, Chrome saved-password cleanup) — see `docs/DEVICE_TEST_CHECKLIST.md`, still not done.
+- Key rotation (Stripe + ElevenLabs keys were exposed in chat during Phase 2 — see `SECURITY_CHECKLIST_FOR_SAL.md`).
+- Supabase dashboard hardening (password min length, HIBP, CAPTCHA).
+- Spend alerts (Anthropic, ElevenLabs, Vercel).
+- Legal review of the COPPA inventory + draft /privacy + /terms.
+
+**Confirmed NOT left as a gap by this pass**: CSP is enforcing in production (not just Report-Only) with a real scripted zero-violations proof; `/app-legacy` and every legacy `gameTheme.js` dependency are fully deleted, not just documented as dead; Session Complete already matches the locked A2 spec with real automated coverage. None of these need to reappear on a future prompt's punch list.
