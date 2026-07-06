@@ -54,16 +54,20 @@ short-circuit the ladder — and logged as a `security_events` row
 (`placement_ladder_invalid_token`) so a real forgery attempt is visible
 even though it's harmless.
 
-**Migration** (`0032_placement_adventure.sql`, not yet pushed — see
-SECURITY section): `child_profiles.placement_unit`/
-`placement_completed_at` (nullable, range-checked 1-18), plus a
-**column-level `REVOKE UPDATE`** for `authenticated`/`anon` on those two
-columns specifically. This is the load-bearing security decision of this
-whole pass: RLS is row-level, not column-level — the existing "parent
-owns child profiles" ALL policy would otherwise let a parent's own
-Supabase client write ANY value to `placement_unit` directly (e.g.
-`.update({placement_unit: 18})`), completely bypassing the ladder. The
-REVOKE closes that at the Postgres privilege layer, independent of RLS —
+**Migration** (`0032_placement_adventure.sql` + a follow-up fix,
+`0033_placement_unit_revoke_fix.sql` — both pushed, see SECURITY section
+for why two were needed): `child_profiles.placement_unit`/
+`placement_completed_at` (nullable, range-checked 1-18), plus revoking
+`authenticated`/`anon`'s `UPDATE` privilege on `child_profiles`
+entirely (0032 first tried a column-level `REVOKE` scoped to just these
+two columns; verification found that doesn't actually work against
+Supabase's default table-level grant — see SECURITY). This is the
+load-bearing security decision of this whole pass: RLS is row-level, not
+privilege-level — the existing "parent owns child profiles" ALL policy
+would otherwise let a parent's own Supabase client write ANY value to
+`placement_unit` directly (e.g. `.update({placement_unit: 18})`),
+completely bypassing the ladder. The REVOKE closes that at the Postgres
+privilege layer, independent of RLS —
 only the service-role admin client (used exclusively inside
 `handlePlacement`'s `finalize()`) can ever write these columns.
 
@@ -191,18 +195,37 @@ Two new checks added to `scripts/idor-proof.mjs` (both require
 `DEPLOY_BASE_URL`, same as checks 7-8):
 - **Direct column write, even on the attacker's OWN child**:
   `clientA.from('child_profiles').update({placement_unit: 18})` on A's
-  own row — RLS alone would allow this (A owns the row), so this check
-  specifically proves the column-level `REVOKE` (migration 0032) is
-  doing real work independent of RLS. Confirmed: rejected.
+  own row — RLS alone would allow this (A owns the row).
 - **Forged ladder-state finalization**: a hand-crafted (unsigned)
   ladder-state token claiming rung 7 (Unit 18) already passed, submitted
   with `answers` that would normally finalize. Confirmed: the bad
   signature is rejected and the response is a fresh rung-1 start
   (`done: false, rung: 1`), never a finalization at Unit 18.
-- Both checks run against the pushed branch's deployment (not yet
-  executed as of writing this section — migration not pushed, no
-  preview exists yet; will run for real in VERIFICATION below once both
-  land). idor becomes **10/10** from this pass forward.
+
+**A real bug found and fixed during verification, not just the intended
+check**: migration 0032's `revoke update (placement_unit,
+placement_completed_at) on child_profiles from authenticated, anon`
+looked correct but **did not actually work**. Confirmed directly via
+`information_schema.table_privileges` (not assumed): Supabase's default
+schema-wide grant already gives `authenticated`/`anon` a TABLE-LEVEL
+`UPDATE` privilege on `child_profiles`, and in Postgres a column-level
+`REVOKE` does not override a broader table-level `GRANT` that already
+covers that column — the exact "RLS/privilege isn't as narrow as it
+looks" trap this whole security design was meant to avoid, just one
+layer deeper than expected. **Fix** (migration `0033`, approved and
+pushed separately): revoke the table-level `UPDATE` grant entirely for
+`authenticated`/`anon` on `child_profiles` — confirmed safe first (grep
+across `src/` found zero client-side `.update()` calls against
+`child_profiles` anywhere in the app today; creation is INSERT-only).
+Re-verified via `information_schema.table_privileges`: only `postgres`/
+`service_role` retain `UPDATE` now. This is a stronger guarantee than
+the original two-column carve-out — every future `child_profiles`
+write, not just `placement_unit`, now has to go through a service-role
+server endpoint.
+
+Both idor checks run against the pushed branch's deployment (not yet
+executed as of writing this section — will run for real in VERIFICATION
+below). idor becomes **10/10** from this pass forward.
 
 ### HOUSEKEEPING — hint buttons, v3 update
 - **Fill the Story (`StoryBuilder`)**: added the deferred audio-replay
