@@ -1888,7 +1888,10 @@ export function GameEngine({
   // actually live and reachable from PlayScreen.jsx (it was mistakenly
   // conflated with the genuinely-unreachable SpellItOut during the earlier
   // UI polish pass and never audited).
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word', 'say_it'].includes(gameType);
+  // story_time added (Prompt 9 chrome migration — see StoryReader.jsx's
+  // `ownChrome` prop): it now renders inline inside this shared skyGradient
+  // wrapper + top bar instead of its own full-screen portal.
+  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word', 'say_it', 'story_time'].includes(gameType);
 
   return (
     <div style={{
