@@ -14,6 +14,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const { logSecurityEvent } = require('./_lib/security');
+const { logProductEvent } = require('./_lib/productEvents');
 
 async function getVerifiedUserId(req) {
   const authHeader = req.headers.authorization || '';
@@ -55,9 +56,11 @@ module.exports = async function handler(req, res) {
     // Reuse an existing Stripe customer if this user has one on file (e.g.
     // a prior canceled subscription) rather than creating a duplicate.
     let existingCustomerId;
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.VITE_SUPABASE_URL) {
-      const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-      const { data } = await supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', userId).maybeSingle();
+    const admin = process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.VITE_SUPABASE_URL
+      ? createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+      : null;
+    if (admin) {
+      const { data } = await admin.from('subscriptions').select('stripe_customer_id').eq('user_id', userId).maybeSingle();
       existingCustomerId = data?.stripe_customer_id || undefined;
     }
 
@@ -74,6 +77,12 @@ module.exports = async function handler(req, res) {
       success_url: `${origin}/app/upgrade/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/app/upgrade/cancel`,
     });
+
+    // checkout_started (Prompt 9 launch analytics): logged here, not
+    // client-side — this moment already passes through the server, and
+    // the client can't be trusted to report it honestly. ids + interval
+    // only, no PII.
+    if (admin) logProductEvent(admin, 'checkout_started', { userId, payload: { interval } });
 
     return res.status(200).json({ url: session.url });
   } catch (err) {

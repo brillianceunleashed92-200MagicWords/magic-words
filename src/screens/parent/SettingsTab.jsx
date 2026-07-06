@@ -83,7 +83,7 @@ export default function SettingsTab() {
           )}
         </div>
       ) : (
-        <UpgradeBanner variant="subtle" />
+        <UpgradeBanner variant="subtle" surface="settings" />
       )}
 
       {activeChild && (

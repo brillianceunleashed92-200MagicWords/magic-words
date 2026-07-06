@@ -1,14 +1,27 @@
+import { useEffect } from 'react';
 import { colors, fonts, shadows } from '../../theme/tokens';
 import { useAuth } from '../../hooks/useAuth';
 import { useCreateCheckoutSession } from '../../lib/queries/checkout';
+import { usePaywallViewedTracker } from '../../lib/queries/track';
 
 // Shared upgrade CTA — used by DashboardTab (prominent variant, only
-// shown once a child crosses 20 mastered words) and SettingsTab (subtle
-// variant, always available). Per the gating spec: upgrade prompts only
-// ever render in the parent portal, never in the child-facing app.
-export default function UpgradeBanner({ variant = 'subtle', title, message }) {
+// shown once a child crosses 20 mastered words, or the true-level variant)
+// and SettingsTab (subtle variant, always available). Per the gating spec:
+// upgrade prompts only ever render in the parent portal, never in the
+// child-facing app.
+//
+// `surface` (Prompt 9 launch analytics): identifies which of the 3 real
+// paywall surfaces rendered this instance — allowlisted server-side in
+// api/track.js, never a free-form string. Fires paywall_viewed once per
+// browser session per surface on mount.
+export default function UpgradeBanner({ variant = 'subtle', title, message, surface }) {
   const { user } = useAuth();
   const checkout = useCreateCheckoutSession();
+  const trackPaywallViewed = usePaywallViewedTracker();
+
+  useEffect(() => {
+    if (surface) trackPaywallViewed(surface);
+  }, [surface, trackPaywallViewed]);
 
   function upgrade(interval) {
     if (!user) return;
