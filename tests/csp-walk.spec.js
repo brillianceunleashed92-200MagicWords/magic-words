@@ -227,6 +227,7 @@ test("CSP walk: every live activity + Galaxy + Parent Portal + checkout, zero vi
       const body = await res.json().catch(() => ({}));
       return { status: res.status, hasUrl: !!body.url };
     });
+    console.log(`[csp-walk] checkout call result: ${JSON.stringify(checkoutResult)}`);
     expect(checkoutResult.skipped || checkoutResult.status === 200).toBeTruthy();
     if (!checkoutResult.skipped) expect(checkoutResult.hasUrl).toBe(true);
 
