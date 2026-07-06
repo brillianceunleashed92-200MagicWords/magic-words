@@ -544,6 +544,12 @@ for "cat" to reach Say It with Nova):
   touch the stale-event sequence guard), build clean. **This fix landed
   AFTER the first production push** — see the second push below.
 
+**Fix re-verified live on the redeployed production build**: fresh test
+account, tapped the mic, waited past 5s — "Didn't quite catch that —
+try again!" stayed visible with the mic re-enabled (previously it would
+have flashed and reverted to the generic idle state within the same
+tick). Test account deleted after verification.
+
 **Second push (bug fix found during the production walk)**: committed
 the `onerror` fix, gates re-run clean, **pushed to `origin/main` with a
 second explicit approval**, redeployed, confirmed via the same
