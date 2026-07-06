@@ -299,7 +299,49 @@ speculative fix shipped, per the mission):
   angle alone.
 
 ## MOMENTS
-IN PROGRESS
+**Schema decision — this is a `supabase db push` stop, per the mission's
+own text**: `magic_moments.kind` has a CHECK constraint
+(`kind in ('star_ignition', 'drawing', 'audio_reading', 'milestone',
+'streak')` — confirmed by reading migration `0008`) that does NOT allow
+a new `'tracing'` value. Wrote `supabase/migrations/0031_magic_moments_
+tracing_kind.sql` (widens the constraint to add `'tracing'`; RLS policy
+from `0008` is unchanged — it scopes by `child_id → parent_id` ownership
+regardless of `kind`) but have NOT pushed it — that needs Sal's explicit
+approval same as any other schema change. All the application code below
+is written and ready; the `INSERT` will 400 against production until the
+migration is approved and pushed.
+
+**Why a new kind, not reusing `drawing`**: `drawing` predates the
+letter-tracing rebuild (Prompt 5) and represented a genuinely different
+concept — a user-drawn artifact from the old freeform canvas. Tracing
+produces no artifact (confirmed: no Storage upload anywhere in this
+change, exactly per the mission's "no artifact, just a structured row"),
+so reusing `drawing` for a shape it was never actually seeded with would
+misrepresent historical data, not just be a naming quibble.
+
+**Implementation** (ready, pending the migration):
+- `useAddTracingMomentMutation` (`magicMoments.js`) — inserts
+  `{ child_id, kind: 'tracing', payload: { word } }`.
+- Wired into `PlayScreen.jsx`'s `handleProgress`, fire-and-forget (same
+  pattern as the `learning_events` insert right above it — a failed
+  moment insert must never affect gameplay or word_progress), gated on
+  `gameType === 'draw_it' && correct`.
+- `MomentsTab.jsx`: new `tracing` entry in `KIND_LABELS` renders a
+  "Traced X!" card using `<WordArt word={payload.word} />` for the
+  thumbnail — deliberately NOT duplicating a has_art check here: WordArt
+  already falls back to its own `TypographicWord` treatment internally
+  when no illustration is registered for that word, so "real
+  illustration when available, typographic otherwise" falls out of an
+  existing component for free, exactly matching the mission's spec.
+  Both the feed list and the html2canvas share-image frame render it.
+
+**Verification**:
+- Historical `drawing`-kind rows: unaffected by construction — the
+  `drawing` entry in `KIND_LABELS` and its rendering path are untouched;
+  only a new `tracing` entry was added alongside it. Build clean.
+- The actual live insert/render round-trip is blocked on the migration
+  above — will be verified live once it's pushed, added to this pass's
+  VERIFICATION section rather than claimed done here.
 
 ## TEST ACCOUNT
 IN PROGRESS

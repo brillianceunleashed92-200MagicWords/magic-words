@@ -10,6 +10,7 @@ import { useSaveWordProgressMutation } from '../lib/queries/wordProgress';
 import { useSaveXPMutation } from '../lib/queries/userStats';
 import { useEarnSparksMutation } from '../lib/queries/sparks';
 import { useUpdateStreakMutation } from '../lib/queries/streaks';
+import { useAddTracingMomentMutation } from '../lib/queries/magicMoments';
 import { useUIStore } from '../stores/useUIStore';
 import { useSpeak } from '../lib/useSpeak';
 import { logSessionResult, getRollingSuccessRate } from '../lib/difficultyGovernor';
@@ -88,6 +89,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   const saveXP = useSaveXPMutation(user?.id, childId);
   const earnSparks = useEarnSparksMutation(childId);
   const updateStreak = useUpdateStreakMutation(user?.id, childId);
+  const addTracingMoment = useAddTracingMomentMutation(childId);
 
   // Option B guided path — the full word record (word_type/has_art) for
   // whichever word this session is actually about, falling back to the
@@ -140,6 +142,15 @@ export default function PlayScreen({ focusWord, onExit }) {
       attempt_number: 1,
     }).then(({ error }) => { if (error) console.error('[learning_events]', error.message); });
     pendingLearningEventsRef.current.push(insertPromise);
+
+    // Prompt 7 Part 6: Draw It's letter-tracing rebuild left the Moments
+    // feed with no content source for this activity (no drawn artifact
+    // to store anymore) — a completed trace is itself worth a lightweight
+    // moment. Fire-and-forget like the learning_events insert above; a
+    // failed moment insert shouldn't affect gameplay or word_progress.
+    if ((playedGameType ?? gameType) === 'draw_it' && correct) {
+      addTracingMoment.mutateAsync(word).catch((err) => console.error('[magic_moments]', err.message));
+    }
 
     const wasMasteredBefore = isRealMastery(prevMastery, before?.attemptCount);
     const isMasteredNow = isRealMastery(result.mastery, result.attempt_count);

@@ -4,14 +4,22 @@ import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
 import { useMagicMomentsQuery, useMarkMomentSharedMutation } from '../../lib/queries/magicMoments';
 import { IconStar, IconTrophy, IconFlame, IconSpark } from '../../components/icons';
 import { InterestArt } from '../../components/icons/InterestGlyphs';
+import WordArt from '../../components/WordArt';
 
 // Icon is a component reference, not an emoji string — rendered both in
 // the moments list and inside the hidden html2canvas share-image frame
 // below (html2canvas rasterizes real DOM/SVG fine, so this works for the
 // downloaded/shared PNG too, not just on-screen).
+//
+// `tracing` (Prompt 7 Part 6) has no Icon — it renders via `Thumbnail`
+// instead (below), reusing WordArt's own has_art/typographic fallback
+// rather than duplicating that logic here (a "Traced cat!" card gets the
+// real WordArt illustration when one exists, a plain typographic
+// treatment otherwise — exactly what WordArt already does for free).
 const KIND_LABELS = {
   star_ignition: { Icon: IconStar, title: (p) => `"${p.word}" star ignited!` },
   drawing: { Icon: InterestArt, title: (p) => `Drew a ${p.word}` },
+  tracing: { Thumbnail: (p, size = 26) => <WordArt word={p.word} size={size} />, title: (p) => `Traced "${p.word}"!` },
   audio_reading: { Icon: IconSpark, title: (p) => `Read "${p.title}"` },
   milestone: { Icon: IconTrophy, title: (p) => p.title ?? 'Milestone reached!' },
   streak: { Icon: IconFlame, title: (p) => `${p.streak}-day streak!` },
@@ -34,7 +42,12 @@ export default function MomentsTab() {
   async function handleShare(moment) {
     const meta = KIND_LABELS[moment.kind] ?? DEFAULT_KIND;
     setSharingId(moment.id);
-    setFrameContent({ Icon: meta.Icon, title: meta.title(moment.payload), imageUrl: moment.payload?.image_url });
+    setFrameContent({
+      Icon: meta.Icon,
+      Thumbnail: meta.Thumbnail ? () => meta.Thumbnail(moment.payload, 48) : null,
+      title: meta.title(moment.payload),
+      imageUrl: moment.payload?.image_url,
+    });
 
     // Wait a tick for the hidden frame to render with the new content.
     await new Promise((r) => setTimeout(r, 50));
@@ -73,7 +86,9 @@ export default function MomentsTab() {
           width: 360, padding: 32, background: colors.cloud, textAlign: 'center',
           fontFamily: fonts.body, border: `4px solid ${colors.sun}`, borderRadius: 24,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>{frameContent?.Icon && <frameContent.Icon size={48} color={colors.sky} />}</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            {frameContent?.Thumbnail ? <frameContent.Thumbnail /> : frameContent?.Icon && <frameContent.Icon size={48} color={colors.sky} />}
+          </div>
           {frameContent?.imageUrl && <img src={frameContent.imageUrl} alt="" style={{ width: '100%', borderRadius: 16, margin: '12px 0' }} crossOrigin="anonymous" />}
           <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.3rem', color: colors.ink, margin: '12px 0' }}>
             {frameContent?.title}
@@ -101,6 +116,8 @@ export default function MomentsTab() {
             <div key={m.id} style={{ background: colors.cloud, borderRadius: 20, padding: 14, boxShadow: shadows.chunkSm, display: 'flex', alignItems: 'center', gap: 12 }}>
               {m.payload?.image_url ? (
                 <img src={m.payload.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover' }} />
+              ) : meta.Thumbnail ? (
+                <span style={{ display: 'flex' }}>{meta.Thumbnail(m.payload)}</span>
               ) : (
                 <span style={{ display: 'flex' }}><meta.Icon size={26} color={colors.ink} /></span>
               )}
