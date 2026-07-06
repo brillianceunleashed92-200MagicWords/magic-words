@@ -665,6 +665,10 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
   const [wrongTileIdx,  setWrongTileIdx]  = useState(null);
   const [revealCorrect, setRevealCorrect] = useState(false);
   const [missedOnce,    setMissedOnce]    = useState(false);
+  // Hint audit (Prompt 7 Part 4): WordHunt had no replay affordance at
+  // all before this — the prompt auto-played once on mount with no way
+  // to hear it again. Same minimum every other activity already has.
+  const [audioUrl, setAudioUrl] = useState(null);
   const correctTileRef = useRef(null);
   const startRef = useRef(Date.now());
 
@@ -681,9 +685,15 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchAudio('Which word matches this picture?').then(url => { if (!cancelled && url) playAudio(url); });
+    setAudioUrl(null);
+    fetchAudio('Which word matches this picture?').then(url => {
+      if (cancelled) return;
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
     return () => { cancelled = true; };
   }, [quiz?.word]);
+
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   const handleTap = (idx) => {
     if (answered) return;
@@ -716,7 +726,23 @@ function WordHunt({ quiz, onAnswer, encouragement }) {
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
       <ConfettiStars active={confetti} originRef={correctTileRef} />
-      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <NovaPorthole novaState={novaState} message={message} />
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the word again"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5, marginBottom: 20,
+          }}
+        >
+          <IconSpeaker size={20} color={colors.cloud} />
+        </button>
+      </div>
       <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
         <WordArt word={quiz.word} size={110} style={{ margin: '0 auto' }} />
       </div>
@@ -767,6 +793,8 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   });
 
   const correctIdx = options ? options.findIndex(o => o.correct) : quiz?.correctIndex ?? 0;
+  // Hint audit (Prompt 7 Part 4): same replay gap as WordHunt had.
+  const [audioUrl, setAudioUrl] = useState(null);
 
   useEffect(() => {
     setAnswered(false);
@@ -781,9 +809,15 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   useEffect(() => {
     if (!quiz?.word) return;
     let cancelled = false;
-    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => { if (!cancelled && url) playAudio(url); });
+    setAudioUrl(null);
+    fetchAudio(`Which word rhymes with ${quiz.word}?`).then(url => {
+      if (cancelled) return;
+      if (url) { setAudioUrl(url); playAudio(url); }
+    });
     return () => { cancelled = true; };
   }, [quiz?.word]);
+
+  const replayAudio = useCallback(() => { if (audioUrl) playAudio(audioUrl); }, [audioUrl]);
 
   const handleTap = (idx) => {
     if (answered) return;
@@ -818,7 +852,23 @@ function RhymeTime({ quiz, onAnswer, encouragement }) {
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 24px' }}>
       <ConfettiStars active={confetti} originRef={correctTileRef} />
-      <NovaPorthole novaState={novaState} message={message} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <NovaPorthole novaState={novaState} message={message} />
+        </div>
+        <button
+          onClick={replayAudio}
+          disabled={!audioUrl}
+          aria-label="Hear the word again"
+          style={{
+            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: audioUrl ? 'pointer' : 'default', opacity: audioUrl ? 1 : 0.5, marginBottom: 20,
+          }}
+        >
+          <IconSpeaker size={20} color={colors.cloud} />
+        </button>
+      </div>
       <div style={{ textAlign: 'center', margin: '8px 0 28px' }}>
         <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 'clamp(2rem,8vw,3rem)', color: colors.sun }}>
           {quiz.word}

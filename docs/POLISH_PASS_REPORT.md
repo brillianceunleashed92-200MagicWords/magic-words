@@ -135,7 +135,43 @@ burst.
   gate still genuinely gates, just faster.
 
 ## HINTS
-IN PROGRESS
+**Word Builder first-letter hint** (`WordBuilder.jsx`): a static (no
+pulse animation — nothing to gate on reduced motion) mint ring highlight
+on the tray tile holding the next needed letter. **Struggle signal
+chosen: first wrong tap** — matches the "first miss" trigger every other
+errorless scaffold in the app already uses (WordMatch/WordHunt/
+FindTheWord/RhymeTime), rather than an arbitrary idle timer that could
+fire while a child is still thinking normally, and needed no new
+plumbing (the wrong-tap handler already existed). Once triggered it
+persists for the rest of that word (not per-letter — one nudge into the
+pattern), then resets cleanly on the next question (component remounts
+via `key={currentIdx}`). Visual only — never speaks or sounds out the
+letter. Verified live: first wrong tap correctly highlighted "D" for
+"dog", the highlight correctly advanced to the next needed letter after
+each correct tap, and reset cleanly on the next word ("bird").
+
+**Hint affordance audit** (table below) — audited every rotation
+activity for what a struggling child can actually do:
+
+| Activity | Hint affordance | Notes |
+|---|---|---|
+| Tap & Hear (WordMatch) | Audio replay button + errorless hint-glow | Already had both |
+| Word Hunt | **Audio replay button (added this pass)** + errorless hint-glow | Had auto-play-once only, no replay — genuine gap, trivial fix (copied WordMatch's exact pattern) |
+| Match & Sort (RhymeTime) | **Audio replay button (added this pass)** + errorless hint-glow | Same gap, same fix |
+| Find the Word | Audio replay button + errorless hint-glow | Already had both (Prompt 6) |
+| Quiz Boss | Audio replay button (audio-word questions) + errorless hint-glow | Already had both (Prompt 6) |
+| Fill the Story (StoryBuilder) | Errorless hint-glow (no replay button, but a carrier-sentence audio auto-plays on mount) | Adding a replay button here is a slightly bigger change (this component's audio is a full sentence, not an isolated prompt) — flagged as a deferred recommendation, not done this pass |
+| Word Builder | **First-letter position highlight (added this pass)**, audio plays "Can you spell X?" on mount, no replay button | The letter-highlight IS this activity's hint; a plain audio-replay button is a reasonable future add, deferred |
+| Sound Match | Speaker button (tap to replay, pulses until first play) | Already had it |
+| Draw It | Visual stroke-trace animation + off-path re-cue (its primary, built-in hint modality) + audio on mount, no replay button | Tracing's hint is inherently visual/kinesthetic already; audio replay is lower priority here, deferred |
+| Story Time | Not deeply audited this pass — uses its own narration/read-along system, structurally different from the shared `fetchAudio`/`playAudio` pattern every other activity uses | Flagged for a dedicated look, not a trivial fix |
+| Say It with Nova | Pronunciation-help button (added this pass, see SAY IT section) | Was previously silent on this — see Part 5 |
+| Spell It Out | No audio, no hint at all | **Not fixed this pass** — `available: false` in `GAME_TYPES` and not reachable from `ACTIVITY_DEFS`/the current rotation at all (confirmed by reading both); Part 8's `gameTheme.js` endgame investigates whether this is dead code to delete outright, which would make a hint moot |
+
+**Deferred recommendations** (flagged, not implemented — "bounded" per
+the mission): Fill the Story replay button; Word Builder audio-replay
+button; Story Time's narration system audit; Spell It Out's fate decided
+by Part 8's dead-code investigation rather than hint work here.
 
 ## SAY IT
 IN PROGRESS
