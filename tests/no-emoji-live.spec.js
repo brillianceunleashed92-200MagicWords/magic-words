@@ -32,6 +32,7 @@ test.beforeAll(async () => {
       email: `nextgenprecisiondrones+mwnoemoji${Date.now()}@gmail.com`,
       password: "TestPass!23456",
       email_confirm: true,
+      user_metadata: { parental_consent: true, parental_consent_at: new Date().toISOString() },
     }),
   });
   confirmedUser = await res.json();
