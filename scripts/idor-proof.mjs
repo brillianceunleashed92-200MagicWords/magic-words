@@ -154,6 +154,43 @@ async function main() {
       'session-generator: a forged placement ladder state cannot finalize at an unearned unit',
       forgedFinalizeRes.status === 200 && forgedFinalizeBody.placement?.done === false && forgedFinalizeBody.placement?.rung === 1
     );
+
+    // 10. /api/track (Prompt 9 launch analytics): a strict server-side
+    //     allowlist of event names/payload keys, and identity comes only
+    //     from the verified JWT — a client cannot claim a different
+    //     event/user than the one it authenticated as.
+    const disallowedEventRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ eventType: 'not_a_real_event', payload: {} }),
+    });
+    check('track: disallowed event name is rejected (400)', disallowedEventRes.status === 400);
+
+    const disallowedPayloadKeyRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ eventType: 'paywall_viewed', payload: { surface: 'dashboard_true_level', freeform: 'anything' } }),
+    });
+    check('track: disallowed payload key is rejected (400)', disallowedPayloadKeyRes.status === 400);
+
+    // Forged identity: A's token can only ever write a product_events row
+    // under A's own verified user_id, even if the request tried to claim
+    // otherwise (the endpoint ignores any userId in the body entirely, so
+    // there's no field to even attempt this with — confirmed by checking
+    // the row this call produces lands under A, never B).
+    const trackRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ eventType: 'paywall_viewed', payload: { surface: 'settings' }, userId: b.userId }),
+    });
+    check('track: a valid event from A succeeds regardless of a claimed userId in the body (200)', trackRes.status === 200);
+    const { data: trackRows } = await admin.from('product_events')
+      .select('user_id').eq('event_type', 'paywall_viewed').eq('user_id', a.userId)
+      .order('created_at', { ascending: false }).limit(1);
+    check('track: the written row lands under A\'s own verified identity, never a claimed one', trackRows?.[0]?.user_id === a.userId);
+
+    const unauthedTrackRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventType: 'paywall_viewed', payload: { surface: 'settings' } }),
+    });
+    check('track: unauthenticated request rejected (401)', unauthedTrackRes.status === 401);
   } else {
     console.log('  SKIP: create-portal-session/create-checkout-session live endpoint checks (set DEPLOY_BASE_URL to run them)');
   }

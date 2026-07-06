@@ -11,7 +11,7 @@ export function useChildProfilesQuery(parentUserId) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('child_profiles')
-        .select('id, name, age, avatar, interests, created_at, placement_unit, placement_completed_at')
+        .select('id, name, age, avatar, interests, created_at, placement_unit, placement_completed_at, measured_unit')
         .eq('parent_id', parentUserId)
         .order('created_at', { ascending: true });
       if (error) throw error;

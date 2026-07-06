@@ -42,6 +42,7 @@ function StoryTimeReader({ quiz, onAnswer, onExit, words, levelInfo, catalog, st
       story={story}
       words={words}
       onExit={onExit}
+      ownChrome={false}
       onComplete={(correct = true) => {
         onAnswer({ correct, responseTimeMs: Date.now() - startTime, firstTry: true });
       }}
