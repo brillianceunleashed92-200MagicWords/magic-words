@@ -487,10 +487,95 @@ actual reachability, not assumed dead or alive:
     `SoundMatch`/`SpellItOut`/`GameTypeSelector` set above.
 
 ## DEVICE TEST CHECKLIST
-IN PROGRESS
+Written as its own first-class file: `docs/DEVICE_TEST_CHECKLIST.md`.
+Six numbered steps for Sal's phone session — Say-It mic on a real
+device, celebration-misfire repro attempts, galaxy-lock manual check,
+dad-testing Quiz Boss/Find the Word art, skimming the 200 look-alike
+triples, Chrome saved-password cleanup. Each step: do X, observe Y,
+record Z.
 
 ## VERIFICATION / PRODUCTION VERIFICATION
-IN PROGRESS
+
+**Gates (local, pre-merge)**: `npm run build` clean; `npm run
+check:no-emoji` clean; full Playwright suite at default invocation
+(`npx playwright test`, no flags) — **18/18 passed**, up from the prior
+pass's baseline, including the two new production-targeting overlap-
+probe specs; `scripts/idor-proof.mjs` against production — **9/9
+passed** (this pass touched no server query/RLS surface, so re-running
+against production directly rather than a preview was the correct
+target).
+
+**Merge**: `fix/polish-pass` → `main` locally (`--no-ff`), gates
+re-run clean on the merged result, pushed to `origin/main` **with
+explicit approval**.
+
+**Deployment confirmed**: `gh api .../commits/<sha>/status` →
+`state: "success"` (Vercel); `curl -sI https://200magicwordsapp.com` →
+`HTTP/2 200`.
+
+**Production walk** (fresh account, `mwprodwalk...`, seeded ranks 1-8
+for "cat" to reach Say It with Nova):
+- **Galaxy map**: "cat" node shows "0%" with the play-icon affordance
+  (not a flat lock) — the Part 1 fix confirmed live on production.
+- **Sticky back button**: "Home" pill stays fixed at the top while the
+  Guided Path list scrolls underneath it — confirmed.
+- **Say It with Nova chrome**: full Candy migration confirmed live —
+  `skyGradient` background, `NovaPorthole` message bubble, centered mic,
+  pronunciation-help speaker button, top progress bar/mute/close row
+  matching every other activity.
+- **Grown-Ups hold gate**: timed via a `pointerdown` dispatch + wall-
+  clock check — advanced to the quick-check math gate within ~2s,
+  matching the `HOLD_MS = 1800` change.
+- **Moments tab**: renders the correct empty state for an account that
+  hasn't played Draw It yet (no crash) — the actual tracing-card
+  round-trip was already verified live earlier in this pass against
+  this same production Supabase project (see MOMENTS section above);
+  not re-duplicated here.
+- **5s no-speech timeout — found and fixed a real bug live**: tapped the
+  mic and stayed silent. The `[SayItDiag]` console trail showed
+  `no-speech-timeout` firing at exactly 5002ms after `start`, correctly
+  calling `abort()` — but the `abort()` call's own resulting `error`
+  event (code `'aborted'`) was falling through to the generic `else {
+  setStatus('idle') }` branch, immediately overwriting the "Didn't quite
+  catch that — try again!" message before a child could ever read it.
+  **Fixed**: `onerror` now short-circuits on `event.error === 'aborted'`
+  (a side effect of our own intentional abort, not a new failure).
+  Re-verified: `tests/say-it-race.spec.js` still passes (the fix doesn't
+  touch the stale-event sequence guard), build clean. **This fix landed
+  AFTER the first production push** — see the second push below.
+
+**Second push (bug fix found during the production walk)**: committed
+the `onerror` fix, gates re-run clean, **pushed to `origin/main` with a
+second explicit approval**, redeployed, confirmed via the same
+`gh api`/`curl` pair.
+
+**Test accounts**: every test account created during this entire pass
+(`mwhints`, `mwsayitui`, `mwmoments`, `mwstorytime`, `mwprodwalk`, plus
+the two self-provisioning Playwright specs' accounts which clean up
+after themselves) was deleted via `scripts/admin-user.mjs delete` after
+its verification step. `test@yahoo.com` deleted per PART 7 above. No
+lingering test accounts remain.
 
 ## NOTES FOR NEXT PROMPTS
-IN PROGRESS
+- **`/app-legacy` deletion** — a dedicated, explicitly-scoped pass to
+  remove the entire orphaned legacy `App.jsx` tree (see HOUSEKEEPING).
+  Not urgent (zero live links to it), but it's dead weight in the
+  bundle and a maintenance trap (anyone editing `GameEngine.jsx` has to
+  keep it building even though nothing reachable uses it).
+- **`story_time` chrome migration** — move its outer wrapper onto the
+  Candy `isE2Activity` chrome, but first deduplicate `StoryReader`'s own
+  internal close button against `GameEngine`'s shared one (see
+  HOUSEKEEPING for why this isn't a one-line fix).
+- **Fill the Story / Word Builder audio-replay buttons** — deferred hint
+  gaps from the HINTS audit; trivial additions following the same
+  pattern already used everywhere else.
+- **Mobile mic verification** — genuinely blocked on a real device; the
+  device checklist + `[SayItDiag]` instrumentation are what the next
+  session needs, not more desktop guesswork.
+- **Word-6 celebration misfire** — the sequence-guard race fix in this
+  pass closes one real, concrete bug, but the original reported symptom
+  was never reproduced on a real device. Device checklist step 2 is the
+  only path to more signal here.
+- **Story Time's own narration system** — flagged in the HINTS audit as
+  not deeply reviewed this pass (structurally different from the shared
+  `fetchAudio`/`playAudio` pattern every other activity uses).

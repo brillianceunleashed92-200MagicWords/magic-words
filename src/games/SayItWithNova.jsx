@@ -187,8 +187,15 @@ export default function SayItWithNova({ quiz, onAnswer }) {
 
     recognition.onerror = (event) => {
       if (recognitionSeqRef.current !== mySeq) { logSpeechEvent('stale-error-ignored', { seq: mySeq }); return; }
-      clearNoSpeechTimer();
       logSpeechEvent('error', { seq: mySeq, error: event.error });
+      // Our own no-speech-timeout handler already called abort() and set
+      // status to 'timeout' -- the 'aborted' error this produces is a
+      // side effect of that call, not a new failure. Reproduced live on
+      // production: without this guard, the abort's error event
+      // immediately overwrote the "Didn't quite catch that" message back
+      // to the generic idle state before a child could ever read it.
+      if (event.error === 'aborted') return;
+      clearNoSpeechTimer();
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setStatus('denied');
       } else if (event.error === 'no-speech') {
