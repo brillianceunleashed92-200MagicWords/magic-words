@@ -1,15 +1,11 @@
 // src/games/GameEngine.jsx
 // The complete game engine for 200 Magic Words.
-// Supports 6 game types with smooth transitions, instant feedback, and celebration moments.
 // All games read from sessionPlan (pre-generated) — zero AI calls during play.
 //
-// Game types:
-//   1. WordMatch    — see word, tap emoji  (MVP, improved)
-//   2. SoundMatch   — hear word, tap image (requires audio)
-//   3. StoryBuilder — drag word into sentence blank
-//   4. SpellItOut   — tap letter tiles in sequence
-//   5. WordHunt     — find word in a scene (Phase 4)
-//   6. DailyChallenge — rotating boss round (Phase 4)
+// Live game types (each self-manages its own Candy chrome — see
+// `isE2Activity`'s removal note below): word_match, word_hunt, rhyme_time,
+// story_builder, flash_cards (QuizBoss), find_the_word, word_builder,
+// draw_it, story_time, say_it.
 //
 // Props:
 //   sessionPlan    — from useSessionPlan hook
@@ -29,7 +25,6 @@ import { audioCache, playAudio, fetchAudio, stopCurrentAudio } from './gameAudio
 import { playCorrectChime, playIncorrectTone } from './soundEffects';
 import { getPromptText } from './promptText';
 import { useMuted } from '../lib/useMuted';
-import { T } from './gameTheme';
 import { colors, fonts, shadows, skyGradient } from '../theme/tokens';
 import WordArt, { WORD_ART_REGISTRY } from '../components/WordArt';
 import { IconClose, IconSpeaker, IconStar, IconSpark } from '../components/icons';
@@ -116,165 +111,24 @@ const RHYME_DECOYS = [
 // ─── Design tokens (matches your existing theme) ──────────────────────────────
 
 // ─── Shared CSS injected once ─────────────────────────────────────────────────
+// Trimmed Prompt 10: this used to also hold the `.mw-option-btn`/
+// `.mw-letter-tile`/`.mw-drag-word`/`.mw-drop-zone` classes and their
+// `mw-shake`/`mw-bounce`/`mw-celebrate`/`mw-confetti`/`mw-pulse-glow`/
+// `mw-letter-appear`/`mw-word-glow` keyframes — traced every single one to
+// a usage site and confirmed all were exclusively inside the now-deleted
+// SoundMatch/SpellItOut/SessionProgress/ConfettiBurst/GameTypeSelector.
+// `mw-pop` and `mw-slide-up` stay: both are live (StoryBuilder's placed-
+// word animation, SessionComplete's entrance + star pop).
 const GLOBAL_CSS = `
   @keyframes mw-pop {
     0%   { transform: scale(0.7); opacity: 0; }
     70%  { transform: scale(1.1); }
     100% { transform: scale(1);   opacity: 1; }
   }
-  @keyframes mw-shake {
-    0%, 100% { transform: translateX(0); }
-    20%       { transform: translateX(-8px); }
-    40%       { transform: translateX(8px); }
-    60%       { transform: translateX(-6px); }
-    80%       { transform: translateX(6px); }
-  }
-  @keyframes mw-bounce {
-    0%, 100% { transform: translateY(0) scale(1); }
-    40%      { transform: translateY(-16px) scale(1.1); }
-    60%      { transform: translateY(-8px); }
-  }
-  @keyframes mw-celebrate {
-    0%   { transform: scale(1)   rotate(0deg); }
-    25%  { transform: scale(1.3) rotate(-5deg); }
-    50%  { transform: scale(1.2) rotate(5deg); }
-    75%  { transform: scale(1.3) rotate(-3deg); }
-    100% { transform: scale(1)   rotate(0deg); }
-  }
-  @keyframes mw-confetti {
-    0%   { transform: translateY(0)   rotate(0deg);   opacity: 1; }
-    100% { transform: translateY(80px) rotate(720deg); opacity: 0; }
-  }
   @keyframes mw-slide-up {
     from { transform: translateY(20px); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
   }
-  @keyframes mw-pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,0); }
-    50%       { box-shadow: 0 0 0 12px rgba(45,212,191,0.2); }
-  }
-  @keyframes mw-letter-appear {
-    from { transform: scale(0) rotate(-15deg); opacity: 0; }
-    to   { transform: scale(1) rotate(0deg);   opacity: 1; }
-  }
-  @keyframes mw-word-glow {
-    0%, 100% { text-shadow: 0 0 20px rgba(45,212,191,0.3); }
-    50%       { text-shadow: 0 0 40px rgba(45,212,191,0.8), 0 0 60px rgba(45,212,191,0.4); }
-  }
-
-  .mw-option-btn {
-    background: rgba(42,33,80,0.05);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 2px solid rgba(42,33,80,0.16);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    min-height: 110px;
-    font-family: 'Atkinson Hyperlegible', sans-serif;
-    color: ${T.white};
-    -webkit-tap-highlight-color: transparent;
-  }
-  .mw-option-btn:hover:not(:disabled) {
-    transform: scale(1.04);
-    border-color: rgba(42,33,80,0.32);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
-  }
-  .mw-option-btn:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-  .mw-option-btn.correct {
-    background: rgba(45,212,191,0.15);
-    border-color: ${T.correct};
-    box-shadow: 0 0 30px rgba(45,212,191,0.5), 0 8px 32px rgba(0,0,0,0.3);
-    animation: mw-bounce 0.5s ease;
-  }
-  .mw-option-btn.wrong {
-    background: rgba(255,122,89,0.15);
-    border-color: ${T.wrong};
-    box-shadow: 0 0 20px rgba(255,122,89,0.4), 0 8px 32px rgba(0,0,0,0.3);
-    animation: mw-shake 0.4s ease;
-  }
-  .mw-option-btn.revealed {
-    background: rgba(45,212,191,0.1);
-    border-color: rgba(45,212,191,0.4);
-  }
-
-  .mw-letter-tile {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
-    background: ${T.card};
-    border: 2px solid ${T.border};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.6rem;
-    color: ${T.white};
-    cursor: pointer;
-    transition: transform 0.1s, background 0.1s, border-color 0.1s;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-  .mw-letter-tile:hover:not(.used):not(.disabled) {
-    background: ${T.cardHov};
-    border-color: ${T.teal};
-    transform: translateY(-3px);
-  }
-  .mw-letter-tile.used {
-    opacity: 0.25;
-    cursor: default;
-    transform: none !important;
-  }
-  .mw-letter-tile.correct-tile {
-    background: rgba(45,212,191,0.25);
-    border-color: ${T.teal};
-    animation: mw-letter-appear 0.2s ease;
-  }
-  .mw-letter-tile.wrong-tile {
-    background: rgba(255,122,89,0.25);
-    border-color: ${T.coral};
-    animation: mw-shake 0.3s ease;
-  }
-
-  .mw-drag-word {
-    background: ${T.card};
-    border: 2px solid ${T.border};
-    border-radius: 50px;
-    padding: 0.5rem 1.25rem;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.1rem;
-    color: ${T.white};
-    cursor: grab;
-    user-select: none;
-    transition: transform 0.15s, background 0.15s;
-    touch-action: none;
-  }
-  .mw-drag-word:hover { background: ${T.cardHov}; transform: scale(1.05); }
-  .mw-drag-word.dragging { opacity: 0.5; cursor: grabbing; }
-  .mw-drag-word.used { opacity: 0.2; cursor: default; pointer-events: none; }
-
-  .mw-drop-zone {
-    display: inline-block;
-    border-bottom: 3px solid ${T.teal};
-    min-width: 80px;
-    padding: 0 0.5rem;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.3rem;
-    color: ${T.teal};
-    vertical-align: bottom;
-    transition: background 0.15s;
-  }
-  .mw-drop-zone.over { background: rgba(45,212,191,0.15); border-radius: 8px 8px 0 0; }
-  .mw-drop-zone.filled { color: ${T.gold}; border-color: ${T.gold}; }
 
   /* Session Complete — Nova "shining brighter" glow (two concentric rings,
      sun/bubble per DESIGN_BRIEF §1's accent-color roles). Static when
@@ -301,95 +155,16 @@ function injectCSS() {
   document.head.appendChild(el);
 }
 
-// ─── Confetti burst (pure CSS, no library) ────────────────────────────────────
-function ConfettiBurst({ active }) {
-  if (!active) return null;
-  const pieces = Array.from({ length: 18 }, (_, i) => ({
-    color: [T.gold, T.teal, T.pink, T.coral, T.purple][i % 5],
-    delay: (i * 0.06).toFixed(2),
-    x: (Math.sin(i * 0.7) * 120).toFixed(0),
-    size: 6 + (i % 4) * 2,
-  }));
-
-  return createPortal(
-    <div style={{ position: 'fixed', top: '40%', left: '50%', pointerEvents: 'none', zIndex: 999 }}>
-      {pieces.map((p, i) => (
-        <div key={i} style={{
-          position: 'absolute',
-          width: p.size + 'px',
-          height: p.size + 'px',
-          background: p.color,
-          borderRadius: i % 3 === 0 ? '50%' : '2px',
-          transform: `translateX(${p.x}px)`,
-          animation: `mw-confetti 0.9s ease-out ${p.delay}s forwards`,
-        }} />
-      ))}
-    </div>,
-    document.body
-  );
-}
-
-// ─── Progress bar — chunky segmented bar ─────────────────────────────────────
-function SessionProgress({ current, total, correctCount, onClose, muted, onToggleMute }) {
-  return (
-    <div style={{ padding: '1rem 1.5rem 0', animation: 'mw-slide-up 0.3s ease' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', gap: 10 }}>
-        <button
-          onClick={onClose}
-          aria-label="Exit and save progress"
-          style={{
-            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
-          }}
-        >
-          <IconClose size={18} color={T.muted} />
-        </button>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.teal, fontSize: '0.9rem', flex: 1 }}>
-          Word {current} of {total}
-        </span>
-        <span style={{ fontFamily: 'Space Grotesk', color: T.gold, fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IconStar size={16} color={T.gold} /> {correctCount} correct
-        </span>
-        <button
-          onClick={onToggleMute}
-          aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-          style={{
-            width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.08)', border: 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
-          }}
-        >
-          <IconSpeaker size={16} color={T.muted} muted={muted} />
-        </button>
-      </div>
-      <div style={{ display: 'flex', gap: '4px' }}>
-        {Array.from({ length: total }, (_, i) => {
-          const done   = i < current - 1;
-          const active = i === current - 1;
-          return (
-            <div key={i} style={{
-              flex: 1,
-              height: '10px',
-              borderRadius: '6px',
-              background: (done || active) ? T.teal : 'rgba(42,33,80,0.14)',
-              boxShadow: done   ? `0 0 8px ${T.teal}99`
-                       : active ? `0 0 14px ${T.teal}`
-                       : 'none',
-              animation: active ? 'mw-pulse-glow 1.2s ease-in-out infinite' : 'none',
-              transition: 'background 0.4s, box-shadow 0.4s',
-            }} />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
+// ConfettiBurst and SessionProgress (the pre-Candy-Galaxy orchestrator-level
+// chrome for un-rebuilt game types) removed Prompt 10 — every live gameType
+// is now E2-rebuilt (self-managed confetti/stage chrome), so the
+// `!isE2Activity` branch that rendered these was dead code.
+//
 // FeedbackOverlay and WordTile (old full-screen-color-wash feedback and
-// emoji/legacy-icon word rendering) removed — the 5 E2-rebuilt activities
-// use lessonChrome.jsx (tile-level feedback, no full-screen overlay ever,
-// per docs/DESIGN_BRIEF.md §7 "no red error states") and WordArt.jsx
-// instead. SoundMatch/SpellItOut (not in the 5 named Candy Galaxy
-// activities) don't reference either.
+// emoji/legacy-icon word rendering) removed earlier — the 5 E2-rebuilt
+// activities use lessonChrome.jsx (tile-level feedback, no full-screen
+// overlay ever, per docs/DESIGN_BRIEF.md §7 "no red error states") and
+// WordArt.jsx instead.
 
 // ─── ACTIVITY: Tap & Hear (WordMatch) ─────────────────────────────────────
 // See word → tap the matching picture. Flagship activity, matches
@@ -524,134 +299,8 @@ function WordMatch({ quiz, onAnswer, encouragement, showHint = false }) {
   );
 }
 
-// ─── GAME 2: Sound Match ──────────────────────────────────────────────────────
-// Hear the word (audio plays automatically) → tap the correct image.
-// Falls back gracefully if audio isn't available yet.
-function SoundMatch({ quiz, onAnswer, audioUrl }) {
-  const [selected, setSelected]   = useState(null);
-  const [answered, setAnswered]   = useState(false);
-  const [audioPlayed, setAudioPlayed] = useState(false);
-  const [audioError, setAudioError]   = useState(false);
-  const audioRef = useRef(null);
-  const startRef = useRef(null);
-
-  useEffect(() => {
-    setSelected(null);
-    setAnswered(false);
-    setAudioPlayed(false);
-    setAudioError(false);
-    startRef.current = null;
-    quiz?.options?.forEach((opt) => warnMissingArt('SoundMatch', opt.word));
-    // Auto-play when quiz loads (with a small delay for UX)
-    const timer = setTimeout(() => playWord(), 600);
-    return () => clearTimeout(timer);
-  }, [quiz?.word]);
-
-  const playWord = () => {
-    if (!audioUrl) {
-      // No audio yet — show the word as fallback
-      setAudioError(true);
-      setAudioPlayed(true);
-      startRef.current = Date.now();
-      return;
-    }
-    const audio = playAudio(audioUrl);
-    if (audio) {
-      audio.onplay = () => {
-        setAudioPlayed(true);
-        startRef.current = Date.now();
-      };
-      audio.onerror = () => {
-        setAudioError(true);
-        setAudioPlayed(true);
-        startRef.current = Date.now();
-      };
-    } else {
-      setAudioPlayed(true);
-      startRef.current = Date.now();
-    }
-  };
-
-  const handleTap = (idx) => {
-    if (answered || !audioPlayed) return;
-    const correct = idx === quiz.correctIndex;
-    const responseTimeMs = Date.now() - (startRef.current || Date.now());
-    setSelected(idx);
-    setAnswered(true);
-    setTimeout(() => onAnswer({ correct, responseTimeMs }), 1400);
-  };
-
-  return (
-    <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-      {/* Speaker button */}
-      <div style={{ textAlign: 'center', margin: '1.5rem 0 2rem' }}>
-        <button
-          onClick={playWord}
-          style={{
-            background: audioPlayed ? 'rgba(45,212,191,0.15)' : 'rgba(45,212,191,0.25)',
-            border: `2px solid ${T.teal}`,
-            borderRadius: '50%',
-            width: '90px', height: '90px',
-            fontSize: '2.5rem',
-            cursor: 'pointer',
-            transition: 'transform 0.15s',
-            animation: !audioPlayed ? 'mw-pulse-glow 1.5s ease infinite' : 'none',
-          }}
-        >🔊</button>
-
-        {/* Fallback: show the word if no audio */}
-        {audioError && (
-          <div style={{
-            fontFamily: 'Space Grotesk',
-            fontSize: '2.5rem',
-            color: T.teal,
-            marginTop: '1rem',
-          }}>{quiz.word}</div>
-        )}
-
-        <div style={{
-          fontFamily: 'Atkinson Hyperlegible',
-          color: T.muted,
-          fontSize: '0.9rem',
-          marginTop: '0.75rem',
-        }}>
-          {!audioPlayed ? 'Listen…' : 'Which picture matches?'}
-        </div>
-      </div>
-
-      {/* Picture options — same grid as WordMatch */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
-        {quiz.options.map((opt, idx) => {
-          let className = 'mw-option-btn';
-          if (answered) {
-            if (idx === quiz.correctIndex) className += ' correct revealed';
-            else if (idx === selected)     className += ' wrong';
-          }
-          return (
-            <button
-              key={idx}
-              className={className}
-              onClick={() => handleTap(idx)}
-              disabled={answered || !audioPlayed}
-              style={{ opacity: audioPlayed ? 1 : 0.4, transition: 'opacity 0.3s' }}
-            >
-              <WordArt word={opt.word} size={72} />
-              {answered && (
-                <span style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  color: idx === quiz.correctIndex ? T.teal : T.muted,
-                }}>
-                  {opt.word}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// SoundMatch (un-rebuilt legacy game type, /app-legacy only) removed
+// Prompt 10.
 
 // ─── ACTIVITY: Word Hunt ───────────────────────────────────────────────────
 // Show the picture at the top — find the correct WORD from 4 options.
@@ -1109,143 +758,8 @@ function StoryBuilder({ quiz, onAnswer, encouragement }) {
   );
 }
 
-// ─── GAME 4: Spell It Out ─────────────────────────────────────────────────────
-// See the emoji → tap letter tiles in order to spell the word.
-// Only available for words with mastery ≥ 50 (they already know it).
-function SpellItOut({ quiz, onAnswer }) {
-  const word    = quiz?.word ?? '';
-  const letters = word.toUpperCase().split('');
-
-  // Shuffle available letters (target word + decoys)
-  const [tileLetters] = useState(() => {
-    const decoys = 'AEIOURTNSLHDBMCFGPW'.split('').filter(l => !letters.includes(l));
-    const extras = decoys.sort(() => Math.random() - 0.5).slice(0, Math.max(4, letters.length));
-    return [...letters, ...extras].sort(() => Math.random() - 0.5);
-  });
-
-  const [typed,    setTyped]    = useState([]);     // [{letter, tileIdx}]
-  const [usedIdx,  setUsedIdx]  = useState(new Set());
-  const [answered, setAnswered] = useState(false);
-  const [shakeIdx, setShakeIdx] = useState(null);
-  const startRef = useRef(Date.now());
-
-  useEffect(() => {
-    setTyped([]);
-    setUsedIdx(new Set());
-    setAnswered(false);
-    startRef.current = Date.now();
-  }, [quiz?.word]);
-
-  const handleTileTap = (letter, tileIdx) => {
-    if (answered || usedIdx.has(tileIdx)) return;
-    const pos = typed.length;
-
-    if (letter === letters[pos]) {
-      // Correct letter
-      const next = [...typed, { letter, tileIdx }];
-      setTyped(next);
-      setUsedIdx(prev => new Set([...prev, tileIdx]));
-
-      if (next.length === letters.length) {
-        // Word complete!
-        setAnswered(true);
-        const responseTimeMs = Date.now() - startRef.current;
-        setTimeout(() => onAnswer({ correct: true, responseTimeMs }), 1200);
-      }
-    } else {
-      // Wrong letter
-      setShakeIdx(tileIdx);
-      setTimeout(() => setShakeIdx(null), 400);
-
-      // After 3 wrong on same position: highlight the correct tile
-      // (Hint system — gentle for ages 4–8)
-    }
-  };
-
-  const handleBackspace = () => {
-    if (!typed.length || answered) return;
-    const last = typed[typed.length - 1];
-    setTyped(prev => prev.slice(0, -1));
-    setUsedIdx(prev => {
-      const next = new Set(prev);
-      next.delete(last.tileIdx);
-      return next;
-    });
-  };
-
-  return (
-    <div style={{ padding: '0 1.5rem 1.5rem', animation: 'mw-slide-up 0.35s ease' }}>
-      {/* Target emoji (not the word — they spell it) */}
-      <div style={{ textAlign: 'center', margin: '1.5rem 0' }}>
-        <div style={{ fontSize: '72px', animation: 'mw-bounce 2s ease-in-out infinite' }}>
-          {quiz.emoji}
-        </div>
-        <p style={{ fontFamily: 'Atkinson Hyperlegible', color: T.muted, fontSize: '0.9rem', margin: '0.5rem 0 0' }}>
-          Spell the word!
-        </p>
-      </div>
-
-      {/* Typed word display */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-        minHeight: '60px',
-      }}>
-        {letters.map((l, i) => {
-          const isTyped = i < typed.length;
-          const isCorrect = answered && isTyped;
-          return (
-            <div key={i} style={{
-              width: '52px', height: '52px',
-              borderRadius: '12px',
-              border: `2px solid ${isTyped ? T.teal : T.border}`,
-              background: isTyped ? 'rgba(45,212,191,0.2)' : 'rgba(42,33,80,0.05)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Space Grotesk',
-              fontSize: '1.6rem',
-              color: isTyped ? T.teal : 'transparent',
-              transition: 'all 0.15s',
-              animation: isTyped ? `mw-letter-appear 0.2s ease ${i * 0.05}s both` : 'none',
-            }}>
-              {isTyped ? typed[i].letter : '_'}
-            </div>
-          );
-        })}
-        {/* Backspace */}
-        {typed.length > 0 && !answered && (
-          <button
-            onClick={handleBackspace}
-            style={{
-              width: '52px', height: '52px', borderRadius: '12px',
-              background: 'rgba(255,122,89,0.15)', border: `2px solid ${T.coral}`,
-              color: T.coral, fontSize: '1.2rem', cursor: 'pointer',
-            }}
-          >←</button>
-        )}
-      </div>
-
-      {/* Letter tiles */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        gap: '0.5rem',
-      }}>
-        {tileLetters.map((letter, idx) => (
-          <div
-            key={idx}
-            className={`mw-letter-tile ${usedIdx.has(idx) ? 'used' : ''} ${shakeIdx === idx ? 'wrong-tile' : ''}`}
-            onClick={() => handleTileTap(letter, idx)}
-          >
-            {letter}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// SpellItOut (un-rebuilt legacy game type, /app-legacy only) removed
+// Prompt 10.
 
 // ─── Session Complete screen ───────────────────────────────────────────────────
 // Effort/process praise (Dweck growth-mindset framing — see mission
@@ -1462,205 +976,22 @@ export function SessionComplete({
   );
 }
 
-// ─── Game type selector (shown before a game starts) ─────────────────────────
-// MLC interaction-type bindings (confirmed with the user, see CLAUDE.md
-// "Lesson-type bindings" — based on actual interaction mechanics, not
-// surface prompt phrasing). null = doesn't cleanly fit any of the four,
-// left unbound rather than forced (SpellItOut).
-const MLC_TYPES = {
-  word_match:    'Following Commands',
-  sound_match:   'Following Commands',
-  word_hunt:     'Answering Questions',
-  rhyme_time:    'Answering Questions',
-  // Prompt 6: Find the Word is a real recognition question (hear the
-  // word, pick the matching tile) — the same category as Word Hunt/Rhyme
-  // Time. Quiz Boss (flash_cards) reuses that exact mechanic per question
-  // but stays unbound: it's a review battle OVER words already taught via
-  // the other activities, not a distinct teaching interaction in its own
-  // right (same reasoning that left it unbound before this pass, just
-  // re-confirmed against the new mechanic rather than the old self-rating
-  // one — see docs/mlc-engine-audit.md).
-  find_the_word: 'Answering Questions',
-  say_it:        'Verbal Imitation',
-  flash_cards:   null,
-  story_builder: 'Sentence Completion',
-  spell_it_out:  null,
-};
+// MLC_TYPES/GAME_TYPES/PREMIUM_FEATURES, UpgradeModal, and GameTypeSelector
+// (the pre-Candy-Galaxy "choose a game" + paywall screens, /app-legacy
+// only) removed Prompt 10. The live paywall surfaces are
+// `src/screens/parent/UpgradeBanner.jsx` (real Stripe checkout) and the
+// guided path (`src/components/candy/QuestPath.jsx`) picks the activity
+// automatically — nothing live ever showed this picker.
 
-const GAME_TYPES = [
-  { id: 'word_match',   label: 'Word Match',   emoji: '👀', desc: 'See the word, tap the picture',  color: T.teal,   gradient: `linear-gradient(135deg, rgba(45,212,191,0.2), rgba(45,212,191,0.04))`,   available: true  },
-  { id: 'sound_match',  label: 'Sound Match',  emoji: '🔊', desc: 'Hear the word, tap the picture', color: T.purple, gradient: `linear-gradient(135deg, rgba(123,104,238,0.2), rgba(123,104,238,0.04))`, available: true  },
-  { id: 'word_hunt',    label: 'Word Hunt',    emoji: '🔍', desc: 'Find the matching word',         color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.2), rgba(255,184,77,0.04))`, available: true  },
-  { id: 'rhyme_time',   label: 'Rhyme Time',   emoji: '🎵', desc: 'Find the rhyming word',          color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.2), rgba(255,139,148,0.04))`, available: true  },
-  { id: 'flash_cards',  label: 'Flash Cards',  emoji: '⚡', desc: 'Quick-fire flashcard game',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
-  { id: 'story_builder',label: 'Story Builder',emoji: '📖', desc: 'Complete the sentence',          color: T.gold,   gradient: `linear-gradient(135deg, rgba(255,184,77,0.12), rgba(255,184,77,0.02))`,  available: true },
-  { id: 'spell_it_out', label: 'Spell It Out', emoji: '🔤', desc: 'Tap the letters to spell it',   color: T.pink,   gradient: `linear-gradient(135deg, rgba(255,139,148,0.12), rgba(255,139,148,0.02))`,available: false },
-  { id: 'say_it',       label: 'Say It with Nova', emoji: '🎤', desc: 'Say the word out loud',      color: T.coral,  gradient: `linear-gradient(135deg, rgba(255,122,89,0.2), rgba(255,122,89,0.04))`, available: true  },
-];
-
-const PREMIUM_FEATURES = [
-  '🔊 Sound Match — hear and tap',
-  '📖 Story Builder — fill the blank',
-  '🔤 Spell It Out — letter tiles',
-  '📚 Units 6–18 unlocked',
-  '📊 Advanced parent analytics',
-];
-
-export function UpgradeModal({ onClose }) {
-  const [notifyMe, setNotifyMe] = useState(false);
-  return createPortal(
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9998,
-      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1.5rem',
-    }} onClick={onClose}>
-      <div style={{
-        background: T.bg,
-        border: `2px solid ${T.gold}`,
-        borderRadius: '24px',
-        padding: '2rem 1.75rem',
-        maxWidth: '340px',
-        width: '100%',
-        textAlign: 'center',
-        animation: 'mw-pop 0.3s ease',
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: '48px', marginBottom: '0.5rem' }}>🌟</div>
-        <h3 style={{ fontFamily: 'Space Grotesk', fontSize: '1.5rem', color: T.gold, margin: '0 0 0.25rem' }}>
-          Go Premium
-        </h3>
-        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.875rem', color: T.muted, margin: '0 0 1.25rem' }}>
-          Unlock all games and every word unit:
-        </p>
-        <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
-          {PREMIUM_FEATURES.map((f, i) => (
-            <div key={i} style={{
-              fontFamily: 'Atkinson Hyperlegible', fontSize: '0.9rem', color: T.white,
-              padding: '0.35rem 0', borderBottom: i < PREMIUM_FEATURES.length - 1 ? `1px solid ${T.border}` : 'none',
-            }}>{f}</div>
-          ))}
-        </div>
-        <button onClick={() => setNotifyMe(true)} style={{
-          width: '100%',
-          fontFamily: 'Space Grotesk', fontSize: '1rem',
-          background: `linear-gradient(135deg, ${T.gold}, #FFB300)`,
-          color: '#1A0A00', border: 'none', borderRadius: '50px',
-          padding: '0.875rem 1rem', cursor: 'pointer', opacity: notifyMe ? 0.7 : 1,
-          transition: 'opacity 0.2s ease',
-        }}>
-          {notifyMe ? "You're on the list! 🎉" : 'Start Free Trial — $9.99/mo'}
-        </button>
-        <p style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.75rem', color: T.muted, margin: '0.75rem 0 0' }}>
-          {notifyMe ? "We'll email you the moment premium launches!" : "Coming soon — tap to get notified at launch"}
-        </p>
-        <button onClick={onClose} style={{
-          background: 'none', border: 'none', color: T.muted,
-          fontFamily: 'Atkinson Hyperlegible', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.75rem',
-        }}>
-          Maybe later
-        </button>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-export function GameTypeSelector({ onSelect, unlockedGames = ['word_match'] }) {
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [recentlyDismissed, setRecentlyDismissed] = useState(false);
-  const dismissedRef = useRef(false);
-
-  const dismissUpgrade = useCallback(() => {
-    setShowUpgrade(false);
-    dismissedRef.current = true;
-    setRecentlyDismissed(true);
-    setTimeout(() => {
-      dismissedRef.current = false;
-      setRecentlyDismissed(false);
-    }, 2000);
-  }, []);
-
-  return (
-    <div style={{ padding: '1.5rem', minHeight: '100vh', background: T.bg, animation: 'mw-slide-up 0.3s ease' }}>
-      {showUpgrade && <UpgradeModal onClose={dismissUpgrade} />}
-
-      <h2 style={{
-        fontFamily: 'Space Grotesk',
-        fontSize: '1.5rem',
-        color: T.white,
-        textAlign: 'center',
-        margin: '0 0 1.25rem',
-      }}>
-        Choose a Game ✨
-      </h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.875rem' }}>
-        {GAME_TYPES.map((game, idx) => {
-          const isUnlocked = unlockedGames.includes(game.id);
-          return (
-            <button
-              key={game.id}
-              className="mw-option-btn"
-              onClick={() => {
-                if (isUnlocked) { onSelect(game.id); }
-                else if (!dismissedRef.current) { setShowUpgrade(true); }
-              }}
-              style={{
-                minHeight: '130px',
-                opacity: isUnlocked ? 1 : (recentlyDismissed ? 0.35 : 0.55),
-                borderColor: isUnlocked ? game.color : T.border,
-                background: isUnlocked ? game.gradient : T.card,
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                boxShadow: isUnlocked ? `0 4px 24px ${game.color}22, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none',
-                position: 'relative',
-                cursor: 'pointer',
-                animation: `mw-slide-up 0.35s ease ${idx * 0.06}s both`,
-                transition: 'transform 0.2s, box-shadow 0.2s',
-              }}
-              onMouseEnter={e => { if (isUnlocked) e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'; e.currentTarget.style.boxShadow = `0 8px 32px ${game.color}44, inset 0 1px 0 rgba(255,255,255,0.1)`; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = isUnlocked ? `0 4px 24px ${game.color}22, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none'; }}
-            >
-              {!isUnlocked && (
-                <div style={{
-                  position: 'absolute', top: '8px', right: '8px',
-                  background: `${T.gold}22`, border: `1px solid ${T.gold}88`,
-                  borderRadius: '20px', padding: '2px 8px',
-                  fontSize: '0.65rem', color: T.gold, fontFamily: 'Atkinson Hyperlegible', fontWeight: 700,
-                }}>🔒 Premium</div>
-              )}
-              <span style={{ fontSize: '2.5rem' }}>{game.emoji}</span>
-              <span style={{ fontFamily: 'Space Grotesk', fontSize: '1rem', color: isUnlocked ? T.white : T.muted }}>
-                {game.label}
-              </span>
-              <span style={{ fontFamily: 'Atkinson Hyperlegible', fontSize: '0.75rem', color: T.muted, textAlign: 'center', lineHeight: 1.3 }}>
-                {game.desc}
-              </span>
-              {MLC_TYPES[game.id] && (
-                <span style={{
-                  fontFamily: 'Atkinson Hyperlegible', fontSize: '0.625rem', fontWeight: 700,
-                  color: isUnlocked ? game.color : T.muted, opacity: 0.85, marginTop: '0.4rem',
-                  textTransform: 'uppercase', letterSpacing: '0.03em',
-                }}>
-                  {MLC_TYPES[game.id]}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Sprint 2 Part B — activity/word capability check. Word Match, Sound
-// Match, Word Hunt, and Rhyme Time all present a word as "the picture" —
-// wrong for a word with no real illustration (server already only builds
-// picture-eligible distractor sets for these, but a session can still mix
-// eligible/ineligible target words across its quiz list depending on
-// what's due for review). Story Builder, Flash Cards, and Say It don't
-// depend on a picture, so they get the full quiz list unfiltered.
-const PICTURE_MATCH_GAME_TYPES = new Set(['word_match', 'sound_match', 'word_hunt', 'rhyme_time']);
+// Sprint 2 Part B — activity/word capability check. Word Match, Word Hunt,
+// and Rhyme Time all present a word as "the picture" — wrong for a word
+// with no real illustration (server already only builds picture-eligible
+// distractor sets for these, but a session can still mix eligible/
+// ineligible target words across its quiz list depending on what's due
+// for review). Story Builder, Flash Cards, and Say It don't depend on a
+// picture, so they get the full quiz list unfiltered. `sound_match`
+// removed from this set (Prompt 10) — that gameType can no longer occur.
+const PICTURE_MATCH_GAME_TYPES = new Set(['word_match', 'word_hunt', 'rhyme_time']);
 
 // ─── Main GameEngine ──────────────────────────────────────────────────────────
 export function GameEngine({
@@ -1704,7 +1035,6 @@ export function GameEngine({
 
   const [currentIdx,        setCurrentIdx]        = useState(0);
   const [correctCount,      setCorrectCount]      = useState(0);
-  const [showConfetti,      setShowConfetti]      = useState(false);
   const [sessionDone,       setSessionDone]       = useState(false);
   const [encouragIdx,       setEncouragIdx]       = useState(0);
   const [consecutiveCorrect, setConsecutiveCorrect] = useState(0);
@@ -1755,8 +1085,6 @@ export function GameEngine({
       setCorrectCount(newCorrect);
       setConsecutiveCorrect(n => n + 1);
       setConsecutiveWrong(0);
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 1000);
     } else {
       setConsecutiveWrong(n => n + 1);
       setConsecutiveCorrect(0);
@@ -1872,36 +1200,27 @@ export function GameEngine({
 
   if (!currentQuiz) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem 2rem', color: T.muted, fontFamily: 'Atkinson Hyperlegible' }}>
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', color: `${colors.ink}99`, fontFamily: 'Atkinson Hyperlegible' }}>
         No quizzes loaded. Please check your session plan.
       </div>
     );
   }
 
-  // The 5 E2-rebuilt activities self-manage their own confetti/stage
-  // background (candy sky gradient, see docs/mockup-E2-no-emoji.html) and
-  // would double-fire confetti if the orchestrator also triggered it.
-  // Un-rebuilt game types (SoundMatch, SpellItOut, etc.) still fall back to
-  // the orchestrator-level ConfettiBurst + Cloud background.
-  //
-  // word_builder added here after docs/WORDBUILDER_FIX_REPORT.md found it's
-  // actually live and reachable from PlayScreen.jsx (it was mistakenly
-  // conflated with the genuinely-unreachable SpellItOut during the earlier
-  // UI polish pass and never audited).
-  // story_time added (Prompt 9 chrome migration — see StoryReader.jsx's
-  // `ownChrome` prop): it now renders inline inside this shared skyGradient
-  // wrapper + top bar instead of its own full-screen portal.
-  const isE2Activity = ['word_match', 'word_hunt', 'rhyme_time', 'story_builder', 'flash_cards', 'word_builder', 'draw_it', 'find_the_word', 'say_it', 'story_time'].includes(gameType);
+  // Every live gameType is E2-rebuilt (self-manages its own confetti/stage
+  // background, candy sky gradient, see docs/mockup-E2-no-emoji.html) —
+  // the `isE2Activity` flag + `!isE2Activity` orchestrator-level chrome
+  // (ConfettiBurst, SessionProgress, T.bg) it used to fall back to for
+  // un-rebuilt legacy game types (SoundMatch, SpellItOut) was removed
+  // Prompt 10 alongside those types themselves.
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: isE2Activity ? skyGradient : T.bg,
+      background: skyGradient,
       display: 'flex',
       flexDirection: 'column',
       fontFamily: fonts.body,
     }}>
-      {!isE2Activity && <ConfettiBurst active={showConfetti} />}
       {xpToast && (
         <div key={xpToast.id} style={{
           position: 'fixed', top: '35%', left: '50%', transform: 'translateX(-50%)',
@@ -1915,42 +1234,31 @@ export function GameEngine({
         </div>
       )}
 
-      {isE2Activity ? (
-        <div style={{ maxWidth: 780, margin: '0 auto', width: '100%', padding: '28px 24px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button
-              onClick={handleExitEarly}
-              aria-label="Exit and save progress"
-              style={{
-                width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
-              }}
-            >
-              <IconClose size={20} color={colors.cloud} />
-            </button>
-            <StarProgress current={currentIdx + 1} total={totalQuizzes} />
-            <button
-              onClick={() => toggleMuted(!muted)}
-              aria-label={muted ? 'Unmute sound' : 'Mute sound'}
-              style={{
-                width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
-              }}
-            >
-              <IconSpeaker size={18} color={colors.cloud} muted={muted} />
-            </button>
-          </div>
+      <div style={{ maxWidth: 780, margin: '0 auto', width: '100%', padding: '28px 24px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button
+            onClick={handleExitEarly}
+            aria-label="Exit and save progress"
+            style={{
+              width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+            }}
+          >
+            <IconClose size={20} color={colors.cloud} />
+          </button>
+          <StarProgress current={currentIdx + 1} total={totalQuizzes} />
+          <button
+            onClick={() => toggleMuted(!muted)}
+            aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+            style={{
+              width: 44, height: 44, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer',
+            }}
+          >
+            <IconSpeaker size={18} color={colors.cloud} muted={muted} />
+          </button>
         </div>
-      ) : (
-        <SessionProgress
-          current={currentIdx + 1}
-          total={totalQuizzes}
-          correctCount={correctCount}
-          onClose={handleExitEarly}
-          muted={muted}
-          onToggleMute={() => toggleMuted(!muted)}
-        />
-      )}
+      </div>
 
       {/* Render the correct game component */}
       {gameType === 'word_match' && (
@@ -1960,14 +1268,6 @@ export function GameEngine({
           onAnswer={handleAnswer}
           encouragement={encouragements[encouragIdx % encouragements.length]}
           showHint={consecutiveWrong >= 1}
-        />
-      )}
-      {gameType === 'sound_match' && (
-        <SoundMatch
-          key={currentIdx}
-          quiz={currentQuiz}
-          onAnswer={handleAnswer}
-          audioUrl={audioCache.get(currentQuiz.question ?? currentQuiz.word) ?? null}
         />
       )}
       {gameType === 'word_hunt' && (
@@ -1999,9 +1299,6 @@ export function GameEngine({
           onAnswer={handleAnswer}
           encouragement={encouragements[encouragIdx % encouragements.length]}
         />
-      )}
-      {gameType === 'spell_it_out' && (
-        <SpellItOut key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
       )}
       {gameType === 'word_builder' && (
         <WordBuilder key={currentIdx} quiz={currentQuiz} onAnswer={handleAnswer} />
