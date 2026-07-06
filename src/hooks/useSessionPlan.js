@@ -17,14 +17,44 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { computeFallbackCurrentUnit } from '../lib/sessionPlanFallbackUnit';
 
-const PLAN_CACHE_KEY   = 'mw_session_plan_v3'; // bumped: quizzes now carry word_type-derived wordClass + pictureEligible from the real words table, not the old 18-word list
+// FIX R1 Phase 3 (A5) — bumped v3 -> v4 AND added a childId suffix. The
+// unscoped v3 key let a parent switching between children on a family
+// (multi-child) account receive a DIFFERENT child's cached plan for up to
+// PLAN_TTL_MINUTES, since getCachedPlan/cachePlan never checked which
+// child the cache belonged to. Follows the same per-child key pattern
+// already used elsewhere in this codebase (parentDigest.js's
+// cacheKey(childId), useSessionTimeLimit.js's todayKey(childId)).
+const PLAN_CACHE_KEY_PREFIX = 'mw_session_plan_v4';
+export const LEGACY_UNSCOPED_PLAN_CACHE_KEY = 'mw_session_plan_v3';
 const PLAN_TTL_MINUTES = 60; // regenerate if older than 1 hour
 const FREE_TIER_MAX_UNIT = 5; // mirrors src/lib/queries/subscription.js — client-side fallback only; the server enforces this independently
 
-function getCachedPlan() {
+// Exported (rather than module-private) so tests/session-plan-cache.spec.js
+// can exercise the real cache-scoping behavior directly against a live
+// browser's sessionStorage via a dynamic import, without needing a full
+// two-child sign-in flow.
+export function planCacheKey(childId) {
+  return `${PLAN_CACHE_KEY_PREFIX}:${childId}`;
+}
+
+// One-time cleanup: the old unscoped key could still be sitting in a
+// returning user's sessionStorage from before this fix shipped. Removing
+// it (rather than just ignoring it) means no code path can ever read it
+// again, accidentally or otherwise.
+export function removeLegacyUnscopedCache() {
   try {
-    const raw = sessionStorage.getItem(PLAN_CACHE_KEY);
+    sessionStorage.removeItem(LEGACY_UNSCOPED_PLAN_CACHE_KEY);
+  } catch {
+    // sessionStorage unavailable — nothing to clean up
+  }
+}
+
+export function getCachedPlan(childId) {
+  try {
+    removeLegacyUnscopedCache();
+    const raw = sessionStorage.getItem(planCacheKey(childId));
     if (!raw) return null;
     const { plan, generatedAt } = JSON.parse(raw);
     const ageMinutes = (Date.now() - generatedAt) / 1000 / 60;
@@ -36,9 +66,9 @@ function getCachedPlan() {
   }
 }
 
-function cachePlan(plan) {
+export function cachePlan(childId, plan) {
   try {
-    sessionStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({
+    sessionStorage.setItem(planCacheKey(childId), JSON.stringify({
       plan,
       generatedAt: Date.now(),
     }));
@@ -47,7 +77,7 @@ function cachePlan(plan) {
   }
 }
 
-export function useSessionPlan(user, childId, plan = 'free') {
+export function useSessionPlan(user, childId, plan = 'free', placementUnit = null) {
   const [sessionPlan, setSessionPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError]     = useState(null);
@@ -64,7 +94,7 @@ export function useSessionPlan(user, childId, plan = 'free') {
     if (!user || !childId) return;
 
     if (!force && !focusWord) {
-      const cached = getCachedPlan();
+      const cached = getCachedPlan(childId);
       if (cached) {
         setSessionPlan(cached);
         return;
@@ -90,17 +120,17 @@ export function useSessionPlan(user, childId, plan = 'free') {
       if (!response.ok) throw new Error(`Session generator returned ${response.status}`);
 
       const { plan: newPlan } = await response.json();
-      cachePlan(newPlan);
+      cachePlan(childId, newPlan);
       setSessionPlan(newPlan);
     } catch (err) {
       console.error('[useSessionPlan] Generation failed:', err.message);
       setPlanError(err.message);
-      const fallback = await buildSupabaseFallbackPlan(childId, plan);
+      const fallback = await buildSupabaseFallbackPlan(childId, plan, placementUnit);
       setSessionPlan(fallback);
     } finally {
       setPlanLoading(false);
     }
-  }, [user, childId, plan]);
+  }, [user, childId, plan, placementUnit]);
 
   useEffect(() => {
     if (user && childId) generatePlan();
@@ -135,12 +165,12 @@ export function useSessionPlan(user, childId, plan = 'free') {
       // (weakest-mastery words) rather than leaving Quiz Boss unplayable —
       // not a spaced-repetition review pool, but still real words, never
       // an empty session.
-      const fallback = await buildSupabaseFallbackPlan(childId, plan);
+      const fallback = await buildSupabaseFallbackPlan(childId, plan, placementUnit);
       setReviewSessionPlan(fallback);
     } finally {
       setReviewPlanLoading(false);
     }
-  }, [user, childId, plan]);
+  }, [user, childId, plan, placementUnit]);
 
   return {
     sessionPlan,
@@ -164,9 +194,13 @@ export function useSessionPlan(user, childId, plan = 'free') {
 // full 45-word hand-written function-word sentence set — a degraded
 // fallback path doesn't need full parity, it needs to not be empty or
 // wrong.
-async function buildSupabaseFallbackPlan(childId, plan) {
+async function buildSupabaseFallbackPlan(childId, plan, placementUnit = null) {
   try {
     const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
+    // FIX R1 Phase 2 (A1) — mirrors the same floor semantics as the server
+    // (api/session-generator.js's effectiveFloor): a placed child hitting
+    // this fallback must not silently drop back to Unit 1.
+    const effectiveFloor = placementUnit ? Math.min(placementUnit, maxUnit) : null;
     const { data: words, error: wordsErr } = await supabase
       .from('words')
       .select('word, unit, sort_order, word_type, has_art')
@@ -189,13 +223,7 @@ async function buildSupabaseFallbackPlan(childId, plan) {
     const masteryMap = new Map((progress ?? []).map((p) => [p.word, p.mastery]));
 
     const withMastery = words.map((w) => ({ ...w, mastery: masteryMap.get(w.word) ?? 0 }));
-    const units = [...new Set(withMastery.map((w) => w.unit))].sort((a, b) => a - b);
-    let currentUnit = units[0] ?? 1;
-    for (const unit of units) {
-      const hasUnmastered = withMastery.some((w) => w.unit === unit && w.mastery < 80);
-      currentUnit = unit;
-      if (hasUnmastered) break;
-    }
+    const currentUnit = computeFallbackCurrentUnit(withMastery, effectiveFloor);
 
     const focusWords = withMastery
       .filter((w) => w.unit === currentUnit)

@@ -187,7 +187,7 @@ export default function SettingsTab() {
         <div style={{ background: colors.cloud, borderRadius: 20, padding: 16, boxShadow: shadows.chunkSm }}>
           <div style={{ color: colors.ink, fontWeight: 700, marginBottom: 8 }}>
             This permanently deletes your account, every child profile, all word
-            progress, streaks, stories, and drawings. This cannot be undone.
+            progress, streaks, and stories. This cannot be undone.
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button

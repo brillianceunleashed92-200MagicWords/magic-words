@@ -9,7 +9,14 @@
 // Deletes, in order:
 //   1. Storage objects (drawings bucket) — FK cascades don't reach
 //      Storage, so this must happen explicitly before anything else.
-//   2. The auth.users row — migration 0018 fixed every child_id/user_id
+//   2. product_events rows — FIX R1 Phase 4 (B4): this table
+//      (migration 0032) has plain user_id/child_id uuid columns with NO
+//      foreign key/ON DELETE CASCADE at all, so it was the one table
+//      that survived account deletion indefinitely (found by
+//      docs/FORENSICS_R1_REPORT.md's B4). Deleted explicitly here, by
+//      both user_id and child_id, since nothing else will ever clean it
+//      up.
+//   3. The auth.users row — migration 0018 fixed every child_id/user_id
 //      foreign key that was missing ON DELETE CASCADE, so this one
 //      delete now correctly cascades through child_profiles,
 //      word_progress, user_stats, user_streaks, learning_events,
@@ -53,6 +60,18 @@ module.exports = async function handler(req, res) {
         await admin.storage.from('drawings').remove(paths);
       }
     }
+
+    // product_events has no FK/cascade (see header comment) — deleted
+    // explicitly by both user_id and child_id before the auth user is
+    // gone, since child_profiles rows (and their ids) won't exist to
+    // query afterward.
+    const childIds = (children ?? []).map((c) => c.id);
+    const { data: deletedByUser } = await admin.from('product_events').delete().eq('user_id', user.id).select('id');
+    const deletedByChild = childIds.length
+      ? (await admin.from('product_events').delete().in('child_id', childIds).select('id')).data
+      : [];
+    const deletedEventIds = new Set([...(deletedByUser ?? []), ...(deletedByChild ?? [])].map((r) => r.id));
+    logSecurityEvent('account_deletion_product_events_purged', { userId: user.id, deletedCount: deletedEventIds.size });
 
     // Deletes the auth user; every table with a correctly-configured
     // cascade (all of them, as of migration 0018) is cleaned up by
