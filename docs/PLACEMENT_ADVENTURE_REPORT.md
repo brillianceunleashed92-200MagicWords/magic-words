@@ -2,8 +2,8 @@
 
 ### RUN TIMING — start / end / total wall-clock
 - Start: 2026-07-05 21:30 EDT
-- End: IN PROGRESS
-- Total: IN PROGRESS
+- End: 2026-07-05 22:46 EDT
+- Total: ~1h16m
 
 ### PRE-FLIGHT — sync state, key presence
 `git status` clean, `main` in sync with `origin/main` (no divergence either
@@ -342,5 +342,60 @@ accounts, all 3 new Playwright specs' self-provisioned accounts) was
 deleted after use — confirmed via a direct query for any
 `mwplace*`-prefixed leftover, none found.
 
+**Merge**: `feat/placement-adventure` → `main` locally (`--no-ff`), gates
+re-run clean on the merged result, pushed to `origin/main` with explicit
+approval.
+
+**Deployment confirmed**: `gh api .../commits/<sha>/status` →
+`state: "success"`; `curl -sI https://200magicwordsapp.com` → `HTTP/2
+200`.
+
+**Re-ran security + the 3 new specs for real against production**
+(not just the preview): `idor-proof.mjs` **10/10** with
+`DEPLOY_BASE_URL=https://200magicwordsapp.com`; all 3
+`placement-adventure.spec.js` specs pass for real now that the feature
+is actually deployed there. Full local Playwright suite: 21/21 (one
+`find-the-word.spec.js` flake on the first run, passed clean in
+isolation — the known residual provisioning-flake class, not a
+regression).
+
+**Production walk** (fresh account, `mwprodplace...`, answered
+honestly): parent-choice screen rendered live on `200magicwordsapp.com`;
+played 3 rungs of real probes with real ElevenLabs audio (fish/cat
+picture-mechanic Unit 1 probes, Nova-verb-pose Unit 3 and Unit 5
+probes) — the ladder finalized at **Unit 1** (my own manual reading of
+one of the Nova animal-pose pictures apparently didn't match the actual
+target word closely enough to pass rung 1 with 2/2 — a real, honest
+outcome of manual play, not a scripted result, and not a bug: the
+scripted persona tests already proved the adjudication logic itself is
+correct with exact known inputs). Completion celebration showed "Nova
+found your starting star! Unit 1 is ready to go!"; Home correctly
+showed Unit 1 "cat" as the current word afterward. Confirmed directly
+in the database: `placement_unit: 1`, `placement_completed_at` set,
+**`word_progress_count: 0`** — no fabricated progress, exactly as
+designed. Test account deleted after verification.
+
 ### NOTES FOR NEXT PROMPTS — what the analytics pass (Prompt 9) should rely on (events home, taxonomy started)
-IN PROGRESS
+- **`product_events`** is the home for first-party analytics going
+  forward — generic `(event_type, user_id, child_id, payload jsonb,
+  created_at)` shape, service-role-only (no client RLS policies, same
+  as `security_events`). Extend with new `event_type` values as needed;
+  the placement taxonomy (`placement_started`/`completed`/`skipped`/
+  `retaken`) is the first real example of the pattern to follow —
+  started/completed pairs bracket a flow, skipped/retaken are terminal
+  outcomes, and "started" vs. "retaken" was distinguished by checking
+  real server-side state (`placement_completed_at`), not a client claim
+  — worth keeping as the standard whenever a future event needs to tell
+  two similar-looking triggers apart.
+- **The signed-stateless-token pattern** (`api/_lib/placementLadder.js`)
+  is reusable for any other short-lived, non-resumable, multi-round-trip
+  server flow that doesn't want a table just to track "where am I right
+  now" — worth reaching for again before defaulting to a new table.
+- **`/app-legacy` and `story_time` chrome migration** (flagged in Prompt
+  7's BACKLOG) are both still open — untouched by this pass, still
+  waiting on their own dedicated scoped passes.
+- **Real device/mobile placement UX** was not specifically walked this
+  pass (desktop browser only, matching every prior prompt's own
+  scope) — if Prompt 9 or a future pass touches onboarding again, a
+  phone walk of the placement ladder specifically (tap targets, probe
+  layout at narrow viewports) hasn't been done yet.
