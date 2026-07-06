@@ -21,6 +21,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
 const { requireAuthAndRateLimit, logSecurityEvent } = require('./_lib/security');
 const { RUNGS, signLadderState, verifyLadderState, pickRungWords } = require('./_lib/placementLadder');
+const { logProductEvent } = require('./_lib/productEvents');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -367,16 +368,6 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
   return { pool: pool.slice(0, 8), currentUnit, artWords, wordMetaByWord, wordsByType };
 }
 
-// Fire-and-forget log to product_events (migration 0032) — same pattern
-// as security.js's logSecurityEvent, deliberately never awaited by
-// callers and never throws into the request path. First-party only, no
-// third-party analytics SDK anywhere near this (COPPA: child-directed
-// product).
-async function logProductEvent(admin, eventType, { userId, childId, payload } = {}) {
-  const { error } = await admin.from('product_events').insert({ event_type: eventType, user_id: userId, child_id: childId, payload: payload ?? {} });
-  if (error) console.error('[product-events] log write failed:', error.message);
-}
-
 // Placement Adventure (Prompt 8) — deterministic 8-rung ladder (units
 // 1/3/5/7/9/12/15/18), 2 probe words per rung, pass = 2/2, 1/2 = a single
 // tiebreak word decides, 0/2 = fail. Placement = the last PASSED rung's
@@ -429,8 +420,12 @@ async function handlePlacement(req, res, admin, verifiedUser, childId, plan, pla
     // these columns (column-level REVOKE in migration 0032 blocks every
     // other path, including a direct client update attempt).
     const placementUnit = plan === 'family' ? trueMeasuredUnit : Math.min(trueMeasuredUnit, FREE_TIER_MAX_UNIT);
+    // measured_unit (Prompt 9): the TRUE measured level, written alongside
+    // the floored placement_unit — see migration 0034's header for why
+    // placement_unit alone understates a free child's real measurement.
     const { error } = await admin.from('child_profiles').update({
       placement_unit: placementUnit,
+      measured_unit: trueMeasuredUnit,
       placement_completed_at: new Date().toISOString(),
     }).eq('id', childId);
     if (error) console.error('[placement] finalize write failed:', error.message);
