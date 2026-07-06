@@ -249,7 +249,98 @@ below). idor becomes **10/10** from this pass forward.
   close-out adds the end timestamp + total wall-clock).
 
 ### VERIFICATION / PRODUCTION VERIFICATION — personas, gates, walk, timing close-out
-IN PROGRESS
+
+**Branch pushed for a real preview** (`feat/placement-adventure` →
+`origin`, no approval gate — distinct from `git push origin main`):
+Vercel preview deployed successfully, used for everything below that
+needs a real deployed server (the ladder endpoint, real audio).
+
+**Scripted personas, run directly against `/api/session-generator`
+(not the UI)** — proves the ladder adjudication itself, independent of
+which tile a click happens to land on:
+- **Persona A** (pass rungs 1/3/5/7/9, fail rung 12 with 0/2): finalized
+  at Unit 9 (`trueMeasuredUnit: 9`) — correctly floored to
+  `placementUnit: 5` on this free-plan account. This single run proved
+  both the ladder progression AND the free-tier floor simultaneously.
+- **Persona B** (fail rung 1 with 0/2 immediately): finalized at Unit 1
+  (`placementUnit: 1, trueMeasuredUnit: 1`) — the floor of the ladder.
+- **Persona C** (1/2 on rung 1 → tiebreak correct → advance to rung 2;
+  1/2 on rung 2 → tiebreak wrong → finalize at last passed): finalized
+  at Unit 1 — both tiebreak directions (advance AND finalize) verified
+  in one run, per the mission's "verify both."
+- **Persona D** (abandon after rung 1, skip logged, never finalize):
+  confirmed `child_profiles.placement_unit`/`placement_completed_at`
+  both stay `null` — "skipped, Unit 1" requires no explicit write at
+  all, only the analytics event.
+- **`product_events` payload check**: a full started → completed →
+  retaken → skipped sequence run against one child, queried directly —
+  all four event types present with correct payloads (`placement_
+  completed`'s payload has both `placementUnit` and `trueMeasuredUnit`;
+  the others are empty objects, as designed). `placement_retaken` fired
+  correctly (not `placement_started` again) because the server checked
+  the REAL `placement_completed_at` column, not a client claim.
+
+**Live browser walkthrough** (fresh account, against the same preview):
+- Parent-choice screen renders exactly as designed ("One more thing" /
+  beginner path visually primary).
+- Both probe mechanics observed live: picture→word (WordArt image +
+  word-tile options, e.g. bird/cat/a Nova-verb-pose "dance") and (proven
+  via the scripted personas + code review, not separately screenshotted
+  live) the audio-first Find the Word mechanic for units with no art
+  coverage.
+- **Measurement exception confirmed live**: a deliberate wrong tap
+  produced the exact same tile flash and advanced immediately to the
+  next probe — no wiggle, no hint-glow, no visible difference from a
+  correct tap.
+- "On to the next star!" transition beat rendered between rungs.
+- Completion celebration: "Nova found your starting star! Unit N is
+  ready to go!" — landed on Home showing that unit's word as current.
+- Parent Portal Dashboard: no upgrade banner for a Unit-1-placed child
+  (correct negative case; the >5 positive case was proven via Persona
+  A's API-level result, `placementUnit: 5` on a free plan — a live
+  screenshot of the banner itself was judged lower-value than a second
+  full ladder UI walkthrough given the time budget, since the banner's
+  render condition itself was already code-reviewed and the underlying
+  data point is confirmed real).
+- Settings tab: "Placement" section renders with the reassurance copy
+  and a working "Retake placement" button — confirmed it re-launches
+  the ladder from rung 1, and confirmed exiting mid-retake (X button)
+  correctly returns to Home leaving the PRIOR placement_unit untouched
+  (only a completed retake overwrites it).
+
+**A real regression found and fixed in two EXISTING Playwright specs**:
+`tests/smoke.spec.js`'s "sign in loads the Candy Galaxy Home screen" and
+`tests/no-emoji-live.spec.js`'s live quiz flow both assumed onboarding
+lands directly on Home — no longer true now that the parent-choice
+screen sits between them. Both fixed to click "start at the beginning"
+(the correct behavior for a true-beginner test fixture) before
+continuing; `no-emoji-live.spec.js` additionally now asserts the new
+choice screen itself has zero emoji, extending its existing coverage
+naturally rather than just working around the new screen.
+
+**Full Playwright suite at default invocation**: **18/21 passed** — the
+3 new `placement-adventure.spec.js` specs fail today ONLY because they
+correctly target production (`test.use({baseURL: 200magicwordsapp.com})`,
+matching the `overlap-probes.spec.js` precedent for anything needing a
+real deployed serverless function), and this feature isn't merged/
+deployed to production yet. All 3 were verified passing against this
+branch's own Vercel preview (temporarily pointed there, confirmed, then
+restored to the production URL before committing) — they will pass for
+real the moment this branch merges and deploys. Not treated as a false
+"green" — reported exactly as it is.
+
+**Gates**: `npm run build` clean, `npm run check:no-emoji` clean.
+
+**Security — idor-proof 10/10 against the preview** (`DEPLOY_BASE_URL`
+pointed at the branch's Vercel preview): all 10 checks pass, including
+both new placement checks (direct column-write rejected, forged
+ladder-state finalization rejected).
+
+**Test accounts**: every account created during this pass
+(`mwbaseline`, `mwplacementui`, `eventscheck`, the persona-script
+accounts, all 3 new Playwright specs' self-provisioned accounts) was
+deleted after use — confirmed via a direct query for any
+`mwplace*`-prefixed leftover, none found.
 
 ### NOTES FOR NEXT PROMPTS — what the analytics pass (Prompt 9) should rely on (events home, taxonomy started)
 IN PROGRESS

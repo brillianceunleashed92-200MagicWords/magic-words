@@ -114,6 +114,12 @@ test("sign in loads the Candy Galaxy Home screen", async ({ page }) => {
   await page.getByText("Dinosaurs").click();
   await page.getByRole("button", { name: /Let's go/ }).click();
 
+  // Placement Adventure (Prompt 8): a new parent-choice screen now sits
+  // between onboarding and Home. "Start at the beginning" is the
+  // default (visually primary) path for true beginners.
+  await expect(page.getByText("One more thing")).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: /start at the beginning/i }).click();
+
   // Home screen (src/screens/HomeScreen.jsx) — hero card + Today's Magic Word.
   await expect(page.getByText("Ready to fly?")).toBeVisible({ timeout: 20000 });
   await expect(page.getByText("Hey Emma!")).toBeVisible();
