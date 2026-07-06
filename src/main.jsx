@@ -34,6 +34,7 @@ const Landing = lazy(() => import('./pages/landing/Landing.jsx'))
 const CandyGalaxyShell = lazy(() => import('./CandyGalaxyShell.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'))
+const UpdatePassword = lazy(() => import('./pages/UpdatePassword.jsx'))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -44,6 +45,12 @@ createRoot(document.getElementById('root')).render(
             <Route path="/" element={<Landing />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
+            {/* feat/auth-r1 Phase 3 — the resetPasswordForEmail redirect
+                target. Deliberately a sibling of /app, never nested inside
+                it: CandyGalaxyShell's AuthGuard treats any session
+                (including the recovery session this route depends on) as
+                "signed in" and would otherwise route straight to Home. */}
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/app/*" element={<CandyGalaxyShell />} />
             {/* Prompt 10: the pre-Candy-Galaxy tree (App.jsx) is deleted —
                 any stale bookmark/deep-link to it redirects to the real app

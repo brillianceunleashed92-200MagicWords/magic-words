@@ -31,7 +31,7 @@ async function provisionFixture(targetWord) {
   const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: "POST",
     headers: adminHeaders,
-    body: JSON.stringify({ email, password: PASSWORD, email_confirm: true }),
+    body: JSON.stringify({ email, password: PASSWORD, email_confirm: true, user_metadata: { parental_consent: true, parental_consent_at: new Date().toISOString() } }),
   });
   const user = await userRes.json();
   const userId = user.id;

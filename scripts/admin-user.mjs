@@ -11,7 +11,16 @@ if (!key) { console.error('SUPABASE_SERVICE_ROLE_KEY not set'); process.exit(1);
 if (cmd === 'create') {
   const [arg] = args;
   const email = `nextgenprecisiondrones+${arg || 'test'}${Date.now()}@gmail.com`;
-  const r = await fetch(base, { method: 'POST', headers: h, body: JSON.stringify({ email, password: 'TestPass!23456', email_confirm: true }) });
+  // feat/auth-r1 Phase 6 — every admin-created account is a trusted
+  // test/support fixture, not a real end user COPPA's consent flow
+  // needs to gate; without this, CandyGalaxyShell.jsx's new consent
+  // interstitial (Phase 5) blocks every account this script creates,
+  // which is most of this repo's Playwright suite. Real signups (email/
+  // password via the B6 checkbox, or Google OAuth via the interstitial
+  // itself) are unaffected — this only changes what THIS script's
+  // accounts look like.
+  const user_metadata = { parental_consent: true, parental_consent_at: new Date().toISOString() };
+  const r = await fetch(base, { method: 'POST', headers: h, body: JSON.stringify({ email, password: 'TestPass!23456', email_confirm: true, user_metadata }) });
   const d = await r.json();
   console.log(JSON.stringify({ email, id: d.id, status: r.status }, null, 2));
 } else if (cmd === 'delete') {

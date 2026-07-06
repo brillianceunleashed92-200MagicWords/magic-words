@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AuthGuard, GalaxyLoader } from './components/AuthGuard';
 import LoginScreen from './screens/LoginScreen';
+import ConsentInterstitial from './components/ConsentInterstitial';
 import HomeScreen from './screens/HomeScreen';
 import PlayScreen from './screens/PlayScreen';
 import GalaxyScreen from './screens/GalaxyScreen';
@@ -39,21 +40,33 @@ export default function CandyGalaxyShell() {
   // one level up, just for the account-indicator initial on BottomNav.
   const activeChild = childrenQ.data?.find((c) => c.id === activeChildId) ?? childrenQ.data?.[0] ?? null;
 
+  // feat/auth-r1 Phase 5 — mandatory COPPA gate for OAuth-created
+  // accounts (see ConsentInterstitial.jsx's own header comment). Checked
+  // here, above CandyGalaxyInner, so no child-creation/Home rendering
+  // path can ever be reached first. Email/password signups always have
+  // this set at creation time (LoginScreen.jsx's B6 checkbox), so they
+  // never see this — verified with an existing account in Phase 6.
+  const needsConsentInterstitial = !!user && !user.user_metadata?.parental_consent;
+
   return (
     <AuthGuard user={user} isLoading={isLoading} fallback={<LoginScreen authError={authError} />} loadingMessage="Loading your galaxy…">
-      <CandyGalaxyInner
-        childrenQ={childrenQ}
-        activeChild={activeChild}
-        navTab={navTab}
-        setNavTab={setNavTab}
-        speak={speak}
-        questWord={questWord}
-        setQuestWord={setQuestWord}
-        showAddChild={showAddChild}
-        setShowAddChild={setShowAddChild}
-        showStory={showStory}
-        setShowStory={setShowStory}
-      />
+      {needsConsentInterstitial ? (
+        <ConsentInterstitial />
+      ) : (
+        <CandyGalaxyInner
+          childrenQ={childrenQ}
+          activeChild={activeChild}
+          navTab={navTab}
+          setNavTab={setNavTab}
+          speak={speak}
+          questWord={questWord}
+          setQuestWord={setQuestWord}
+          showAddChild={showAddChild}
+          setShowAddChild={setShowAddChild}
+          showStory={showStory}
+          setShowStory={setShowStory}
+        />
+      )}
     </AuthGuard>
   );
 }

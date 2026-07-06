@@ -17,4 +17,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// feat/auth-r1 Phase 1 — PKCE flow, isolated as its own change before any
+// feature code. Required for the password-reset/update-password flow
+// (Phase 3): the recovery redirect lands with a `code` query param that
+// only PKCE's flow (via detectSessionInUrl, on by default) exchanges for
+// a session automatically. The implicit flow's #access_token hash
+// fragment approach still works for normal sign-in, but PKCE is
+// Supabase's own current recommendation for SPAs and is required for the
+// recovery link to establish a session client-side with no backend route
+// (this app has none) — confirmed against current Supabase docs, not
+// assumed from memory.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { flowType: 'pkce' },
+});
