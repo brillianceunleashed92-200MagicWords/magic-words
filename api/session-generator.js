@@ -19,7 +19,8 @@
 
 const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
-const { requireAuthAndRateLimit } = require('./_lib/security');
+const { requireAuthAndRateLimit, logSecurityEvent } = require('./_lib/security');
+const { RUNGS, signLadderState, verifyLadderState, pickRungWords } = require('./_lib/placementLadder');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -218,7 +219,7 @@ function getDifficultyLevel(progress) {
 async function fetchChildContext(admin, childId, userId) {
   const { data: childRow, error: childErr } = await admin
     .from('child_profiles')
-    .select('id, parent_id')
+    .select('id, parent_id, placement_unit, placement_completed_at')
     .eq('id', childId)
     .maybeSingle();
   if (childErr || !childRow || childRow.parent_id !== userId) return null;
@@ -235,7 +236,12 @@ async function fetchChildContext(admin, childId, userId) {
     .select('word, mastery, attempt_count, correct_count, last_seen, next_review_at')
     .eq('child_id', childId);
 
-  return { plan, progress: progress ?? [] };
+  return {
+    plan,
+    progress: progress ?? [],
+    placementUnit: childRow.placement_unit ?? null,
+    placementCompletedAt: childRow.placement_completed_at ?? null,
+  };
 }
 
 // Quiz Boss battle size (Prompt 6, Part 4) — 5-6 real recognition
@@ -257,8 +263,16 @@ const REVIEW_BATTLE_SIZE = 6;
 // spaced-repetition review rather than a second pass at brand-new
 // current-unit words. Same ownership/plan-gate path as the normal
 // selection — only the pool composition differs.
-async function selectCandidateWords(admin, plan, progress, reviewOnly = false) {
+async function selectCandidateWords(admin, plan, progress, reviewOnly = false, placementFloor = null) {
   const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
+  // Placement Adventure (Prompt 8): placementFloor is min(measured, plan
+  // cap) already — never fabricates word_progress, just shifts which
+  // unit "current" starts scanning from. A child placed above Unit 1
+  // still has every below-floor word visible/playable on the Galaxy map
+  // per the existing rules (GalaxyScreen's own status derivation, not
+  // touched here) — this only changes which unit new SESSION content is
+  // drawn from.
+  const effectiveFloor = placementFloor ? Math.min(placementFloor, maxUnit) : null;
   const { data: allWords } = await admin
     .from('words')
     .select('word, unit, sort_order, word_type, has_art')
@@ -287,11 +301,13 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false) {
     };
   });
 
-  // Current unit = the lowest unit (within plan range) that still has an
-  // unmastered word; a brand-new child with zero progress starts at
-  // whatever the lowest seeded unit is (1).
-  const units = [...new Set(withProgress.map((w) => w.unit))].sort((a, b) => a - b);
-  let currentUnit = units[0] ?? 1;
+  // Current unit = the lowest unit (within plan range, AND at/above any
+  // placement floor) that still has an unmastered word; a brand-new
+  // child with zero progress and no floor starts at whatever the lowest
+  // seeded unit is (1).
+  const units = [...new Set(withProgress.map((w) => w.unit))].sort((a, b) => a - b)
+    .filter((u) => !effectiveFloor || u >= effectiveFloor);
+  let currentUnit = units[0] ?? effectiveFloor ?? 1;
   for (const unit of units) {
     const hasUnmastered = withProgress.some((w) => w.unit === unit && w.mastery < MASTERED_THRESHOLD);
     currentUnit = unit;
@@ -351,6 +367,131 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false) {
   return { pool: pool.slice(0, 8), currentUnit, artWords, wordMetaByWord, wordsByType };
 }
 
+// Fire-and-forget log to product_events (migration 0032) — same pattern
+// as security.js's logSecurityEvent, deliberately never awaited by
+// callers and never throws into the request path. First-party only, no
+// third-party analytics SDK anywhere near this (COPPA: child-directed
+// product).
+async function logProductEvent(admin, eventType, { userId, childId, payload } = {}) {
+  const { error } = await admin.from('product_events').insert({ event_type: eventType, user_id: userId, child_id: childId, payload: payload ?? {} });
+  if (error) console.error('[product-events] log write failed:', error.message);
+}
+
+// Placement Adventure (Prompt 8) — deterministic 8-rung ladder (units
+// 1/3/5/7/9/12/15/18), 2 probe words per rung, pass = 2/2, 1/2 = a single
+// tiebreak word decides, 0/2 = fail. Placement = the last PASSED rung's
+// unit (or Unit 1 if rung 1 itself fails). See placementLadder.js's
+// header for why the ladder state is a signed, stateless token rather
+// than a DB row.
+//
+// SECURITY (this endpoint's sharpest edge, per the mission): probe words
+// may sample from ANY unit including ones above the free-tier cap — this
+// is a deliberate, bounded exception for MEASUREMENT only (mission #7).
+// It never becomes a content-unlock bypass because a placement response
+// is always exactly 1-2 probe words + audio/options, never a playable
+// multi-question session plan for a gated unit; and the actual floor
+// this measurement produces is itself capped to min(measured, 5) for a
+// free plan before it's ever written (see the finalize() function
+// below) — the same free-tier enforcement pattern as selectCandidateWords
+// above, just applied to the OUTPUT of the ladder instead of its INPUT.
+async function handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt) {
+  // Lightweight client-reported logging path — the client cannot write
+  // product_events directly (service-role-only, see migration 0032), so
+  // "abandoned mid-ladder" / "declined at the choice screen" (states the
+  // server has no other visibility into — no finalize call ever happens)
+  // route through here. Nothing else happens on this branch: no rung
+  // logic, no child_profiles write.
+  if (req.body?.skip === true) {
+    await logProductEvent(admin, 'placement_skipped', { userId: verifiedUser.id, childId, payload: {} });
+    return res.status(200).json({ ok: true });
+  }
+
+  const ladderStateRaw = typeof req.body?.ladderState === 'string' ? req.body.ladderState : null;
+  const rawAnswers = req.body?.answers;
+  const answers = Array.isArray(rawAnswers) ? rawAnswers.filter((a) => typeof a === 'boolean') : null;
+
+  const { data: allWords } = await admin
+    .from('words')
+    .select('word, unit, sort_order, word_type, has_art')
+    .order('sort_order');
+  const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
+  const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
+  const wordsByType = new Map();
+  for (const w of (allWords ?? [])) {
+    if (!wordsByType.has(w.word_type)) wordsByType.set(w.word_type, []);
+    wordsByType.get(w.word_type).push(w.word);
+  }
+
+  async function finalize(rungIndex) {
+    const trueMeasuredUnit = rungIndex >= 0 ? RUNGS[rungIndex] : 1;
+    // The client must not be able to self-declare a floor above its plan
+    // allowance — enforced here, server-side, on the ONLY write path for
+    // these columns (column-level REVOKE in migration 0032 blocks every
+    // other path, including a direct client update attempt).
+    const placementUnit = plan === 'family' ? trueMeasuredUnit : Math.min(trueMeasuredUnit, FREE_TIER_MAX_UNIT);
+    const { error } = await admin.from('child_profiles').update({
+      placement_unit: placementUnit,
+      placement_completed_at: new Date().toISOString(),
+    }).eq('id', childId);
+    if (error) console.error('[placement] finalize write failed:', error.message);
+    logProductEvent(admin, 'placement_completed', {
+      userId: verifiedUser.id, childId, payload: { placementUnit, trueMeasuredUnit },
+    });
+    return res.status(200).json({ placement: { done: true, placementUnit, trueMeasuredUnit } });
+  }
+
+  function issueRung(rungIndex, lastPassedRungIndex, tiebreak, excludeWords) {
+    const unit = RUNGS[rungIndex];
+    const count = tiebreak ? 1 : 2;
+    const rungWords = pickRungWords(unit, count, excludeWords, allWords ?? [], artWords, wordMetaByWord, wordsByType);
+    const state = { childId, rungIndex, lastPassedRungIndex, tiebreak, shownWords: rungWords.map((w) => w.word) };
+    return res.status(200).json({
+      placement: { done: false, rung: rungIndex + 1, rungUnit: unit, words: rungWords, ladderState: signLadderState(state) },
+    });
+  }
+
+  // A prior *completed* placement, verified server-side (never a client
+  // claim), distinguishes "started" from "retaken" — a real signal, not
+  // guessed from client-supplied state.
+  const startEventType = placementCompletedAt ? 'placement_retaken' : 'placement_started';
+
+  // First call: no ladder state yet — start fresh at rung 0.
+  if (!ladderStateRaw) {
+    logProductEvent(admin, startEventType, { userId: verifiedUser.id, childId, payload: {} });
+    return issueRung(0, -1, false, []);
+  }
+
+  const state = verifyLadderState(ladderStateRaw, childId);
+  if (!state) {
+    // A bad/forged/expired/wrong-child token is treated as a fresh start
+    // — never a way to short-circuit the ladder (e.g. by handing back a
+    // hand-crafted token claiming rung 8 already passed). Logged as a
+    // security event so a real forgery attempt is visible even though
+    // it's harmless.
+    logSecurityEvent('placement_ladder_invalid_token', { userId: verifiedUser.id, endpoint: 'session-generator:placement' });
+    logProductEvent(admin, startEventType, { userId: verifiedUser.id, childId, payload: {} });
+    return issueRung(0, -1, false, []);
+  }
+  const expectedAnswerCount = state.tiebreak ? 1 : 2;
+  if (!answers || answers.length !== expectedAnswerCount) {
+    return res.status(400).json({ error: `answers must have length ${expectedAnswerCount} for this rung` });
+  }
+
+  const { rungIndex, lastPassedRungIndex, tiebreak } = state;
+  const correctCount = answers.filter(Boolean).length;
+  const isLastRung = rungIndex >= RUNGS.length - 1;
+
+  if (tiebreak) {
+    if (correctCount >= 1) return isLastRung ? finalize(rungIndex) : issueRung(rungIndex + 1, rungIndex, false, []);
+    return finalize(lastPassedRungIndex);
+  }
+  if (correctCount === 2) return isLastRung ? finalize(rungIndex) : issueRung(rungIndex + 1, rungIndex, false, []);
+  if (correctCount === 0) return finalize(lastPassedRungIndex);
+  // Exactly 1/2 — a single tiebreak word from the same rung's unit,
+  // excluding the two words just shown so it can't repeat one.
+  return issueRung(rungIndex, lastPassedRungIndex, true, state.shownWords ?? []);
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -367,6 +508,7 @@ module.exports = async function handler(req, res) {
   const childId = typeof rawChildId === 'string' && /^[0-9a-f-]{36}$/i.test(rawChildId) ? rawChildId : null;
   const focusWord = typeof rawFocusWord === 'string' && /^[a-z']{1,40}$/i.test(rawFocusWord) ? rawFocusWord : null;
   const reviewOnly = req.body?.reviewOnly === true;
+  const placementMode = req.body?.placementMode === true;
 
   if (!childId) return res.status(400).json({ error: 'childId is required' });
 
@@ -374,8 +516,11 @@ module.exports = async function handler(req, res) {
   const context = await fetchChildContext(admin, childId, verifiedUser.id);
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
-  const { plan, progress } = context;
-  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly);
+  const { plan, progress, placementUnit, placementCompletedAt } = context;
+
+  if (placementMode) return handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
+
+  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly, placementUnit);
   const difficultyLevel = getDifficultyLevel(progress);
 
   // Quiz Boss (Prompt 6 Part 4): a fixed-size review battle, not an

@@ -4,6 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useParentSettingsQuery, useUpdateParentSettingsMutation } from '../../lib/queries/parentSettings';
 import { useSubscriptionQuery } from '../../lib/queries/subscription';
 import { useCreatePortalSession } from '../../lib/queries/checkout';
+import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
+import { useUIStore } from '../../stores/useUIStore';
 import { supabase } from '../../supabaseClient';
 import UpgradeBanner from './UpgradeBanner';
 
@@ -18,6 +20,8 @@ export default function SettingsTab() {
   const updateSettings = useUpdateParentSettingsMutation(user?.id);
   const subscriptionQ = useSubscriptionQuery(user?.id);
   const portalSession = useCreatePortalSession();
+  const { activeChild } = useCandyGalaxyData();
+  const startPlacementFlow = useUIStore((s) => s.startPlacementFlow);
   const dailyLimit = settingsQ.data?.daily_minutes_limit ?? null;
   const weekendPause = settingsQ.data?.weekend_streak_pause ?? false;
   const plan = subscriptionQ.data?.plan ?? 'free';
@@ -80,6 +84,27 @@ export default function SettingsTab() {
         </div>
       ) : (
         <UpgradeBanner variant="subtle" />
+      )}
+
+      {activeChild && (
+        <>
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
+            Placement
+          </div>
+          <div style={{ color: colors.mutedInk, fontSize: '.85rem', marginBottom: 10 }}>
+            This won't erase any progress — it just double-checks {activeChild.name}'s starting star.
+          </div>
+          <button
+            onClick={() => startPlacementFlow(activeChild.id, 'adventure')}
+            style={{
+              padding: '10px 16px', borderRadius: 100, border: 'none', cursor: 'pointer',
+              background: 'rgba(0,0,0,.06)', color: colors.ink,
+              fontFamily: fonts.display, fontWeight: 700, fontSize: '.85rem', marginBottom: 24,
+            }}
+          >
+            Retake placement
+          </button>
+        </>
       )}
 
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>

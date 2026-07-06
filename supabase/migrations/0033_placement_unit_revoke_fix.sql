@@ -1,0 +1,20 @@
+-- Fixes a real gap found during Prompt 8 verification: migration 0032's
+-- `revoke update (placement_unit, placement_completed_at) on
+-- child_profiles from authenticated, anon` did NOT actually block a
+-- client update, because Supabase's default schema-wide grant already
+-- gives `authenticated`/`anon` a TABLE-LEVEL UPDATE privilege on
+-- child_profiles -- and in Postgres, a column-level REVOKE does not
+-- override a broader table-level GRANT that already covers that column.
+-- Confirmed directly via information_schema.table_privileges before
+-- writing this fix, not assumed: both roles still showed table-level
+-- UPDATE after 0032 ran.
+--
+-- Fix: revoke the table-level UPDATE grant entirely for these two roles.
+-- Confirmed safe first -- grep across src/ found zero client-side
+-- `.update()` calls against child_profiles anywhere in the app today
+-- (creation is INSERT-only, via useCreateChildProfileMutation). Every
+-- future child_profiles write, not just placement_unit, now has to go
+-- through a service-role server endpoint -- a stronger, simpler
+-- guarantee than trying to carve out just two columns, and it directly
+-- closes the exact gap the SECURITY RULE was written to prevent.
+revoke update on public.child_profiles from authenticated, anon;

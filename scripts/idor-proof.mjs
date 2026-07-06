@@ -125,6 +125,35 @@ async function main() {
       body: JSON.stringify({ childId: b.childId }),
     });
     check('session-generator: A cannot generate a session plan for B\'s child (403)', forgedChildRes.status === 403);
+
+    // 9. Placement Adventure (Prompt 8): the client must not be able to
+    // self-declare a floor, by either path.
+    //   (a) a direct column write via the normal client library, on A's
+    //       OWN child (legitimate row ownership -- RLS alone would allow
+    //       this; the column-level REVOKE in migration 0032 is what
+    //       actually blocks it).
+    const { error: directPlacementWriteErr } = await clientA
+      .from('child_profiles')
+      .update({ placement_unit: 18 })
+      .eq('id', a.childId);
+    check('child_profiles: A cannot write placement_unit directly, even on their own child', !!directPlacementWriteErr);
+
+    //   (b) a forged ladder-state token claiming rung 8 (Unit 18) already
+    //       passed, handed to the placement finalization path. A bad/
+    //       forged signature must be treated as a fresh start at rung 0,
+    //       never as a way to finalize at whatever unit the token claims.
+    const forgedLadderState = Buffer.from(JSON.stringify({
+      childId: a.childId, rungIndex: 7, lastPassedRungIndex: 7, tiebreak: false, iat: Date.now(),
+    })).toString('base64url') + '.forged-signature';
+    const forgedFinalizeRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: a.childId, placementMode: true, ladderState: forgedLadderState, answers: [true, true] }),
+    });
+    const forgedFinalizeBody = await forgedFinalizeRes.json().catch(() => ({}));
+    check(
+      'session-generator: a forged placement ladder state cannot finalize at an unearned unit',
+      forgedFinalizeRes.status === 200 && forgedFinalizeBody.placement?.done === false && forgedFinalizeBody.placement?.rung === 1
+    );
   } else {
     console.log('  SKIP: create-portal-session/create-checkout-session live endpoint checks (set DEPLOY_BASE_URL to run them)');
   }

@@ -102,6 +102,13 @@ test("live quiz flow: no emoji in DOM, no image 404s, across the full session", 
   await page.getByText("Dinosaurs").click();
   await page.getByRole("button", { name: /Let's go/ }).click();
 
+  // Placement Adventure (Prompt 8): a new parent-choice screen now sits
+  // between onboarding and Home. "Start at the beginning" is the
+  // default (visually primary) path for true beginners.
+  await expect(page.getByText("One more thing")).toBeVisible({ timeout: 15000 });
+  await assertNoEmojiInDom(page, "placement-choice");
+  await page.getByRole("button", { name: /start at the beginning/i }).click();
+
   await expect(page.getByText("Hey Emma!")).toBeVisible({ timeout: 20000 });
   await assertNoEmojiInDom(page, "home");
 
