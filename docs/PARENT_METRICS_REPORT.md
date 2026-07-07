@@ -243,7 +243,44 @@ more than once) — see VERIFICATION below for the actual row count and
 number of pages fetched.
 
 ### UI — placement, tokens, reduced-motion, empty states, 375px
-IN PROGRESS
+
+New "Progress" section (`src/screens/parent/ProgressCharts.jsx`) sits in
+`DashboardTab.jsx` directly below the This Week stats grid, above the
+existing upsell banner / AI Insight / Dinner Table Cards sections — none
+of which were touched. Lazy-loaded via `React.lazy()` + `Suspense`
+(fallback: a plain "Loading progress…" line matching the AI Insight
+loading-state convention already in the file) specifically so `recharts`
+never ships in the shared `CandyGalaxyShell` chunk — confirmed via build
+output: that chunk grew only 253.13 kB -> 253.86 kB (the `React.lazy()`
+wiring itself), while `recharts` + all 6 chart components landed in their
+own new `ProgressCharts-*.js` chunk (387.39 kB), downloaded only when a
+grown-up actually opens the Dashboard tab.
+
+Each of the 6 charts is a `--cloud` card (`ChartCard` wrapper) with a Baloo
+2 title + a one-line Quicksand caption written in growth-mindset tone
+("Every word that clicked for good," "keep practicing and this will fill
+in" — never phrased as a deficit). Colors used: `sun`/`mint`/`bubble`/
+`tang`/`sky` on `cloud`, per rule 4 — no red, no emoji. Reduced motion
+(`usePrefersReducedMotion()`, the existing hook) is threaded into every
+Recharts `isAnimationActive` prop for the bar/line charts that support it
+(the heatmap and the horizontal unit-progress/accuracy bars have no
+Recharts entrance animation to begin with).
+
+Every chart has a first-class empty state (not a blank chart) — a plain
+sentence explaining what's missing, styled identically to the loaded
+state's caption. Verified live on `localhost:5183` (Playwright driving a
+real browser, not manual click-through — the Grown-Ups hold-gate's
+`requestAnimationFrame`-based timer doesn't advance reliably under
+synthetic `dispatchEvent` automation, so `page.mouse.down()` +
+`waitForTimeout(2000)` + `page.mouse.up()` was used instead, which is a
+real trusted input sequence): a fresh disposable account with an unseeded
+child showed all 6 charts rendering their correct empty-state message,
+both at desktop width and at 375px (all 6 cards stack cleanly, no text
+truncation or horizontal overflow — the only pre-existing overflow, the
+Grown-Ups tab bar's "Settings" label clipping at 375px, predates this run
+and isn't part of the Progress section). The rest of the Dashboard tab
+(This Week stats, AI Insight, Dinner Table Cards placeholder) rendered
+undisturbed alongside the new section.
 
 ### VERIFICATION — fixtures, test results (count vs. 42 baseline), gates, idor-proof, preview + production walks
 IN PROGRESS
