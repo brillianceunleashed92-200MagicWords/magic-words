@@ -99,7 +99,25 @@ Verdict was H-BY-DESIGN, so Phase 3's H-BY-DESIGN containment (a)/(b)/(c) was im
 **Scope boundary, deliberately not touched**: the stored mastery formula, `isRealMastery`'s threshold/attempt floor, `pathComplete`/`streakMilestone` celebrations (already synchronously sequenced inside `handleSessionEnd`'s own await chain, not orphaned), and `CelebrationRenderer`'s own queue-draining mechanics.
 
 ## CLEANUP — accounts deleted, exclusions, before/after
-IN PROGRESS
+
+**48 rows found** across every listed disposable pattern (`candygalaxy20260701`, `mwnoemoji*`, `mwsmokesignup*`, `idora*`/`idorb*`, `mwftseat*`, `mwrm*`, `mwstorytime*`, `mwftw*`):
+
+| Prefix | Count | Date range |
+|---|---|---|
+| `candygalaxy20260701` | 1 | 2026-07-02 |
+| `mwnoemoji*` | 25 | 2026-07-03 |
+| `mwsmokesignup*` | 4 | 2026-07-03 – 2026-07-06 |
+| `idora*`/`idorb*` | 4 | 2026-07-03 |
+| `mwftseat*` | 1 | 2026-07-05 |
+| `mwrm*` | 4 | 2026-07-05 – 2026-07-06 |
+| `mwstorytime*` | 6 | 2026-07-06 (×2) + **2026-07-07 13:10/14:13/14:33/14:42 ET (×4)** |
+| `mwftw*` | 3 | 2026-07-06 (×1) + **2026-07-07 14:25/14:41 ET (×2)** |
+
+**Exclusion, beyond what the prompt named**: the prompt's rider only calls out "the two newest `mwstorytime*` rows." This run's own fresh query (Phase 0.5) found **4** `mwstorytime*` rows from 2026-07-07, not 2, and a fresh check on `mwftw*` (not named in the prompt at all) surfaced **2 more** July-7 rows landing in the exact same 13:10–14:42 ET window. All 6 of these July-7 rows cluster tightly enough (and align with the Phase 0.5 "no matching branch/commit" finding) that treating only 2 of them as "the live workstream" and deleting the other 4 would be arbitrary. **Kill list excludes all 6** — the 4 `mwstorytime*` and 2 `mwftw*` July-7 rows — pending Sal's confirmation on liveness; everything else (42 rows, all >24h stale relative to this run and matching an unambiguous disposable-fixture pattern) is proposed for deletion.
+
+**Kill list (42 rows)**: `candygalaxy20260701` (1) + `mwnoemoji*` (25) + `mwsmokesignup*` (4) + `idora*`/`idorb*` (4) + `mwftseat*` (1) + `mwrm*` (4) + `mwstorytime*` 2026-07-06 only (2) + `mwftw*` 2026-07-06 only (1).
+
+Presented to Sal for one explicit confirmation before executing (approval gate, per rule 4 and the Phase 6 rider itself).
 
 ## VERIFICATION — tests vs 65 baseline, gates, walks
 
