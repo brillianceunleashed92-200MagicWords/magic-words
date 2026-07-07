@@ -37,6 +37,12 @@ export default function PlayScreen({ focusWord, onExit }) {
   const { words, currentWord, unitsById, childId, activeChild, plan, masteredCount } = useCandyGalaxyData();
   const [gameType, setGameType] = useState(null);
   const [sessionResult, setSessionResult] = useState(null);
+  // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5 — scaffold-down v1: session-local,
+  // per-word tracking. { [word]: { consecutiveWrong, pinnedActivityId } }.
+  // Real state (not a ref) so QuestPath re-renders with the new pin the
+  // instant it changes, not just whenever some unrelated state update
+  // happens to fire next.
+  const [scaffoldState, setScaffoldState] = useState({});
   const { speak } = useSpeak();
   const queueCelebration = useUIStore((s) => s.queueCelebration);
   const parentSettingsQ = useParentSettingsQuery(user?.id);
@@ -159,6 +165,53 @@ export default function PlayScreen({ focusWord, onExit }) {
         );
         if (unitNowComplete) queueCelebration({ type: 'unitBoss', payload: { unit } });
       }
+    }
+
+    // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5 — scaffold-down v1. Every
+    // `correct: false` reaching this point is already a "completed" error
+    // (each activity's own errorless scaffold absorbs a first miss
+    // internally and never calls onProgress for it — confirmed by reading
+    // WordMatch/WordHunt/FindTheWord's own handleTap, which only fires
+    // onAnswer on a SECOND miss). Two of those in a row on the same word,
+    // with no correct completion between them, pins the word's next
+    // activity to its easiest eligible tier until answered correctly there.
+    setScaffoldState((prev) => {
+      const entry = prev[word] ?? { consecutiveWrong: 0, pinnedActivityId: null };
+      const playedId = playedGameType ?? gameType;
+      if (correct) {
+        const releasesPin = entry.pinnedActivityId != null && playedId === entry.pinnedActivityId;
+        if (entry.consecutiveWrong === 0 && !releasesPin) return prev; // no-op, skip a pointless re-render
+        return { ...prev, [word]: { consecutiveWrong: 0, pinnedActivityId: releasesPin ? null : entry.pinnedActivityId } };
+      }
+      const consecutiveWrong = entry.consecutiveWrong + 1;
+      let pinnedActivityId = entry.pinnedActivityId;
+      if (consecutiveWrong >= 2 && !pinnedActivityId) {
+        const wordRecord = before ?? words.find((w) => w.word === word);
+        pinnedActivityId = getEligibleActivities(wordRecord)[0]?.id ?? null;
+        if (pinnedActivityId) fireScaffoldDownTelemetry(word, pinnedActivityId);
+      }
+      return { ...prev, [word]: { consecutiveWrong, pinnedActivityId } };
+    });
+  }
+
+  // Fire-and-forget — telemetry must never affect gameplay. product_events
+  // is service-role-only to write (migration 0032), so the client can't
+  // insert directly; api/track.js is the one client-originated event
+  // endpoint, with a strict server-side allowlist per event type.
+  async function fireScaffoldDownTelemetry(word, activityId) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      await fetch('/api/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ eventType: 'scaffold_down', childId, payload: { word, activityId } }),
+      });
+    } catch (err) {
+      console.error('[scaffold_down telemetry]', err.message);
     }
   }
 
@@ -321,6 +374,7 @@ export default function PlayScreen({ focusWord, onExit }) {
           recommendedRate={getRollingSuccessRate()}
           onSelectActivity={(id) => setGameType(id)}
           speak={speak}
+          pinnedActivityId={pathWord ? scaffoldState[pathWord.word]?.pinnedActivityId ?? null : null}
         />
         {planError && (
           <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.7)', marginTop: '1.5rem', fontSize: '.85rem' }}>
