@@ -261,8 +261,103 @@ convention. **42/42 effectively green.**
 
 ## PHASE 5 — Ship + prove on production
 
-Status: IN PROGRESS
+Status: PARTIAL — gates green, merged locally, **stopped for approval
+before push**
+
+All gates re-confirmed green on the merge candidate: `npm run build`
+(now including the new `check-activitydefs-sync` gate), `npm run
+check:no-emoji`, `eslint` on the two new files (one pre-existing,
+repo-wide `'process' is not defined` error in the new test file — present
+in every other `tests/*.spec.js` file, confirmed not a new category).
+
+`git merge --no-ff fix/quest-progression` completed cleanly into local
+`main` (commit `84c31e5`). Local `main` is now 4 commits ahead of
+`origin/main`. **Approval needed for `git push origin main`** before the
+deployment check and production verify (replaying the repro on a fresh
+disposable account against the live site) can run.
 
 ## COMPLETION
 
-Status: IN PROGRESS
+Status: BLOCKED ON APPROVAL (push) — everything else done
+
+**Phase 1.0 reconciliation**: zero undocumented commits since CONTENT_R1's
+close-out. The "9 vs 10 activities" discrepancy the prompt doc worried
+about traces to imprecise prose in the prior `DEVICE_PREP_REPORT.md`, not
+a code change — `ACTIVITY_DEFS` already had all 10 entries (verbatim
+table in Phase 1.0 above) at that time.
+
+**Reproduction**: could not reproduce Sal's reported symptom ("frog / 0 of
+10 done today," stuck after completing Tap & Hear) across three realistic,
+carefully-controlled attempts — natural `currentWord` progression with
+in-app nav, a full `PlayScreen` remount, and reviewing an already-mastered
+word via the Galaxy map (the shape that plausibly matches Sal's real
+account's actual state — his "frog" `word_progress` row was already at
+100% mastery, last played July 3rd, four days before this bug report).
+All three showed correct behavior: the guided path unlocked Word Hunt and
+incremented the counter every time.
+
+**Root cause**: none demonstrated. All five ranked hypotheses (H1
+missing invalidation, H2 writer/reader key mismatch, H3 word desync, H4
+daily-boundary bug, H5 silent write failure) were checked against direct
+evidence — database queries, source tracing, and live browser
+reproduction — and ruled out for every scenario actually testable. Per
+constraint 1, **no behavioral fix was made**, since there is no
+demonstrated root cause to fix.
+
+**What *was* shipped, and why it's not a contradiction of constraint 1**:
+- `scripts/check-activitydefs-sync.mjs` — a static, build-wired guard
+  (wired into `npm run build`) asserting every `ACTIVITY_DEFS` entry has a
+  matching `GameEngine.jsx` render case. The prompt doc calls for this
+  *unconditionally* ("whatever the cause"), and it's a defensive guard
+  against a *future* refactor, not a fix for today's unproven bug.
+- `tests/quest-progression.spec.js` — a regression test pinning down the
+  exact correct behavior demonstrated in Phase 1 (learning_events write +
+  query invalidation + refetch unlocking the guided path), so a future
+  regression in that mechanism fails a test instead of shipping silently.
+  Building it surfaced and fixed a real bug in the *test fixture itself*
+  (the local dev session-plan fallback's ascending-mastery-sort-then-cap-6
+  selection was silently excluding "frog" from the session) — documented
+  in Phase 4 as a trap worth remembering for future specs in this suite.
+
+**A real, incidental finding, already known and re-flagged rather than
+fixed**: mastery reaching 100% after a single correct answer (no minimum
+attempt-count guard on the stored value, only on the celebration UI) rolls
+`currentWord` forward faster than a human tester expects. This is the
+already-documented A2 calibration gap — not new, not touched, correctly
+out of scope for a bug-fix run per constraint 2 ("requires a product
+decision... STOP and report options").
+
+**Gates**: `npm run build` (now 4 sync checks + vite build), `npm run
+check:no-emoji`, `eslint` (no new categories), full Playwright suite
+42/42 (41 first-pass + 1 flake re-run clean in isolation, per this repo's
+own convention) — all green.
+
+**Options for you, since this run ends without a shipped behavioral
+change** (constraint 1's explicit allowance — "that is a successful run"):
+1. **Ask Sal for more specific repro detail** — ideally a screen
+   recording, or at minimum: exact device/browser, whether he tapped
+   "frog" directly (Galaxy map / "sleepy star" review banner) versus it
+   being the natural next-quest word, and whether any other tab/device
+   was open on the same account at the time. Given his account's own data
+   shows "frog" already mastered days before this report, the review-tap
+   path is the most likely real scenario — and that's exactly the one
+   this run reproduced successfully (no bug).
+2. **Treat this as resolved/unreproducible for now** — ship the guard +
+   regression test (this run's actual deliverable) and revisit only if
+   the symptom recurs with better evidence (e.g., a captured
+   `[learning_events]` console error, or a screen recording showing the
+   stuck state after a *confirmed* full "Session Complete" completion).
+3. **If it recurs specifically on a review-tap of an old word**: worth
+   double-checking real production timing under slower network/device
+   conditions than this run's fast automated clicking — every hypothesis
+   this run ruled out was ruled out under fast, controlled conditions;
+   a genuinely slow real device could still theoretically expose a race
+   this run's pacing never triggered. Not evidence of one existing, just
+   a residual gap in what "ruled out" can mean without slowing down the
+   repro to match a real child's actual tap cadence.
+
+**Next action needed from you**: approve `git push origin main` (4
+commits: Phase 1.0 reconciliation, the fix/no-fix commit, the prompt doc,
+and the merge). Once pushed, I'll run the deployment check and a
+production-replay of the repro (fresh disposable account, live site) to
+close out Phase 5, then update this report to DONE.
