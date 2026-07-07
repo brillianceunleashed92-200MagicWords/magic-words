@@ -272,8 +272,9 @@ before deciding what it meant, per the "diagnose before fix" standing rule:
     **none found**, its own `finally` cleanup succeeded. Not a new issue,
     not touched, just confirmed clean.
 - Full suite re-run after the fixture fix, `zz-preview-walk.spec.js`
-  excluded via `--grep-invert`: **RESULT PENDING** (running in background
-  as this section is written — final tally to follow immediately below).
+  excluded via `--grep-invert`: **65/65 passed** (10.5m). Confirms the
+  fixture fix resolved all 5 real failures with no other fallout, and the
+  60+5 baseline this run is supposed to hold is genuinely intact.
 
 **`zz-preview-walk.spec.js` disposition**: this file is the killed
 session's own draft of Phase 8's "preview walk," written but never
