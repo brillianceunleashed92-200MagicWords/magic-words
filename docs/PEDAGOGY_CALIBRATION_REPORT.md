@@ -5,8 +5,12 @@
 
 ### RUN TIMING
 - Start: 2026-07-07 (see commit timestamps for exact times)
-- End: IN PROGRESS
-- Total wall-clock: IN PROGRESS
+- Killed mid-Phase-8: 2026-07-07, second Claude client Chrome contention
+  (see RECOVERY AUDIT below)
+- Recovery + Phase 8 resumption: 2026-07-07, same day
+- End: 2026-07-07 (production walk + cleanup complete, see FINAL STATUS)
+- Total wall-clock: spans the original run + the same-day recovery
+  session; see commit timestamps across both for exact segments
 
 ### CONSUMER CENSUS — the Phase 1 table, with any later corrections
 
@@ -88,7 +92,56 @@ Grep-complete (`grep -rn "MASTERED_THRESHOLD\s*=\|\.mastery\s*>=\|\.mastery\s*<"
 Gates, idor-proof, and the preview + production walks continue in Phase 8.
 
 ### NOTES FOR PACKAGE C — what the placement report / Star Check-In should reuse
-IN PROGRESS
+
+- **`isRealMastery(mastery, attemptCount)`** (`src/lib/masteryCalibration.js`)
+  is the one place "mastered" is defined now — any placement-report or
+  Star Check-In surface that needs to say a word is truly known should
+  import this, not re-derive a `mastery >= 80` check. If Package C needs a
+  *different* threshold/floor for its own purpose, don't overload this
+  function's semantics — add a second named export with its own constant,
+  same file, same reasoning this run used for `MASTERED_THRESHOLD`/
+  `MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION`.
+- **Server/client predicate-sync pattern**: if Package C's server-side
+  logic (Vercel function, CommonJS) needs the same "real mastery" check
+  and can't cleanly `require()` an ES module, mirror the constant with a
+  named check script asserting numeric identity (this run's
+  `scripts/check-mastery-predicate-sync.mjs`, wired into `npm run build`)
+  rather than trusting two independently-maintained literals to stay in
+  sync by convention alone.
+- **New `product_events` event types need TWO changes, not one** — this
+  run's own hard-won lesson, caught only by recovery-time live
+  verification against a real deploy: adding a new event name to a
+  client-facing allowlist (e.g. `api/track.js`'s `EVENT_SCHEMAS`) is not
+  sufficient by itself. The `product_events_event_type_check` CHECK
+  constraint (`supabase/migrations/0034_launch_analytics.sql`, extended by
+  this run's `0035`) must be updated in the SAME change, or every insert
+  of the new type silently fails (the write path is deliberately
+  fire-and-forget and only `console.error`s, so the API keeps returning
+  200 while nothing lands). If Package C introduces any new telemetry
+  event, grep for `product_events_event_type_check` first and update it
+  in the same migration as the code that starts writing the new type —
+  don't rely on local testing to catch this, since local dev serves no
+  `/api` routes and can't exercise this failure mode at all; it only
+  surfaces against a real deployment.
+- **Local-fallback vs. real-server selection can genuinely diverge** —
+  `sessionPlanFallbackUnit.js`'s local-only `buildSupabaseFallbackPlan`
+  sorts a unit's words ascending by *raw* mastery and slices to 6; the
+  real `api/session-generator.js` path uses an unsorted filter with a
+  looser 8-item cap. For an 8-word unit, a word that just crossed 100% raw
+  mastery on its first attempt can be excluded from the local fallback's
+  very next batch while remaining fully selectable server-side — a
+  disclaimed, accepted gap in the fallback (not a bug), but worth knowing
+  before writing a local Playwright spec that assumes a word stays
+  reachable across multiple batches: either pre-master the other words in
+  its unit (this run's own `pedagogy-calibration.spec.js`/
+  `pedagogy-preview-walk.spec.js` fixture pattern) or test that specific
+  claim only against a real deployed preview.
+- **Scaffold-down's tier map** (`getEligibleActivities(word)[0]`,
+  `PlayScreen.jsx`) is derived from the existing rank-ordered eligibility
+  list, not hand-authored — if Package C's placement/Star Check-In logic
+  needs to know "the easiest valid activity for word X," reuse this
+  function rather than re-deriving the has_art/rhyme/find-the-word
+  fallback chain independently.
 
 ## RECOVERY AUDIT 2026-07-07T18:31:45Z
 
@@ -427,7 +480,51 @@ a systemic gap. Found via a direct `auth.users` query, deleted via
 
 **User approved merge + push to main.** Merged `feat/pedagogy-calibration`
 into `main` with `--no-ff` (merge commit message includes the full mission
-summary + recovery note), pushed `origin main` at `633d68e`. Deployment
-check on that exact SHA in progress (GitHub commit-status API, not the
-Vercel MCP) — result to follow, then the production walk against the real
-production URL.
+summary + recovery note), pushed `origin main` at `633d68e`.
+
+**Deployment check on `633d68e`** (GitHub commit-status API, not the
+Vercel MCP): `state: "success"`.
+
+**Production walk: 2/2 passed** against `https://200magicwordsapp.com`
+(`pedagogy-preview-walk.spec.js`'s default `DEPLOY_BASE_URL`) — the same
+one-tap-word journey and reviewOnly Quiz Boss checks that passed against
+the preview also pass against real production now that main is deployed.
+
+**`idor-proof.mjs` re-run against production** (`DEPLOY_BASE_URL` set
+explicitly): **ALL CHECKS PASSED**, including the `scaffold_down` childId
+checks — confirms migration 0035 took effect in the one production
+database (Supabase has no separate prod/preview split for this project,
+per the standing documented gap in `CLAUDE.md`), and the fix holds under
+the real production deployment, not just the preview build.
+
+**Final residue check**: queried `auth.users` for
+`nextgenprecisiondrones+mwpreviewwalk*` after the production walk — zero
+rows. Every test account this recovery session created (preview walk x2,
+production walk, idor-proof x3 total runs) cleaned up correctly except
+the one already-documented timeout-abort case above, which was found and
+manually deleted before this final check.
+
+## FINAL STATUS
+
+**DONE.** Recovery completed successfully: the kill occurred before any
+merge or push, no residue existed from the original run, and Phase 8 was
+resumed and carried through to completion rather than re-started from
+scratch. Along the way, this recovery pass found and fixed two real,
+previously-uncaught problems that predate or were introduced by the
+original run:
+1. A regression in 3 unrelated pre-existing Playwright specs
+   (`fill-the-story`, `find-the-word`, `story-time-chrome`) whose fixtures
+   relied on the pre-Phase-3 mastery predicate — fixed, verified 65/65.
+2. A genuine bug in this run's own Phase 5 work — `scaffold_down`
+   telemetry silently failing to write due to a CHECK constraint never
+   updated for the new event type — fixed via migration 0035, verified
+   against both the preview and production.
+
+All Phase 8 gates are green: build, no-emoji, idor-proof (local, preview,
+and production), full Playwright suite (65/65), preview walk (2/2), and
+production walk (2/2). `feat/pedagogy-calibration` is merged into `main`
+(`633d68e`) and deployed to production, verified live. No outstanding test
+accounts. This report is committed on `main`; **the final `git push origin
+main` covering this closing report update is the last action of this
+run — self-certified done as part of that same push, per the standing
+convention.**
