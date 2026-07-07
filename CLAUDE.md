@@ -644,3 +644,9 @@ genuinely transparent, not just "appears to match the cream bg by luck."
 - You are always launched from ~/magic-words; never prefix commands with `cd ~/magic-words &&` — you are already there.
 - For production DB queries, write the SQL to a file with the Write tool, then run `node scripts/db-query.mjs <file.sql>`. NEVER build bash commands that combine $() token substitution with JSON heredocs — that shape triggers an unavoidable "expansion obfuscation" permission prompt.
 - For production DB queries: write SQL to a file, then `node scripts/db-query.mjs <file.sql>`. For test users: `node scripts/admin-user.mjs create <prefix>` / `delete <id>`. NEVER build bash that combines $() substitution with JSON heredocs, inline admin curl, or `&` backgrounding — those shapes trigger unavoidable permission prompts.
+
+## Context handoff
+If context runs low or auto-compact fires mid-run: finish only the current step, update the run's report file with a "CONTEXT HANDOFF" note (branch, SHA, exact next action), commit it, then tell Sal to exit and start a fresh session. Never begin a new phase after compaction.
+
+## One Claude client per Chrome
+Extension-driven browser steps require exclusive control of Chrome. Before any live walk, confirm no other Claude client (Desktop, Cowork, or another CLI session) is attached. If a foreign Claude tab group exists or tabs change state this session didn't cause: STOP and wait for Sal — never continue into contention. Playwright steps are exempt (they run their own browser instance).
