@@ -424,3 +424,10 @@ session (including the two later, passing runs) cleaned up correctly via
 its own `finally` block — this was specifically a timeout-abort case, not
 a systemic gap. Found via a direct `auth.users` query, deleted via
 `admin-user.mjs delete` using its recovered id. Re-queried: clean.
+
+**User approved merge + push to main.** Merged `feat/pedagogy-calibration`
+into `main` with `--no-ff` (merge commit message includes the full mission
+summary + recovery note), pushed `origin main` at `633d68e`. Deployment
+check on that exact SHA in progress (GitHub commit-status API, not the
+Vercel MCP) — result to follow, then the production walk against the real
+production URL.
