@@ -6,7 +6,8 @@
 ## STEP 0 — RUN TIMING
 
 - Start: 2026-07-06
-- Status: IN PROGRESS
+- End: 2026-07-07 (follow-up approval + ship completed same continued session)
+- Status: DONE
 
 ## PHASE 1 — Validation checklist
 
@@ -195,36 +196,68 @@ fixtures needed updating.**
 
 ## PHASE 5 — Ship
 
-Status: PARTIAL — merged locally, **stopped for approval before push** per
-constraint 3
+Status: DONE
 
 `git merge --no-ff content/manifest-r1` completed cleanly into local
-`main` (commit `3061159`). Everything past this point — push, deployment
-check, production bundle-string verification, and the automation-Chrome
-smoke pass — requires the actual live deployment to have updated, which
-can't happen before the push itself, so those steps are blocked on the
-approval stop below.
+`main` (commit `3061159`). Sal then approved both proposed alternatives
+(Phase 3b above) via a follow-up commit (`15a0d48`) directly on `main` —
+the original merge was not rewritten.
 
-**Approval-stop flag, per constraint 3**: local `main` is currently **6
-commits ahead of `origin/main`**, not just this run's 4. The prior
-`DEVICE_SESSION_PREP.md` run's commit (`63bdb13`,
-"docs(device-prep): automate manifest audit...") was left committed but
-unpushed on local main at that run's own approval stop — **a `git push
-origin main` now will carry that commit along with this run's**. Flagging
-explicitly rather than silently bundling it in.
+**Push — approved, including the hitchhiking commit**: local `main` was 6
+commits ahead of `origin/main` at the approval stop (this run's 4 plus the
+previously-unpushed `DEVICE_SESSION_PREP.md` commit `63bdb13` from the
+prior run), flagged explicitly per constraint 3. User approved pushing all
+of it. `git push origin main` succeeded: `70fdbd8..15a0d48 main -> main`.
+
+**Deployment check** (FIX R1 convention): `gh api
+repos/.../commits/15a0d48/status` → Vercel status `"success"` /
+`"Deployment has completed"` — no stuck-deployment incident this time (see
+`docs/FIX_R1_REPORT.md` for what that failure mode looks like when it
+does happen).
+
+**Production bundle-string verification**: fetched the live served bundle
+(`https://200magicwordsapp.com/` → `index-tn-GHzks.js` →
+`CandyGalaxyShell-CyZBc6Hc.js`, the lazy-loaded chunk containing the
+manifest data) and grepped it directly (quote-aware, not a raw substring
+match, to avoid false hits on short strings like "am"):
+- **All 19 applied replacements present** as literal string values:
+  `sight`, `night`, `cooker`, `thirsty`, `am`, `if`, `sick`, `dizzy`,
+  `banner`, `hear`, `zest`, `greet`, `pretzel`, `deer`, `apply`, `ripple`,
+  `lead`, `bead`, `frown`.
+- **All 14 removed words confirmed absent**: `bookie`, `flirty`, `piazza`,
+  `manna`, `hearth`, `zeal`, `preen`, `council`, `doer`, `ample`, `amble`,
+  `eighth`, `eighty`, `drown` — none found in the served production bundle.
+
+This is string-level proof the edited content is actually live, not just
+merged/pushed.
+
+**Find-the-Word smoke pass** (automation Chrome, against production):
+provisioned a disposable account + child (`manifestr1smoke...`), seeded
+`learning_events` for `word_match`/`word_hunt`/`rhyme_time` on "cat" to
+unlock Find the Word without a grind (same non-code technique as the
+`DEVICE_SESSION_PREP` run), then loaded the real activity. Rendered
+exactly as expected against the **untouched** `cat: ['bat','hat','cap']`
+entry (four tiles: cat/cap/bat/hat), tapping the correct tile advanced
+cleanly to the next question (`dog`, also untouched:
+`dig`/`dog`/`fog`/`dot`) — no visual regressions, no crashes. Test account
+deleted afterward; `child_profiles`/`word_progress`/`learning_events` rows
+confirmed cascaded to zero via direct query.
 
 ## COMPLETION
 
-Status: BLOCKED ON APPROVAL (push) — everything else done
+Status: DONE
 
-**Per-row outcome**: 17 APPLIED (7 primary as listed, 10 via the table's
-own fallback), 2 UNRESOLVED:
-- Row 5 (`a`/`I`): both primary (`at`, collided) and fallback (`as`, passed
-  manual review but failed the build-wired inflection-heuristic gate)
-  failed. Left as `I`. Proposed alternative for Sal: **`am`**.
-- Row 11 (`zero`/`zeal`): both primary (`hero`) and fallback (`zebra`)
-  already existed elsewhere in the same entry. Left as `zeal`. Proposed
-  alternative for Sal: **`zest`**.
+**Per-row outcome**: all 19 rows resolved — **19 APPLIED** (7 primary as
+listed, 10 via the table's own fallback, 2 via Sal-approved alternatives
+after both the primary and fallback failed):
+- Row 5 (`a`/`I` → **`am`**): primary `at` collided in-entry; fallback `as`
+  failed the build-wired inflection-heuristic gate. Sal approved `am`,
+  re-validated and gate-clean.
+- Row 11 (`zero`/`zeal` → **`zest`**): both primary (`hero`) and fallback
+  (`zebra`) already existed elsewhere in the entry. Sal approved `zest`,
+  re-validated and gate-clean.
+
+Zero UNRESOLVED rows remain.
 
 **Accepted, no code change**: `because/cause`, plus all remaining
 ODD-flagged distractors not in the edit table (`colon`, `mellow`, `bellow`,
@@ -237,22 +270,27 @@ has exactly 200 unique keys backed by exactly 200 literals (was 204).
 
 **Integrity results**: custom mechanical check (200 keys, 3 distractors
 each, no self-matches, no in-entry duplicates, no empty strings) — all
-passed. Build-wired `check-findtheword-sync.mjs` — passed (and is what
-caught row 5's fallback problem before it shipped).
+passed, re-confirmed after the Phase 3b follow-up. Build-wired
+`check-findtheword-sync.mjs` — passed (and is what caught row 5's original
+fallback problem before it shipped).
 
 **Gate results**: `npm run build` green, `npm run check:no-emoji` green,
 `eslint` on the touched file clean (repo-wide lint has 158 pre-existing,
 unrelated test-file problems — confirmed not a new category), full
-Playwright suite **41/41 passed**.
+Playwright suite **41/41 passed**; `find-the-word.spec.js` re-run again
+after the Phase 3b follow-up (2/2 passed).
 
-**Production verification**: not yet run — blocked on the push approval
-stop below (bundle hash / string-level grep / smoke pass all require the
-live deployment to reflect this merge first).
+**Production verification**: deployment succeeded (Vercel status
+`success`); production bundle string-checked directly — all 19 applied
+replacements present, all 14 removed words absent; Find-the-Word
+smoke-tested live in automation Chrome against an untouched entry (`cat`),
+rendering unchanged, no regressions.
 
-**Next action needed from you**: approve `git push origin main`. This will
-push both this run's 4 commits AND the previously-unpushed
-`DEVICE_SESSION_PREP.md` docs commit (`63bdb13`) sitting ahead of it on
-local main. Once pushed, I'll run the deployment check, production
-bundle-string verification (`bandana`/`rookie`/`cooker`/etc. present,
-`bookie`/`flirty`/`piazza`/etc. absent), and the automation-Chrome
-Find-the-Word smoke pass, then update this report to DONE.
+**Ship summary**: merged `content/manifest-r1` → `main` (`--no-ff`,
+`3061159`), Sal-approved alternatives applied as a follow-up commit
+(`15a0d48`, merge not rewritten), pushed to `origin/main` (carrying the
+previously-unpushed `DEVICE_SESSION_PREP.md` commit along, as flagged and
+approved). Test accounts (both the manifest-audit account from the prior
+run's Phase 2/3 and this run's smoke-test account) fully deleted and
+cascade-verified. No product code file other than
+`src/games/findTheWordManifest.js` was touched.
