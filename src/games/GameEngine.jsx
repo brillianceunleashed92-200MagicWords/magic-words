@@ -1093,13 +1093,16 @@ export function GameEngine({
     const newWordsPlayed = [...wordsPlayed, { word: currentQuiz.word, correct }];
     setWordsPlayed(newWordsPlayed);
 
-    // Report progress to parent (saves to Supabase)
+    // Report progress to parent (saves to Supabase). attempt_number is
+    // computed by PlayScreen.handleProgress itself from the mutation's own
+    // return value (FEAT_PEDAGOGY_CALIBRATION_R1 Phase 4) — this used to
+    // pass a hardcoded, never-read `attemptNumber: 1` here, which looked
+    // wired but wasn't.
     onProgress?.({
       word:          currentQuiz.word,
       correct,
       responseTimeMs,
       gameType,
-      attemptNumber: 1,
     });
 
     setEncouragIdx(i => i + 1);

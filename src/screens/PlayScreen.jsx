@@ -114,6 +114,16 @@ export default function PlayScreen({ focusWord, onExit }) {
     // Fire-and-forget with respect to gameplay pacing (not awaited here —
     // the child's next question is never blocked on this), but tracked so
     // handleSessionEnd can wait for it before trusting a subsequent read.
+    // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 4 — attempt_number was previously
+    // always hardcoded to 1, regardless of how many times this word had
+    // actually been attempted. `result` (above) is the just-upserted
+    // word_progress row `saveWordProgress.mutateAsync` already awaited, so
+    // `result.attempt_count` is the word's true running attempt index at
+    // the moment of THIS write — no extra session-local counter needed,
+    // since the mutation's own `.select().single()` return value is
+    // already the authoritative post-write count. Reliable from this
+    // deploy forward only; historical rows are not backfilled (see
+    // ATTEMPT_NUMBER section of the report).
     const insertPromise = supabase.from('learning_events').insert({
       user_id: user?.id,
       child_id: childId,
@@ -121,7 +131,7 @@ export default function PlayScreen({ focusWord, onExit }) {
       game_type: playedGameType ?? gameType,
       correct,
       response_time_ms: responseTimeMs ?? null,
-      attempt_number: 1,
+      attempt_number: result.attempt_count,
     }).then(({ error }) => { if (error) console.error('[learning_events]', error.message); });
     pendingLearningEventsRef.current.push(insertPromise);
 

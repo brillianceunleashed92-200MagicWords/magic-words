@@ -45,7 +45,14 @@ Grep-complete (`grep -rn "MASTERED_THRESHOLD\s*=\|\.mastery\s*>=\|\.mastery\s*<"
 IN PROGRESS
 
 ### ATTEMPT_NUMBER — schema finding, writer change, forward-only reliability note
-IN PROGRESS
+
+**Schema finding**: `learning_events.attempt_number` already exists (`integer`, nullable, no default) — confirmed via `information_schema.columns`, not assumed. No migration needed; rule 4's STOP-and-report-a-migration branch does not fire.
+
+**Current writes (before this run)**: hardcoded `attempt_number: 1` on every single insert (`PlayScreen.jsx`'s `handleProgress`), regardless of how many times the word had actually been attempted — the column existed but was never actually populated meaningfully. A second, entirely dead copy of the same hardcoded value (`attemptNumber: 1`) was also passed from `GameEngine.jsx`'s `onProgress` call, upstream of `handleProgress` — `handleProgress`'s destructured parameters never read it, so it silently went nowhere. Removed rather than left as misleading dead code that looks wired but isn't.
+
+**Writer change**: `handleProgress` already awaits `saveWordProgress.mutateAsync({ word, correct })` (`useSaveWordProgressMutation`) before firing the `learning_events` insert, and that mutation's return value (`result`, from its own `.select().single()`) already carries the word's true post-write `attempt_count` — the exact "running attempt index at write time" Phase 4 asks for. No extra session-local counter was needed: `attempt_number: result.attempt_count` is both simpler and provably correct, since it comes directly from the same DB write whose ordering guarantee (the mutation is `await`ed before the insert fires, every single call) is what makes the value trustworthy in the first place.
+
+**Forward-only reliability**: per rule 4, historical `learning_events` rows are **not** backfilled — every row written before this deploy keeps its literal `attempt_number: 1`, regardless of the word's actual attempt history at the time. Any future feature reading `attempt_number` must treat it as reliable only for rows recorded from this deploy forward (a `recorded_at` cutoff, not a schema flag — no column exists to distinguish "reliable" from "legacy" rows other than the deploy timestamp itself, noted here for whoever needs it next).
 
 ### PACKAGE A COUPLING — truncation guard + tests
 IN PROGRESS
