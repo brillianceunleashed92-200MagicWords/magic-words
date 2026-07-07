@@ -329,3 +329,61 @@ at — it needs an actual preview deployment of `feat/pedagogy-calibration`,
 not production, to validate for real. Proceeding to push the branch (not
 `main` — no approval gate applies to a non-main push per this project's
 own standing rule) to get that preview build.
+
+**User confirmed pushing the branch (not `main`) before this proceeded.**
+Pushed `feat/pedagogy-calibration` to origin at `a2227ea`. Deployment
+check via the GitHub commit-status API (not the Vercel MCP, per
+convention): `state: "success"`, environment URL
+`https://magic-words-migqvoten-brillianceunleashed92-6054s-projects.vercel.app`.
+
+**Preview walk, for real this time: 2/2 passed** against that URL. The
+one-tap-word journey correctly stayed on "cat" through attempts 1-2,
+crossed real mastery at attempt 3, and the Galaxy count agreed (8/200).
+The reviewOnly Quiz Boss test confirmed the real server-side spaced-
+repetition selection surfaces the actual due-for-review word — something
+no local spec can prove, since local dev's fallback has no reviewOnly
+concept at all (documented trap, `quiz-boss.spec.js`'s own comment).
+
+**`idor-proof.mjs` re-run against the same preview (`DEPLOY_BASE_URL` set)
+— found a real, previously-undiscovered bug.** This was the first time the
+Phase-5 `scaffold_down` childId checks (added by commit `03e75c5`) could
+ever actually execute against anything — they're gated inside
+`if (deployBase)` and this branch had never been deployed until now.
+Result: **1 check failed** — "track: A's own real childId IS attached to
+the written row."
+
+Investigated rather than assumed a test bug. Queried `product_events`
+directly for `event_type = 'scaffold_down'` rows: **zero exist, for either
+of the two scaffold_down calls this pass made** (the forged-childId one
+and the own-childId one). The "forged childId is dropped" check had
+*passed*, but only vacuously — `forgedChildRows?.[0]?.child_id !==
+b.childId` is `true` when `forgedChildRows` is an empty array just as much
+as when the row exists and is correctly null; the second check
+(`ownChildRows?.[0]?.child_id === a.childId`) is a positive assertion that
+can't pass vacuously, which is exactly why it caught what the first check
+structurally couldn't.
+
+Root cause, confirmed via `pg_get_constraintdef`, not guessed: migration
+`0034_launch_analytics.sql` added `product_events_event_type_check` as
+`CHECK (event_type = ANY (ARRAY['placement_started', 'placement_completed',
+'placement_skipped', 'placement_retaken', 'paywall_viewed',
+'checkout_started']))` — **`scaffold_down` was never added to this list.**
+`api/track.js`'s `EVENT_SCHEMAS` allowlist (client-facing validation) knows
+about `scaffold_down` and accepts it; the database's own CHECK constraint
+does not. Every `scaffold_down` insert has been violating that constraint
+and failing since Phase 5 landed — invisible until now because
+`logProductEvent` (`api/_lib/productEvents.js`) is deliberately
+fire-and-forget and only `console.error`s on failure, so `/api/track`
+still returns 200 while the row silently never lands. `product_events` has
+no foreign-key constraints to `auth.users`/`child_profiles` (confirmed via
+`pg_constraint`), so this wasn't masked by cascade-delete cleanup either —
+the rows just never existed in the first place.
+
+This is a real gap in this run's own Phase 5 work, not a pre-existing
+issue and not a test bug — confirmed by reading the actual constraint
+definition, not inferred from the test failure alone. **Fix**: new
+migration `supabase/migrations/0035_product_events_scaffold_down.sql`,
+adding `'scaffold_down'` to the same CHECK constraint, same pattern as
+migration 0034 itself. Per standing rule, `supabase db push` requires
+explicit approval before running — requesting that now, this is the one
+remaining blocker before Phase 8's gates can be called fully green.
