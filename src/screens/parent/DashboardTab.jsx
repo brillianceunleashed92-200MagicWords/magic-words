@@ -1,9 +1,16 @@
+import { lazy, Suspense } from 'react';
 import { colors, fonts, shadows } from '../../theme/tokens';
 import { useCandyGalaxyData } from '../../lib/useCandyGalaxyData';
 import { useWeeklyStatsQuery } from '../../lib/queries/weeklyStats';
 import { useParentDigest } from '../../lib/queries/parentDigest';
 import { FREE_TIER_MAX_UNIT } from '../../lib/queries/subscription';
 import UpgradeBanner from './UpgradeBanner';
+
+// Lazy so recharts (Progress section's only reason to exist) never ships
+// in the shared CandyGalaxyShell chunk a child playing Home/Play/Galaxy
+// also downloads — see docs/PARENT_METRICS_REPORT.md Phase 0's
+// chunk-boundary finding.
+const ProgressCharts = lazy(() => import('./ProgressCharts'));
 
 const UPGRADE_PROMPT_THRESHOLD = 20;
 
@@ -51,6 +58,12 @@ export default function DashboardTab() {
           Takes priority over the mastered-words banner below when both
           would apply, so a placed-above-5 child doesn't see two
           competing upgrade pitches. */}
+      {activeChild && (
+        <Suspense fallback={<div style={{ fontFamily: fonts.body, color: colors.mutedInk, padding: '12px 0' }}>Loading progress…</div>}>
+          <ProgressCharts childId={activeChild.id} words={words} />
+        </Suspense>
+      )}
+
       {plan !== 'family' && (activeChild?.measured_unit ?? activeChild?.placement_unit) > FREE_TIER_MAX_UNIT ? (
         <UpgradeBanner
           variant="prominent"

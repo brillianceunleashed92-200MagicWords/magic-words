@@ -22,27 +22,9 @@ import { getEligibleActivities } from '../lib/activityDefs';
 import { useTodayWordActivityQuery, summarizeTodayActivity } from '../lib/queries/questProgress';
 import { useQueryClient } from '@tanstack/react-query';
 import { IconSpark, IconArrow } from '../components/icons';
+import { isRealMastery } from '../lib/masteryCalibration';
 
-const MASTERED_THRESHOLD = 80;
-// A brand-new word's very first correct answer computes to 100% mastery
-// under the cumulative-accuracy formula (correct_count/attempt_count —
-// 1/1 = 100%), so gating the star-ignition celebration on raw mastery
-// crossing 80% alone fires on nearly every answer during initial
-// vocabulary learning (confirmed live: 5/5 fresh words each triggered the
-// celebration on their first correct tap; a word with real attempt
-// history that stayed below threshold correctly did not re-fire — the
-// transition check itself is sound, the mastery value it reads just isn't
-// meaningful yet at attempt_count 1). Requiring a minimum attempt count
-// before "mastered" counts for celebration purposes directly addresses
-// "one tap ≠ mastery" without touching the stored mastery formula itself
-// (other systems — Parent dashboard, Word Galaxy, unit-lock checks — read
-// that value and are out of scope here).
-const MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION = 3;
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
-
-function isRealMastery(mastery, attemptCount) {
-  return mastery >= MASTERED_THRESHOLD && (attemptCount ?? 0) >= MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION;
-}
 // Fixed bonus for finishing every eligible activity in a word's guided
 // path for the day — comfortably under earn_sparks' 500/call cap
 // (migration 0015), clearly bigger than a typical single-session award

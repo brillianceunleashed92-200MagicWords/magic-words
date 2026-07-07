@@ -1,6 +1,7 @@
 import { IconSpeaker, IconSearch, IconBook, IconMic, IconSpark, IconTrophy } from '../components/icons';
 import { InterestMusic, InterestArt } from '../components/icons/InterestGlyphs';
 import { RHYME_MAP } from '../games/GameEngine';
+import { ACTIVITY_LABELS } from './activityLabels';
 
 // Single source of truth for the 11 Candy Galaxy activities — moved out of
 // PlayScreen.jsx (which used to declare this array inline with zero
@@ -14,19 +15,19 @@ import { RHYME_MAP } from '../games/GameEngine';
 // secondary annotation rather than reordering the path (see
 // docs/OPTION_B_BUILD_REPORT.md's Decisions log for why).
 export const ACTIVITY_DEFS = [
-  { id: 'word_match',    label: 'Tap & Hear',      Icon: IconSpeaker,  rank: 1 },
-  { id: 'word_hunt',     label: 'Word Hunt',       Icon: IconSearch,   rank: 2 },
-  { id: 'rhyme_time',    label: 'Match & Sort',    Icon: InterestMusic, rank: 3 },
+  { id: 'word_match',    label: ACTIVITY_LABELS.word_match,    Icon: IconSpeaker,  rank: 1 },
+  { id: 'word_hunt',     label: ACTIVITY_LABELS.word_hunt,     Icon: IconSearch,   rank: 2 },
+  { id: 'rhyme_time',    label: ACTIVITY_LABELS.rhyme_time,    Icon: InterestMusic, rank: 3 },
   // Prompt 6: replaces Word Song (a Web Speech "chant" placeholder with no
   // real task — always reported correct:true). Find the Word is Dr.
   // Blank's own technique: hear the whole word, find it among look-alikes.
-  { id: 'find_the_word', label: 'Find the Word',   Icon: InterestMusic, rank: 4 },
-  { id: 'flash_cards',   label: 'Quiz Boss',       Icon: IconTrophy,   rank: 5 },
-  { id: 'story_time',    label: 'Story Time',      Icon: IconBook,     rank: 6 },
-  { id: 'story_builder', label: 'Fill the Story',  Icon: IconBook,     rank: 7 },
-  { id: 'word_builder',  label: 'Word Builder',    Icon: IconSpark,    rank: 8 },
-  { id: 'say_it',        label: 'Say It with Nova', Icon: IconMic,     rank: 9 },
-  { id: 'draw_it',       label: 'Draw It',         Icon: InterestArt,  rank: 10 },
+  { id: 'find_the_word', label: ACTIVITY_LABELS.find_the_word, Icon: InterestMusic, rank: 4 },
+  { id: 'flash_cards',   label: ACTIVITY_LABELS.flash_cards,   Icon: IconTrophy,   rank: 5 },
+  { id: 'story_time',    label: ACTIVITY_LABELS.story_time,    Icon: IconBook,     rank: 6 },
+  { id: 'story_builder', label: ACTIVITY_LABELS.story_builder, Icon: IconBook,     rank: 7 },
+  { id: 'word_builder',  label: ACTIVITY_LABELS.word_builder,  Icon: IconSpark,    rank: 8 },
+  { id: 'say_it',        label: ACTIVITY_LABELS.say_it,        Icon: IconMic,      rank: 9 },
+  { id: 'draw_it',       label: ACTIVITY_LABELS.draw_it,       Icon: InterestArt,  rank: 10 },
   // Prompt 6: Magic Video cut entirely — non-functional stub, never had
   // real produced video content, removed from the rotation rather than
   // left as permanent placeholder theater.
