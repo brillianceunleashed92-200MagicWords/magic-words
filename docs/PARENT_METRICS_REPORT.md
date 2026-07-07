@@ -5,10 +5,10 @@
 
 ### RUN TIMING
 - Start: 2026-07-07 (see commit timestamps for exact times)
-- End: 2026-07-07, merged to `main` locally (`--no-ff`), pending
-  `git push origin main` approval per the doc's rule 6.
-- Total wall-clock: single session, Phases 0-5 (recon through merge)
-- Status: **DONE**, pending push approval — see FINAL STATUS below.
+- End: 2026-07-07 — pushed to `origin/main`, deployment verified, production
+  walk complete, test accounts cleaned up.
+- Total wall-clock: single session, Phases 0-5 (recon through ship)
+- Status: **DONE**
 
 ## PHASE 0 — RECON
 
@@ -403,14 +403,26 @@ new export, download, or third-party transmission path was added.
 ### FINAL STATUS
 
 All 5 phases (recon, mastery-crossing purity proof, data layer, UI,
-fixtures/tests) complete. Gates green (build, 5 sync checks, 60/60
-Playwright, `idor-proof.mjs`). Merged `feat/parent-metrics` -> `main`
-locally with `--no-ff`; build re-verified clean on `main` post-merge.
-**Stopped here for explicit approval before `git push origin main`**, per
-this run's own rule 6 and the standing house rule that `git push origin
-main` is a manually-approved action. No `supabase db push` is needed —
-this run made zero schema changes. Once pushed, the remaining steps are:
-confirm the Vercel deployment for the merge SHA goes `pending` ->
-`success` (checked within ~3 minutes, not polled silently past 5), walk
-the live production Dashboard on a fresh disposable account, then delete
-that account and cascade-verify.
+fixtures/tests) complete and shipped. Gates green (build, 5 sync checks,
+60/60 Playwright, `idor-proof.mjs`). Merged `feat/parent-metrics` -> `main`
+locally with `--no-ff`, build re-verified clean, pushed to `origin/main`
+after explicit user approval (SHA `2afd8491c1c57d6f7d2cfb0f53b440ee53ba8a25`).
+Vercel deployment for that SHA went `pending` -> `success` (checked ~2.5
+minutes after push, well within the 5-minute silent-poll limit). No
+`supabase db push` was needed — this run made zero schema changes.
+
+**Production walk**: a fresh disposable account (`+prodwalk…`) with one
+child seeded with a small amount of real data (3 words, 15 events, review
+dates 2/5/9 days out) confirmed all 6 charts render correctly live on
+`200magicwordsapp.com` — Words learned per week, Practice heatmap,
+Accuracy by activity, Answer-speed trend, Review-due forecast, and Unit
+progress all show real data matching the seed (a first per-chart pass
+under-counted — the full-page screenshot's JPEG compression made two
+charts' bars easy to miss at a glance; a cropped per-card screenshot
+confirmed both were rendering correctly all along, not a rendering bug).
+Test account deleted and cascade-verified (0 remaining `child_profiles`
+rows) immediately after.
+
+This run is complete. Packages B (calibration gate) and C (placement
+report / Star Check-In) can build on the seams noted above whenever they
+'re picked up next.
