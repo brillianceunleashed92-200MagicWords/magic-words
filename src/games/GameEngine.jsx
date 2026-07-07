@@ -1044,6 +1044,10 @@ export function GameEngine({
   const sessionStartRef = useRef(Date.now());
   const sessionXPRef    = useRef(0);
   const xpToastIdRef    = useRef(0);
+  // FIX_CELEBRATION_R1 — most recent onProgress call's promise, so
+  // handleExitEarly (a manual close, not the natural last-question path)
+  // can also wait for its mastery-crossing check before navigating away.
+  const lastProgressPromiseRef = useRef(null);
 
   const currentQuiz = quizzes[currentIdx];
   const totalQuizzes = quizzes.length;
@@ -1098,12 +1102,19 @@ export function GameEngine({
     // return value (FEAT_PEDAGOGY_CALIBRATION_R1 Phase 4) — this used to
     // pass a hardcoded, never-read `attemptNumber: 1` here, which looked
     // wired but wasn't.
-    onProgress?.({
+    //
+    // FIX_CELEBRATION_R1 — the returned promise is captured (not awaited
+    // here) so mid-session pacing stays exactly as fast as before; it's
+    // only awaited below, and only on the session's LAST question, right
+    // before onSessionEnd would otherwise swap this activity's screen out
+    // from under handleProgress's still-in-flight mastery-crossing check.
+    const progressPromise = onProgress?.({
       word:          currentQuiz.word,
       correct,
       responseTimeMs,
       gameType,
     });
+    lastProgressPromiseRef.current = progressPromise;
 
     setEncouragIdx(i => i + 1);
 
@@ -1139,6 +1150,15 @@ export function GameEngine({
     if (currentIdx + 1 >= totalQuizzes) {
       const isPerfect = newCorrect === totalQuizzes;
       const totalXP = sessionXPRef.current + 20 + (isPerfect ? 50 : 0);
+      // FIX_CELEBRATION_R1 — wait for this last answer's own mastery-
+      // crossing check (PlayScreen.handleProgress, awaits a Supabase
+      // write) to finish BEFORE the screen swaps to Session Complete.
+      // Without this, a crossing detected after the swap queues its
+      // celebration onto the global CelebrationRenderer overlay
+      // orphaned from the answer that earned it — see
+      // docs/CELEBRATION_FIX_REPORT.md FORENSICS for the reproduced
+      // mechanism (ignition landing on an already-rendered screen).
+      await progressPromise;
       setSessionDone(true);
       onXP?.(totalXP);
       onSessionEnd?.({
@@ -1177,6 +1197,11 @@ export function GameEngine({
   // banking work is done, so nothing can race ahead of an in-flight write.
   const handleExitEarly = useCallback(async () => {
     stopCurrentAudio();
+    // FIX_CELEBRATION_R1 — same race as the natural-end path, via a
+    // different door: a manual close tapped right after answering must
+    // not navigate away before that last answer's own mastery-crossing
+    // check has resolved.
+    await lastProgressPromiseRef.current;
     if (!onExitEarly) { onHome?.(); return; }
     await onExitEarly({
       wordsCorrect: correctCount,

@@ -90,26 +90,28 @@ test("REPRO: mastery-crossing celebration decouples from its own answer when wor
       await expect(page.locator(`text=/Tap the picture of\\s+${word}/i`)).toBeVisible({ timeout: 10000 });
       const isLast = i === order.length - 1;
       if (isLast) {
-        // The moment of the crossing answer -- capture what's on screen
-        // in the seconds immediately after, before the delayed write
-        // resolves.
+        // The moment of the crossing answer -- poll finely to find the
+        // EXACT moment Session Complete first appears vs. the exact
+        // moment the ignition first appears. The bug is the GAP between
+        // them (Session Complete rendered fully before the ignition
+        // catches up); the fix's success criterion is that gap closing to
+        // ~0 (both appear in the same transition).
         await page.getByRole("button", { name: new RegExp(`^${word}\\b`, "i") }).click();
-        await page.waitForTimeout(1200);
-        const rightAfterAnswer = await page.locator("body").innerText();
-        console.log("--- STATE ~1.2s after crossing answer (before delayed write resolves) ---");
-        console.log(rightAfterAnswer.replace(/\s+/g, " ").slice(0, 400));
-        const hasIgnitionAlready = /star ignited/i.test(rightAfterAnswer);
-        console.log(`Ignition visible immediately (anchored to the answer)?  ${hasIgnitionAlready}`);
-
-        // Now wait past the delayed write's resolution and see where the
-        // ignition actually lands.
-        await page.waitForTimeout(3500);
-        const afterDelayedWrite = await page.locator("body").innerText();
-        console.log("--- STATE ~4.7s after crossing answer (delayed write has now resolved) ---");
-        console.log(afterDelayedWrite.replace(/\s+/g, " ").slice(0, 400));
-        const ignitionLandedLate = /star ignited/i.test(afterDelayedWrite) && !hasIgnitionAlready;
-        console.log(`Ignition landed AFTER the answer's own screen had already moved on? ${ignitionLandedLate}`);
-        expect(ignitionLandedLate || hasIgnitionAlready).toBe(true); // sanity: it fires at all
+        const start = Date.now();
+        let sessionCompleteAt = null;
+        let ignitionAt = null;
+        while (Date.now() - start < 6000 && (sessionCompleteAt === null || ignitionAt === null)) {
+          const text = await page.locator("body").innerText();
+          if (sessionCompleteAt === null && /Session Complete/i.test(text)) sessionCompleteAt = Date.now() - start;
+          if (ignitionAt === null && /star ignited/i.test(text)) ignitionAt = Date.now() - start;
+          await page.waitForTimeout(150);
+        }
+        console.log(`Session Complete first visible at: ${sessionCompleteAt}ms`);
+        console.log(`Ignition first visible at:         ${ignitionAt}ms`);
+        const gapMs = (ignitionAt ?? 6000) - (sessionCompleteAt ?? 0);
+        console.log(`Gap between Session Complete rendering and the ignition catching up: ${gapMs}ms`);
+        expect(sessionCompleteAt).not.toBeNull();
+        expect(ignitionAt).not.toBeNull();
       } else {
         await page.getByRole("button", { name: new RegExp(`^${word}\\b`, "i") }).click();
         await page.waitForTimeout(4500); // slow write on every question with this route delay

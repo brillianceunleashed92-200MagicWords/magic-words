@@ -82,7 +82,21 @@ Executing `docs/FIX_CELEBRATION_R1.md`. Branch: `fix/celebration-timing`.
 **Exact mechanism, with lines**: `GameEngine.jsx:1101` (`onProgress?.(...)`, not awaited) → `PlayScreen.jsx:115-168` (`handleProgress`, awaits a network call before detecting the crossing) racing against `GameEngine.jsx:1144` (`onSessionEnd?.(...)`, fires ~1s later regardless) → `PlayScreen.jsx:392-409` (screen swap to `SessionComplete`) → orphaned promise resolves later and calls `queueCelebration`, rendered by the global `CelebrationRenderer` (`CandyGalaxyShell.jsx:155`) on top of whatever is mounted by then, which can be a screen with no lesson chrome at all (`HomeScreen.jsx:59-67`'s bare loading gate) if navigation continued past Session Complete before the celebration fired.
 
 ## FIX — what shipped, per the pre-specified branch taken
-IN PROGRESS
+
+Verdict was H-BY-DESIGN, so Phase 3's H-BY-DESIGN containment (a)/(b)/(c) was implemented, plus the bare-gradient path closed either way per the prompt's own rule:
+
+**(a) Anchor the ignition to the qualifying answer's own celebration beat.** `src/games/GameEngine.jsx`:
+- `handleAnswer` now captures `onProgress`'s returned promise (`const progressPromise = onProgress?.(...)`) instead of firing it truly-forgotten. Mid-session pacing is untouched — the next question still advances (`setCurrentIdx`) without waiting on it.
+- Only on the session's **last** question does the code `await progressPromise` — immediately before `setSessionDone`/`onXP`/`onSessionEnd`. This guarantees `PlayScreen.handleProgress`'s mastery-crossing check (and any `queueCelebration` call) has already run before the screen can swap to Session Complete.
+- The same race exists via a second door — a manual close tapped right after answering (`handleExitEarly`), which doesn't go through the last-question branch at all. Added `lastProgressPromiseRef` (updated on every `handleAnswer` call) and `await lastProgressPromiseRef.current` at the top of `handleExitEarly`, before it calls `onExitEarly`.
+
+**(b) Defer-to-Session-Complete backstop.** `src/screens/PlayScreen.jsx`: a `sessionEndedRef`, set `true` at the top of both `handleSessionEnd` and `handleExitEarly`. The `wordMastered`/`unitBoss` `queueCelebration` calls are now gated on `!sessionEndedRef.current` — Session Complete's own `masteredThisSession` recap (already pushed to `masteredThisSessionRef` just above, unconditionally) still carries the word even when this guard trips. With (a) in place this should be unreachable in the primary path; kept as a backstop for any future caller of `queueCelebration` that doesn't offer (a)'s guarantee.
+
+**(c) At most one ignition per word per day.** New `src/lib/celebrationDedup.js` (`hasCelebratedToday`/`markCelebratedToday`, localStorage-keyed `mw:celebrated:{childId}:{word}:{YYYY-MM-DD}`). Deliberately client-side/localStorage, not a migration: cumulative mastery (`correct_count/attempt_count`) can dip below 80% after a later miss and legitimately re-cross the same day, and this is a presentation-rate-limit, not data any other device/the server needs to agree on — no schema change, no approval-gated migration needed for this branch (that requirement in the prompt is scoped to the H-REGRESSION branch).
+
+**Bare-gradient path — closed.** The mechanism was CelebrationRenderer (global, shell-level) rendering on whatever screen a *late, orphaned* `queueCelebration` call happened to land on. (a) removes the lateness/orphaning at the source — the celebration is now queued in the same synchronous flow that precedes the screen swap, so there is no window during which navigation can outrun it. Confirmed live (see VERIFICATION below): the gap between Session Complete first rendering and the ignition catching up went from **2815ms to 0ms** on the identical delayed-network repro.
+
+**Scope boundary, deliberately not touched**: the stored mastery formula, `isRealMastery`'s threshold/attempt floor, `pathComplete`/`streakMilestone` celebrations (already synchronously sequenced inside `handleSessionEnd`'s own await chain, not orphaned), and `CelebrationRenderer`'s own queue-draining mechanics.
 
 ## CLEANUP — accounts deleted, exclusions, before/after
 IN PROGRESS
