@@ -11,7 +11,9 @@ is still checked, but a same-session repro is the priority).
 ## STEP 0 — RUN TIMING
 
 - Start: 2026-07-07
-- Status: IN PROGRESS
+- End: 2026-07-07, same continued session (diagnosis, guard/test, ship,
+  and production verification all completed)
+- Status: DONE
 
 ## PHASE 1.0 — Reconcile repo state
 
@@ -261,8 +263,7 @@ convention. **42/42 effectively green.**
 
 ## PHASE 5 — Ship + prove on production
 
-Status: PARTIAL — gates green, merged locally, **stopped for approval
-before push**
+Status: DONE
 
 All gates re-confirmed green on the merge candidate: `npm run build`
 (now including the new `check-activitydefs-sync` gate), `npm run
@@ -271,14 +272,37 @@ repo-wide `'process' is not defined` error in the new test file — present
 in every other `tests/*.spec.js` file, confirmed not a new category).
 
 `git merge --no-ff fix/quest-progression` completed cleanly into local
-`main` (commit `84c31e5`). Local `main` is now 4 commits ahead of
-`origin/main`. **Approval needed for `git push origin main`** before the
-deployment check and production verify (replaying the repro on a fresh
-disposable account against the live site) can run.
+`main` (commit `84c31e5`). Approved and pushed: `git push origin main`
+(`0e69411..d18bee2`).
+
+**Deployment check**: Vercel status went `pending` → `success`
+("Deployment has completed") within ~20 seconds of the push — no
+stuck-deployment incident this time.
+
+**Production verify — replayed Phase 1's exact repro on a fresh
+disposable account against the live site**: seeded the same fixture as
+`tests/quest-progression.spec.js` (unit 1 mastered, unit 2's other words
+mastered, "frog" at 33%), confirmed via automation Chrome:
+- Home screen: `Nova mapped your next word-star: "frog"` — matches.
+- Play tab: `frog / 0 of 10 done today`, Tap & Hear "YOU'RE HERE!",
+  everything else locked — **exact match to Sal's original bug
+  screenshot**.
+- Played the real Tap & Hear session live (8 questions: frog, cat, dog,
+  bird, fish, bear, ball, book — production uses the real
+  `/api/session-generator`, not the local-dev fallback, so the batch
+  composition differed from the test's local-dev run, but included
+  "frog" as required either way) through to "Session Complete!"
+  ("frog" confirmed present in the "Words you practiced" list).
+- Clicked "Keep going" (in-app navigation, no reload): **`frog / 1 of 10
+  done today`, Word Hunt unlocked ("YOU'RE HERE!")** — correct, live, on
+  production.
+
+Test account deleted afterward; `child_profiles`/`word_progress`/
+`learning_events` rows confirmed cascaded to zero via direct query.
 
 ## COMPLETION
 
-Status: BLOCKED ON APPROVAL (push) — everything else done
+Status: DONE
 
 **Phase 1.0 reconciliation**: zero undocumented commits since CONTENT_R1's
 close-out. The "9 vs 10 activities" discrepancy the prompt doc worried
@@ -356,8 +380,8 @@ change** (constraint 1's explicit allowance — "that is a successful run"):
    a residual gap in what "ruled out" can mean without slowing down the
    repro to match a real child's actual tap cadence.
 
-**Next action needed from you**: approve `git push origin main` (4
-commits: Phase 1.0 reconciliation, the fix/no-fix commit, the prompt doc,
-and the merge). Once pushed, I'll run the deployment check and a
-production-replay of the repro (fresh disposable account, live site) to
-close out Phase 5, then update this report to DONE.
+**Shipped**: pushed to `origin/main` (`0e69411..d18bee2`), deployed
+successfully, and the exact repro was replayed live on production with
+correct results (see Phase 5). No further action needed unless Sal's
+symptom recurs — in which case, start from option 1 above (more specific
+repro detail, ideally a screen recording).
