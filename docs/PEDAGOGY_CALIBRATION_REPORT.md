@@ -412,3 +412,15 @@ carried over from before the kill):**
 Remaining before DONE: merge `--no-ff` to `main` (approval required),
 push `origin main` (approval required), deployment check on that SHA,
 production walk, test-account cleanup, final report + docs push.
+
+**Interim residue check on the preview-deployment test accounts.** Found
+1 orphaned account: `nextgenprecisiondrones+mwpreviewwalk1783451280415@
+gmail.com` — from the very first preview-walk sanity run against
+production, which hit Playwright's own hard 120s test-timeout (before the
+`getByRole(..., exact: true)` bug was fixed). A Playwright timeout aborts
+the test function rather than letting it unwind through its own
+`try/finally`, so that run's cleanup never ran. Every other run this
+session (including the two later, passing runs) cleaned up correctly via
+its own `finally` block — this was specifically a timeout-abort case, not
+a systemic gap. Found via a direct `auth.users` query, deleted via
+`admin-user.mjs delete` using its recovered id. Re-queried: clean.
