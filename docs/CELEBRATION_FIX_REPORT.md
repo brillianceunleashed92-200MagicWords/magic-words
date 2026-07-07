@@ -102,7 +102,16 @@ Verdict was H-BY-DESIGN, so Phase 3's H-BY-DESIGN containment (a)/(b)/(c) was im
 IN PROGRESS
 
 ## VERIFICATION — tests vs 65 baseline, gates, walks
-IN PROGRESS
+
+**Baseline correction, checked not assumed**: `npx playwright test --list` against `main` (pre-this-run) shows **67** tests in 26 files, not 65 — 2 more than the prompt's assumed baseline (Package B's own report claimed 65 at its close-out; something added 2 more between that close-out and this run starting, most plausibly whatever produced the unexplained `mwstorytime*` accounts in Phase 0.5 — not chased further, out of scope for this run beyond the Phase 0.5 flag already filed). This run's own obligation ("only add") is measured against the real, verified 67, not the stale 65: new total is **69** (67 + 2 new tests in `tests/celebration-timing.spec.js`), confirmed via `playwright test --list`. Nothing removed or renamed.
+
+**New spec** (`tests/celebration-timing.spec.js`, Phase 4, permanent):
+1. `crossing at attempt 3 fires exactly one ignition, anchored to its own answer` — same sibling-mastery fixture as the Phase 2 repro (cat/dog/bird/fish/bear/book/cup pre-mastered, "ball" seeded at attempt_count=2 so its 3rd correct answer both crosses and ends the 6-question session), 1.5s artificial delay on every `word_progress` write. Asserts the gap between Session Complete first rendering and the ignition catching up is `< 1000ms` (was 2815ms pre-fix, measured directly — see FIX section) and that the ignition doesn't reappear after dismissal.
+2. `remount/refetch after a crossing fires zero additional ignitions` — plays the same session to a natural crossing, dismisses the ignition, navigates Home then back into Play (unmount/remount + `wordProgress` refetch), then does a full page reload (forces every query to refetch from scratch). Asserts no ignition text reappears either time.
+
+Both pass against the fixed code (`npx playwright test tests/celebration-timing.spec.js` — 2/2, ~1.2min). Temporary Phase 2 repro spec (`tests/zz-celebration-repro.spec.js`) deleted before this commit, per its own header comment.
+
+**Gates**: see PHASE 7 run below (this section continues after that phase completes).
 
 ## TRAPS — every reusable lesson from this run, phrased as standing rules
 IN PROGRESS
