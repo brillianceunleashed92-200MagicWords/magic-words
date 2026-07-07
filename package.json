@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-wordart-sync.mjs && node scripts/check-stroke-coverage.mjs && node scripts/check-findtheword-sync.mjs && vite build",
+    "build": "node scripts/check-wordart-sync.mjs && node scripts/check-stroke-coverage.mjs && node scripts/check-findtheword-sync.mjs && node scripts/check-activitydefs-sync.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
     "check:wordart-sync": "node scripts/check-wordart-sync.mjs",
     "check:stroke-coverage": "node scripts/check-stroke-coverage.mjs",
+    "check:activitydefs-sync": "node scripts/check-activitydefs-sync.mjs",
     "check:findtheword-sync": "node scripts/check-findtheword-sync.mjs"
   },
   "dependencies": {
