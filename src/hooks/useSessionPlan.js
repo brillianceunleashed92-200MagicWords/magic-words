@@ -218,11 +218,14 @@ async function buildSupabaseFallbackPlan(childId, plan, placementUnit = null) {
 
     const { data: progress } = await supabase
       .from('word_progress')
-      .select('word, mastery')
+      .select('word, mastery, attempt_count')
       .eq('child_id', childId);
-    const masteryMap = new Map((progress ?? []).map((p) => [p.word, p.mastery]));
+    const progressMap = new Map((progress ?? []).map((p) => [p.word, p]));
 
-    const withMastery = words.map((w) => ({ ...w, mastery: masteryMap.get(w.word) ?? 0 }));
+    const withMastery = words.map((w) => {
+      const p = progressMap.get(w.word);
+      return { ...w, mastery: p?.mastery ?? 0, attemptCount: p?.attempt_count ?? 0 };
+    });
     const currentUnit = computeFallbackCurrentUnit(withMastery, effectiveFloor);
 
     const focusWords = withMastery

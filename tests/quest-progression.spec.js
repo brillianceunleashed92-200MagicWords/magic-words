@@ -27,6 +27,14 @@ const adminHeaders = {
 // keeps "frog" as currentWord instead of rolling over to a new word --
 // the exact confound found and worked around during this run's manual
 // reproduction.
+//
+// FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3 update: unit1/unit2-siblings now
+// seeded with attempt_count: 3 (not 1) -- this fixture's own "1-tap-100%"
+// shape was exactly the confound Package A's report named and this run's
+// mission eliminates (isRealMastery requires attemptCount >= 3). Without
+// this change, computeFallbackCurrentUnit would no longer consider unit 1
+// "done" under the corrected predicate and this test's premise (frog, in
+// unit 2, is the current word) would silently stop holding.
 async function provisionFixture() {
   const email = `nextgenprecisiondrones+mwquestprog${Date.now()}@gmail.com`;
   const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
@@ -67,8 +75,8 @@ async function provisionFixture() {
     method: "POST",
     headers: adminHeaders,
     body: JSON.stringify([
-      ...unit1Words.map((w) => ({ user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 1, correct_count: 1 })),
-      ...unit2Words.filter((w) => w !== "frog").map((w) => ({ user_id: userId, child_id: childId, word: w, mastery: 100, attempt_count: 1, correct_count: 1 })),
+      ...unit1Words.map((w) => ({ user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 3, correct_count: 3 })),
+      ...unit2Words.filter((w) => w !== "frog").map((w) => ({ user_id: userId, child_id: childId, word: w, mastery: 100, attempt_count: 3, correct_count: 3 })),
       { user_id: userId, child_id: childId, word: "frog", mastery: 33, attempt_count: 3, correct_count: 1 },
     ]),
   });

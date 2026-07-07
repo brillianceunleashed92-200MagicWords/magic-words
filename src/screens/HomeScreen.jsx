@@ -11,6 +11,7 @@ import ChildSwitcher from '../components/candy/ChildSwitcher';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useWordSpeak } from '../lib/useWordSpeak';
 import { useStoriesQuery, isNewStoryDue } from '../lib/queries/stories';
+import { isRealMastery } from '../lib/masteryCalibration';
 import WordArt from '../components/WordArt';
 import { IconSpark, IconGalaxy, IconBubble, IconTrophy, IconStar, IconPlay } from '../components/icons';
 import { AvatarRocket } from '../components/icons/AvatarGlyphs';
@@ -21,7 +22,6 @@ const TrophyRocketIcon = () => <svg viewBox="0 0 120 120" width="34" height="34"
 const TrophyCrownIcon = () => <InterestCrown size={30} />;
 const RocketInline = () => <svg viewBox="0 0 120 120" width="34" height="34"><AvatarRocket /></svg>;
 
-const MASTERED_THRESHOLD = 80;
 const PATH_PREVIEW_SIZE = 7; // matches mockup D's "current unit + next" node count
 
 function childDisplayName(activeChild, user) {
@@ -46,7 +46,7 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
     const start = Math.max(0, idx - 1);
     return words.slice(start, start + PATH_PREVIEW_SIZE).map((w) => ({
       ...w,
-      status: w.premiumLocked ? 'premium' : w.mastery >= MASTERED_THRESHOLD ? 'done' : w.word === currentWord.word ? 'current' : 'locked',
+      status: w.premiumLocked ? 'premium' : isRealMastery(w.mastery, w.attemptCount) ? 'done' : w.word === currentWord.word ? 'current' : 'locked',
       percent: w.mastery,
     }));
   }, [words, currentWord]);
@@ -230,7 +230,7 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
         <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 10 }}>
           <TrophyCard Icon={TrophyStarIcon} name="7-Day Flame" stat="Streak" locked={streak.current_streak < 7} speak={speak} />
           <TrophyCard Icon={TrophyRocketIcon} name="First Quest" stat="Milestone" locked={masteredCount === 0} speak={speak} />
-          <TrophyCard Icon={TrophyCrownIcon} name="Unit Boss" stat="Unit 1" locked={!words.slice(0, 8).length || !words.slice(0, 8).every(w => w.mastery >= MASTERED_THRESHOLD)} speak={speak} />
+          <TrophyCard Icon={TrophyCrownIcon} name="Unit Boss" stat="Unit 1" locked={!words.slice(0, 8).length || !words.slice(0, 8).every(w => isRealMastery(w.mastery, w.attemptCount))} speak={speak} />
         </div>
       </div>
     </div>

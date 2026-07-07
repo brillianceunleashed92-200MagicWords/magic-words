@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../supabaseClient';
+import { isRealMastery, MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION } from '../masteryCalibration';
 
-const MASTERED_THRESHOLD = 80;
 // Same per-event minutes approximation the legacy App.jsx dashboard used
 // (15 seconds/event) — no dedicated session-duration tracking exists,
 // this is a reasonable proxy until one does.
@@ -42,13 +42,28 @@ export function useWeeklyStatsQuery(childId, words) {
   const events = eventsQ.data ?? [];
   const minutesThisWeek = Math.round((events.length * SECONDS_PER_EVENT) / 60);
 
+  // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 2 — this used to count ANY word
+  // touched this week, with no mastery gate at all (this file previously
+  // declared its own local MASTERED_THRESHOLD = 80 that went entirely
+  // unused for this specific field). That contradicted
+  // Package A's parent-metrics chart 1 (weekly REAL-mastery crossings) on
+  // the same Dashboard screen — a parent could see "5 words this week"
+  // here and "0" on the chart directly below it. Now: practiced this week
+  // AND genuinely mastered (isRealMastery), so both numbers describe the
+  // same thing.
   const practicedThisWeek = new Set(events.map((e) => e.word));
   const wordsThisWeek = (words ?? [])
-    .filter((w) => practicedThisWeek.has(w.word))
+    .filter((w) => practicedThisWeek.has(w.word) && isRealMastery(w.mastery, w.attemptCount))
     .map((w) => ({ word: w.word, mastery: w.mastery }));
 
+  // Same "don't judge on too little data" principle as isRealMastery,
+  // applied to the low-mastery direction: a word with 1 wrong attempt
+  // rounds to mastery 0 and would otherwise never even qualify (existing
+  // `mastery > 0` floor already excluded it), but a word with e.g. 1
+  // correct + 1 wrong (50%, 2 attempts) read as "struggling" before this
+  // change despite having too little history to say that reliably.
   const weakWords = (words ?? [])
-    .filter((w) => w.attemptCount > 0 && w.mastery > 0 && w.mastery < 60)
+    .filter((w) => w.attemptCount >= MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION && w.mastery > 0 && w.mastery < 60)
     .map((w) => w.word)
     .slice(0, 5);
 
