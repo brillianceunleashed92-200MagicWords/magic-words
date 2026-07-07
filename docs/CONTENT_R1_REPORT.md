@@ -55,7 +55,8 @@ Verified post-edit: `Object.keys(FIND_THE_WORD_LOOKALIKES).length === 200`
 
 ## PHASE 3 — Edit table
 
-Status: DONE — 18 APPLIED (7 primary, 11 fallback), 1 UNRESOLVED
+Status: DONE — 17 APPLIED (7 primary, 10 fallback), 2 UNRESOLVED (revised
+during Phase 4 — see note below the table)
 
 Before applying any edit, checked the replacement/fallback against the
 **entry's current other values**, not just the checklist in the abstract —
@@ -70,7 +71,7 @@ Fell back in those cases per constraint 2.
 | 2 | eight | eighty | APPLIED (primary) | night | passes all checks |
 | 3 | cookie | bookie | FALLBACK-USED | cooker | primary "rookie" already in entry (index 0) — would dup |
 | 4 | dirty | flirty | FALLBACK-USED | thirsty | primary "thirty" already in entry (index 0) — would dup |
-| 5 | a | I | FALLBACK-USED | as | primary "at" already in entry (index 1) — would dup |
+| 5 | a | I | **UNRESOLVED** (revised — see note) | *(left as "I")* | primary "at" collided (dup); fallback "as" passed the manual checklist but failed the build-wired sync gate in Phase 4 — reverted |
 | 6 | I | a | APPLIED (primary) | if | passes all checks |
 | 7 | six | silk | APPLIED (primary) | sick | passes all checks |
 | 8 | pizza | piazza | FALLBACK-USED | dizzy | primary "plaza" already in entry (index 1) — would dup |
@@ -85,6 +86,21 @@ Fell back in those cases per constraint 2.
 | 17 | read | dead | APPLIED (primary) | lead | passes all checks |
 | 18 | head | dead | APPLIED (primary) | bead | passes all checks |
 | 19 | brown | drown | FALLBACK-USED | frown | primary "crown" already in entry (index 0) — would dup |
+
+**Row 5 (a) — UNRESOLVED, found during Phase 4, proposal for Sal**: applied
+the fallback "as" in Phase 3 (primary "at" collided with the entry's
+existing value). Phase 4's `scripts/check-findtheword-sync.mjs` run (the
+real build-wired gate, not just this run's manual checklist) failed on it:
+its cheap inflection heuristic treats any distractor equal to
+`${target}s`/`es`/`ed`/`ing` as a suspected plural/tense inflection of the
+target, and "a" + "s" = "as" trips that rule even though "as" isn't
+actually a plural of "a" — a false positive, but the gate is the gate, and
+constraint 2's "both fail validation" clause covers a fallback that fails a
+*real* validation step just as much as one that fails the manual checklist.
+Reverted to the original `I`, row now UNRESOLVED. Proposed alternative for
+Sal: **`am`** — real word, doesn't collide with `an`/`at`, and doesn't trip
+the inflection heuristic in either direction. Not applied — not on the
+pre-approved table.
 
 **Row 11 (zero) — UNRESOLVED, proposal for Sal**: both the table's primary
 (`hero`) and fallback (`zebra`) are already the entry's other two
@@ -105,7 +121,46 @@ mild obscurity doesn't impair the visual-discrimination task itself.
 
 ## PHASE 4 — Integrity + gates
 
-Status: IN PROGRESS
+Status: DONE — all green
+
+**Mechanical checks** (custom script against the final
+`FIND_THE_WORD_LOOKALIKES`): exactly 200 unique keys; every entry has
+exactly 3 distractors; no distractor equals its target; no duplicate
+distractor within an entry; no empty/invalid strings. **ALL CHECKS PASSED.**
+
+**Build-wired coverage gate** (`scripts/check-findtheword-sync.mjs`, the
+real authoritative check named in the manifest's own header comment — a
+stricter, independent check from the custom script above, including an
+inflection heuristic the manual checklist didn't fully anticipate): **this
+is what caught row 5's problem** (see the revised Phase 3 note above) —
+after reverting row 5 to UNRESOLVED, `node scripts/check-findtheword-sync.mjs`
+reports: *"findTheWordManifest.js covers all 200 curriculum words with
+valid distractor sets. OK."*
+
+**Test-suite search**: grepped `src/`, `tests/`, `scripts/` for every
+removed distractor word (`bookie`, `flirty`, `piazza`, `manna`, `hearth`,
+`zeal`, `preen`, `council`, `doer`, `ample`, `amble`, `eighth`, `eighty`,
+`drown`). Only hit: `zero: [..., 'zeal']` itself (the UNRESOLVED row,
+correctly still present). `tests/find-the-word.spec.js` hardcodes tile
+names `ear`/`eight`/`east` — that's the **`eat`** entry's own distractor
+list (`eat: ['ear', 'eight', 'east']`), untouched by this run (only the
+*`eight`* entry's own internal distractors changed, not other entries that
+happen to use the word "eight" as one of *their* distractors). **No test
+fixtures needed updating.**
+
+**Gates**:
+- `npm run build` (wraps `check-wordart-sync` + `check-stroke-coverage` +
+  `check-findtheword-sync` + `vite build`): green.
+- `npm run check:no-emoji`: green ("No emoji characters found in scoped UI
+  source. OK.").
+- `npx eslint src/games/findTheWordManifest.js` (the one file this run
+  touched): zero errors/warnings. Full-repo `npm run lint` shows 158
+  pre-existing problems, all `'process' is not defined` / one unused-var in
+  `tests/*.spec.js` files this run never touched — confirmed pre-existing,
+  not a new category.
+- `npx playwright test` (full suite, current main baseline): **41/41
+  passed**, ~8 minutes, zero retries needed. Both `find-the-word.spec.js`
+  tests pass (they exercise the untouched `eat` entry, as expected).
 
 ## PHASE 5 — Ship
 

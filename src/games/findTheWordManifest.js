@@ -102,7 +102,7 @@ export const FIND_THE_WORD_LOOKALIKES = {
   eight: ['sight', 'night', 'height'],
   zero: ['hero', 'zebra', 'zeal'],
   the: ['she', 'then', 'they'],
-  a: ['an', 'at', 'as'],
+  a: ['an', 'at', 'I'],
   is: ['it', 'in', 'as'],
   not: ['now', 'no', 'net'],
   can: ['man', 'cap', 'cat'],
