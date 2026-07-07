@@ -289,3 +289,43 @@ default local baseURL). Decision: fix the bug, adapt it to the established
 `DEPLOY_BASE_URL` convention, and use it for the actual preview-walk and
 production-walk steps below, rather than discard working setup/teardown
 code and rewrite from scratch.
+
+**Investigation, root cause, and rewrite** — renamed to
+`tests/pedagogy-preview-walk.spec.js` (a permanent name, not the killed
+session's placeholder). Root-caused the original's Word Hunt failure by
+reading `api/session-generator.js`'s real selection logic
+(`currentUnitWords`, line 365: an unsorted `filter`, no mastery-based cutoff)
+against `sessionPlanFallbackUnit.js`'s local fallback (`focusWords`: sorted
+ascending by **raw** mastery, `.slice(0, 6)`). Confirmed via direct DB query:
+unit 1 has exactly 8 words. Once "cat" gets its first attempt (raw mastery
+jumps to 100%), the local fallback's ascending sort pushes it past the
+top-6 cutoff — excluded from the very next local batch entirely, which is
+exactly why the original draft's Word Hunt step got `"dog"` instead. The
+real server path has no such cutoff (`currentUnitWords` keeps all
+not-really-mastered words in the current unit, `pool.slice(0, 8)` easily
+fits an 8-word unit) — **confirmed this is a pre-existing, disclaimed
+simplification of the offline fallback** (its own header comment: "doesn't
+need full parity"), not a regression this run introduced, and not something
+in scope to fix here.
+
+Rewrote using the same siblings-pre-mastered fixture design as
+`pedagogy-calibration.spec.js` (eliminates filler questions entirely, so
+every activity's single question deterministically targets "cat" against
+*either* path) instead of a fully-fresh account, and fixed a second, newly
+introduced bug caught by actually running it: `getByRole("button", { name:
+"cat", exact: true })` failed against a real deploy because WordArt tiles
+render both an icon (`aria-label="cat"`) and visible text, giving an
+accessible name of `"cat cat"` — reverted to the original draft's own
+proven regex form (`/^cat\b/i`) throughout.
+
+**Ran against production to sanity-check the rewrite (not to pass it —
+production doesn't have this run's Phase 3 fix yet).** Result confirms both
+the test's correctness and the fix's necessity: Nova's Home recommendation
+rolled forward from "cat" to unit 2's "frog" after a single correct tap —
+the exact pre-Phase-3 confound this run exists to eliminate, reproduced
+live against today's real production. This test cannot and should not pass
+until a build containing this branch's Phase 3 change is what it's pointed
+at — it needs an actual preview deployment of `feat/pedagogy-calibration`,
+not production, to validate for real. Proceeding to push the branch (not
+`main` — no approval gate applies to a non-main push per this project's
+own standing rule) to get that preview build.
