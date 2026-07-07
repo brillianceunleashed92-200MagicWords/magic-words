@@ -387,3 +387,28 @@ adding `'scaffold_down'` to the same CHECK constraint, same pattern as
 migration 0034 itself. Per standing rule, `supabase db push` requires
 explicit approval before running — requesting that now, this is the one
 remaining blocker before Phase 8's gates can be called fully green.
+
+**User approved. `supabase db push --linked` applied migration 0035
+successfully.** Re-ran `idor-proof.mjs` against the same preview
+immediately after: **ALL CHECKS PASSED**, including the previously-failing
+"A's own real childId IS attached to the written row" — confirms the
+constraint fix actually resolved the write failure, not just silenced the
+symptom. `scaffold_down` telemetry now genuinely lands in `product_events`
+for the first time since Phase 5 was written.
+
+**Phase 8 gates, final status, all re-verified fresh this session (nothing
+carried over from before the kill):**
+- `npm run build` (5 sync checks + Vite build) — clean.
+- `npm run check:no-emoji` — clean.
+- `node scripts/idor-proof.mjs` — ALL CHECKS PASSED, against the real
+  preview deployment, including the Phase-5 childId checks that only a
+  live deploy can exercise.
+- Full Playwright suite — 65/65 (one real regression found and fixed
+  along the way, see above).
+- Preview walk (`pedagogy-preview-walk.spec.js`, against the real preview
+  deployment) — 2/2 passed: the full one-tap-word journey, and the
+  reviewOnly Quiz Boss server-side selection check.
+
+Remaining before DONE: merge `--no-ff` to `main` (approval required),
+push `origin main` (approval required), deployment check on that SHA,
+production walk, test-account cleanup, final report + docs push.
