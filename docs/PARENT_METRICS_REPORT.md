@@ -5,8 +5,10 @@
 
 ### RUN TIMING
 - Start: 2026-07-07 (see commit timestamps for exact times)
-- End: IN PROGRESS
-- Total wall-clock: IN PROGRESS
+- End: 2026-07-07, merged to `main` locally (`--no-ff`), pending
+  `git push origin main` approval per the doc's rule 6.
+- Total wall-clock: single session, Phases 0-5 (recon through merge)
+- Status: **DONE**, pending push approval — see FINAL STATUS below.
 
 ## PHASE 0 — RECON
 
@@ -397,3 +399,18 @@ new export, download, or third-party transmission path was added.
   scope boundary (rule 1: no changes beyond the additive Progress
   section), but Package B's calibration fix should include this file in
   its sweep, not just the new charts.
+
+### FINAL STATUS
+
+All 5 phases (recon, mastery-crossing purity proof, data layer, UI,
+fixtures/tests) complete. Gates green (build, 5 sync checks, 60/60
+Playwright, `idor-proof.mjs`). Merged `feat/parent-metrics` -> `main`
+locally with `--no-ff`; build re-verified clean on `main` post-merge.
+**Stopped here for explicit approval before `git push origin main`**, per
+this run's own rule 6 and the standing house rule that `git push origin
+main` is a manually-approved action. No `supabase db push` is needed —
+this run made zero schema changes. Once pushed, the remaining steps are:
+confirm the Vercel deployment for the merge SHA goes `pending` ->
+`success` (checked within ~3 minutes, not polled silently past 5), walk
+the live production Dashboard on a fresh disposable account, then delete
+that account and cascade-verify.
