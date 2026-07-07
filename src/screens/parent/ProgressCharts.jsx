@@ -56,8 +56,8 @@ function ChartCard({ title, caption, isEmpty, emptyMessage, children }) {
   );
 }
 
-function WeeklyMasteryChart({ rows, now, animate }) {
-  const data = computeWeeklyMasteryCrossings(rows, now, 8).map((w) => ({ ...w, label: shortDateLabel(w.weekStart) }));
+function WeeklyMasteryChart({ rows, words, now, animate }) {
+  const data = computeWeeklyMasteryCrossings(rows, words, now, 8).map((w) => ({ ...w, label: shortDateLabel(w.weekStart) }));
   const isEmpty = data.every((d) => d.count === 0);
   return (
     <ChartCard
@@ -225,7 +225,7 @@ export default function ProgressCharts({ childId, words }) {
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, padding: '12px 0' }}>Loading progress…</div>
       ) : (
         <>
-          <WeeklyMasteryChart rows={rows} now={now} animate={animate} />
+          <WeeklyMasteryChart rows={rows} words={words} now={now} animate={animate} />
           <PracticeHeatmap rows={rows} now={now} />
           <AccuracyByActivityChart rows={rows} now={now} />
           <ResponseTimeChart rows={rows} now={now} animate={animate} />

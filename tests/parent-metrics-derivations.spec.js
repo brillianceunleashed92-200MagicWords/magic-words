@@ -22,7 +22,10 @@ test("computeWeeklyMasteryCrossings buckets a crossing into its rolling 7-day wi
     { word: "cat", correct: true, recorded_at: "2026-07-19T10:01:00Z" },
     { word: "cat", correct: true, recorded_at: "2026-07-19T10:02:00Z" }, // crosses here, within the last 7 days
   ];
-  const weeks = computeWeeklyMasteryCrossings(rows, NOW, 8);
+  // No `words` (stored row) provided -- the truncation guard only applies
+  // when a stored row is available to compare against, so this stays a
+  // pure bucketing test.
+  const weeks = computeWeeklyMasteryCrossings(rows, [], NOW, 8);
   expect(weeks).toHaveLength(8);
   expect(weeks[weeks.length - 1].count).toBe(1); // most recent bucket
   expect(weeks.slice(0, 7).every((w) => w.count === 0)).toBe(true);
@@ -34,7 +37,39 @@ test("computeWeeklyMasteryCrossings ignores crossings older than the window", ()
     { word: "dog", correct: true, recorded_at: "2026-01-01T10:01:00Z" },
     { word: "dog", correct: true, recorded_at: "2026-01-01T10:02:00Z" },
   ];
-  const weeks = computeWeeklyMasteryCrossings(rows, NOW, 8);
+  const weeks = computeWeeklyMasteryCrossings(rows, [], NOW, 8);
+  expect(weeks.reduce((sum, w) => sum + w.count, 0)).toBe(0);
+});
+
+// FEAT_PEDAGOGY_CALIBRATION_R1 Phase 6 (Package A coupling) — the
+// truncation guard: a crossing found via replay is only kept if the
+// replay's final (attemptCount, correctCount) exactly matches the word's
+// REAL all-time stored counts (from `words`, the same merged
+// useCandyGalaxyData() shape charts 5/6 use).
+test("computeWeeklyMasteryCrossings keeps a genuine in-window crossing whose replay matches the stored row", () => {
+  const rows = [
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:00:00Z" },
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:01:00Z" },
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:02:00Z" },
+  ];
+  // Stored row matches the replay exactly (3 attempts, 3 correct) -- the
+  // fetch window captured this word's entire history.
+  const words = [{ word: "cat", attemptCount: 3, correctCount: 3 }];
+  const weeks = computeWeeklyMasteryCrossings(rows, words, NOW, 8);
+  expect(weeks[weeks.length - 1].count).toBe(1);
+});
+
+test("computeWeeklyMasteryCrossings skips a crossing whose replay undercounts the real stored row (truncated window)", () => {
+  const rows = [
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:00:00Z" },
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:01:00Z" },
+    { word: "cat", correct: true, recorded_at: "2026-07-19T10:02:00Z" }, // replay sees only 3 attempts, "crosses" here
+  ];
+  // Real stored row shows 10 attempts total -- this word was mastered long
+  // before the fetch window began; these 3 in-window events are a later
+  // review sequence, not the original crossing. Must be skipped.
+  const words = [{ word: "cat", attemptCount: 10, correctCount: 10 }];
+  const weeks = computeWeeklyMasteryCrossings(rows, words, NOW, 8);
   expect(weeks.reduce((sum, w) => sum + w.count, 0)).toBe(0);
 });
 

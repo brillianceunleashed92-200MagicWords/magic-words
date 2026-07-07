@@ -70,7 +70,7 @@ test("computeMasteryCrossings groups mixed-word rows and only returns words that
     { word: "dog", correct: true, recorded_at: "2026-07-01T10:01:00Z" },
   ];
   const crossings = computeMasteryCrossings(rows);
-  expect(crossings).toEqual([{ word: "cat", masteryCrossedAt: "2026-07-01T10:02:00Z" }]);
+  expect(crossings).toEqual([{ word: "cat", masteryCrossedAt: "2026-07-01T10:02:00Z", attemptCount: 3, correctCount: 3 }]);
 });
 
 test("computeMasteryCrossings sorts out-of-order rows before replaying", () => {
@@ -80,5 +80,5 @@ test("computeMasteryCrossings sorts out-of-order rows before replaying", () => {
     { word: "cat", correct: true, recorded_at: "2026-07-01T10:01:00Z" },
   ];
   const crossings = computeMasteryCrossings(rows);
-  expect(crossings).toEqual([{ word: "cat", masteryCrossedAt: "2026-07-01T10:02:00Z" }]);
+  expect(crossings).toEqual([{ word: "cat", masteryCrossedAt: "2026-07-01T10:02:00Z", attemptCount: 3, correctCount: 3 }]);
 });
