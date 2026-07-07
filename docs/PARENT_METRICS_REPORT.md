@@ -283,7 +283,44 @@ and isn't part of the Progress section). The rest of the Dashboard tab
 undisturbed alongside the new section.
 
 ### VERIFICATION — fixtures, test results (count vs. 42 baseline), gates, idor-proof, preview + production walks
-IN PROGRESS
+
+**Fixtures**: `tests/parent-metrics-charts.spec.js` self-provisions one
+account (service-role, same pattern as `draw-it-tracing.spec.js`) with two
+children — `ChartKid` (seeded: 1,283 `learning_events` across 84 days,
+50 words touched, 11 distinct `game_type`s including a handful of retired
+`magic_video` rows, 8 words each crossing real mastery in a distinct one
+of the last 8 rolling weeks, 14 response-time rows >30s, `next_review_at`
+spread across overdue/near-term/beyond-14-days) and `EmptyKid` (zero
+events, empty-state + child-switch fixture). Deleted in `afterAll`,
+verified via the admin users list that no `mwparentmetrics*` accounts
+survive a run.
+
+**Pagination proof**: 1,283 rows > the 1,000-row Supabase page cap —
+`useParentMetricsHistoryQuery`'s `.range()` loop necessarily ran twice to
+fetch this child's history; confirmed by the populated-charts test's
+event count assertion (`fixture.eventCount >= 1200`) and by manually
+re-querying the seeded rows during Phase 3/4 development (1,283 rows
+present).
+
+**Test results**: 3 new specs this run — `mastery-replay.spec.js` (6),
+`parent-metrics-derivations.spec.js` (9), `parent-metrics-charts.spec.js`
+(3) — 18 new tests. Suite total: **60** (42 baseline + 18 new), confirmed
+via a full sequential run — growth, not shrinkage, satisfying the doc's
+explicit baseline-shrink alarm. Two pre-existing tests
+(`reduced-motion.spec.js`'s "Find the Word" and "Match & Sort" cases) and
+this run's own `parent-metrics-charts.spec.js` "all 6 charts populate"
+test each failed once across two full-suite runs but passed reliably
+every time when run in isolation — this matches the provisioning-contention
+flakiness `playwright.config.js` already documents as the reason the
+suite runs at `workers:1`/`fullyParallel:false` ("several specs
+provision their own Supabase test account via the admin API... contending
+on account provisioning and intermittently stalling"), not a regression
+introduced by this run. Not silently dismissed — flagged here as a
+pre-existing, documented category of flakiness this run did not cause and
+did not fix (out of scope).
+
+Gates, `idor-proof.mjs`, and the preview + production walks are covered in
+Phase 5 below.
 
 ### COPPA NOTE — one paragraph legal can read: display-only aggregation of already-inventoried tables, no new collection, no PII in any chart payload
 IN PROGRESS
