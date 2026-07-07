@@ -120,7 +120,63 @@ already exists and is the established convention:
 `src/lib/usePrefersReducedMotion.js`.
 
 ### MASTERY-CROSSING DECISION — pure replay vs. labeled approximation, with the evidence
-IN PROGRESS
+
+**Decision: pure replay.** `mastery` is a deterministic function of the
+ordered `learning_events` stream alone — confirmed by code reading (Phase
+0: the sole write path is a simple cumulative `correct_count`/
+`attempt_count` counter, no decay, no hidden server state) and then proven
+empirically against real seeded production gameplay (below), not just
+assumed from reading the formula.
+
+**Implementation**: `src/lib/masteryReplay.js` — `replayMasteryForWord(events)`
+replays one word's chronologically-sorted `{correct, recordedAt}` events
+through the exact same formula as `useSaveWordProgressMutation`
+(`src/lib/queries/wordProgress.js`), tracking the first event where
+`isRealMastery(mastery, attemptCount)` (from `masteryCalibration.js`, rule 2
+extraction) goes true. `computeMasteryCrossings(rows)` groups raw
+`learning_events` rows by word, sorts each group, and returns only the words
+that actually crossed — this is what chart 1 (weekly mastery-crossing
+counts) calls.
+
+**Empirical purity proof — real seeded production gameplay, not synthetic
+data.** A disposable test account (`nextgenprecisiondrones+paritymastery…`,
+deleted and cascade-verified after) played 3 real words live on production
+(`200magicwordsapp.com`) through the actual guided-path UI (Tap & Hear,
+Word Hunt, Find the Word, Match & Sort), all answers correct:
+
+| word | real events (chronological, all correct) | stored `word_progress` | `replayMasteryForWord` result |
+|---|---|---|---|
+| turtle | 3 | `mastery:100, attempt_count:3, correct_count:3` | `{attemptCount:3, correctCount:3, mastery:100, masteryCrossedAt: <3rd event ts>}` |
+| pig | 4 | `mastery:100, attempt_count:4, correct_count:4` | `{attemptCount:4, correctCount:4, mastery:100, masteryCrossedAt: <3rd event ts>}` |
+| duck | 5 | `mastery:100, attempt_count:5, correct_count:5` | `{attemptCount:5, correctCount:5, mastery:100, masteryCrossedAt: <3rd event ts>}` |
+
+All three: replay's `attemptCount`/`correctCount`/`mastery` matched the real
+stored `word_progress` row exactly, and `masteryCrossedAt` landed on each
+word's 3rd real event — correctly reflecting `isRealMastery`'s
+`attempt_count >= 3` gate (attempts 1–2 were 100% mastery but did NOT cross,
+matching the A2-calibration-gap fix this threshold exists for). Verified via
+a throwaway Playwright test that imported the real `masteryReplay.js` module
+directly and asserted against the real queried rows (not committed — ad hoc
+verification, not a permanent spec).
+
+**Scope decision on what real gameplay could/couldn't cover**: all 3 real
+sequences were 100%-correct because forcing a *specific* wrong answer
+through the real WordMatch UI is hard to do deliberately (the
+errorless-learning scaffold added in the redesign means a first miss doesn't
+even record as a completed attempt — only a second consecutive miss does,
+and other game types don't expose reliable wrong-tile targeting via
+automation). The never-crosses case (`attempt_count < 3`) IS covered by real
+data (every word's attempts 1–2). The wrong-answer-suppresses-crossing case
+and the fires-only-once case are covered by synthetic unit tests instead —
+documented as a real coverage boundary, not silently implied as more
+real-data coverage than it is.
+
+**Unit tests**: `tests/mastery-replay.spec.js` (6 tests, follows the
+`session-plan-fallback.spec.js` no-`page`-fixture pattern) — never-crosses
+below attempt 3, crosses exactly at attempt 3, a wrong answer suppressing
+the crossing, crossing firing only once even with more attempts afterward,
+`computeMasteryCrossings` grouping mixed-word rows and sorting out-of-order
+rows. All 6 pass.
 
 ### DATA DERIVATIONS — per chart: exact query, formula, exclusions; pagination proof
 IN PROGRESS

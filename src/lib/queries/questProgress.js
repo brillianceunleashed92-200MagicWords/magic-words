@@ -1,5 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../supabaseClient';
+import { SCORELESS_GAME_TYPES } from '../masteryCalibration';
+
+// Re-exported (not re-declared) so existing consumers (GameEngine.jsx)
+// keep importing from this module unchanged — the extraction to
+// masteryCalibration.js (docs/FEAT_PARENT_METRICS_R1.md rule 2) is so the
+// parent-metrics charts (and a plain Node/Playwright test) can import the
+// set directly, without pulling in this file's supabaseClient dependency.
+export { SCORELESS_GAME_TYPES };
 
 // Guided-path completion tracking (Option B). learning_events is the only
 // live "did the child do X today" signal that exists — there is no other
@@ -38,7 +46,8 @@ export function useTodayWordActivityQuery(childId, word) {
   });
 }
 
-// Activities with no real pass/fail outcome — their onAnswer always
+// SCORELESS_GAME_TYPES (imported above, from masteryCalibration.js) —
+// activities with no real pass/fail outcome; their onAnswer always
 // reports `correct: true` unconditionally (confirmed by reading each
 // component directly, not assumed):
 //   - draw_it (DrawIt.jsx): drawing the word by hand IS the point.
@@ -73,7 +82,6 @@ export function useTodayWordActivityQuery(childId, word) {
 // session had no real question" from "it did" would need a new signal
 // threaded through learning_events, which is a feature addition, not the
 // bug fix this pass is scoped to — flagged in NOTES FOR NEXT PROMPTS.
-export const SCORELESS_GAME_TYPES = new Set(['draw_it', 'word_builder']);
 
 // Aggregates raw learning_events rows into a per-activity summary. Not a
 // GROUP BY in Postgres (Supabase's JS client can't do that without an RPC/
