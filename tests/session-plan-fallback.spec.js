@@ -29,10 +29,22 @@ test("floor above every unit with progress still returns the floor, not undefine
 
 test("floor doesn't skip past a real unmastered unit at or above it", () => {
   const withMastery = [
-    { word: "a", unit: 5, mastery: 100 },
-    { word: "b", unit: 5, mastery: 100 },
-    { word: "c", unit: 7, mastery: 20 },
-    { word: "d", unit: 9, mastery: 0 },
+    { word: "a", unit: 5, mastery: 100, attemptCount: 5 },
+    { word: "b", unit: 5, mastery: 100, attemptCount: 5 },
+    { word: "c", unit: 7, mastery: 20, attemptCount: 2 },
+    { word: "d", unit: 9, mastery: 0, attemptCount: 0 },
   ];
   expect(computeFallbackCurrentUnit(withMastery, 5)).toBe(7);
+});
+
+// FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3 — the doc's core "A2 family" case:
+// a word answered correctly once (100% stored mastery, only 1 attempt)
+// must not make this fallback treat its unit as done either, matching
+// the online session-generator.js behavior fixed in the same run.
+test("a one-tap 100%-mastery word (attemptCount 1) keeps its unit unmastered", () => {
+  const withMastery = [
+    { word: "a", unit: 5, mastery: 100, attemptCount: 1 },
+    { word: "b", unit: 7, mastery: 0, attemptCount: 0 },
+  ];
+  expect(computeFallbackCurrentUnit(withMastery, null)).toBe(5);
 });

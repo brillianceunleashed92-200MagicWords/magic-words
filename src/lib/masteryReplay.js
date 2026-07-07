@@ -39,6 +39,13 @@ export function replayMasteryForWord(events) {
 // { word, correct, recorded_at } (the exact shape a Supabase select on
 // learning_events returns — kept snake_case here rather than normalizing,
 // so callers can pass the query result straight through).
+//
+// Each crossing also carries the replay's final attemptCount/correctCount
+// (FEAT_PEDAGOGY_CALIBRATION_R1 Phase 6) — a caller with access to the
+// word's real stored word_progress row can compare against these to
+// detect a truncated fetch window (see parentMetricsDerivations.js's
+// computeWeeklyMasteryCrossings truncation guard). Purely additive: a
+// caller destructuring only { word, masteryCrossedAt } is unaffected.
 export function computeMasteryCrossings(learningEventsRows) {
   const byWord = new Map();
   for (const row of learningEventsRows) {
@@ -50,8 +57,8 @@ export function computeMasteryCrossings(learningEventsRows) {
   for (const [word, rows] of byWord) {
     const sorted = [...rows].sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
     const events = sorted.map((r) => ({ correct: r.correct, recordedAt: r.recorded_at }));
-    const { masteryCrossedAt } = replayMasteryForWord(events);
-    if (masteryCrossedAt) crossings.push({ word, masteryCrossedAt });
+    const { masteryCrossedAt, attemptCount, correctCount } = replayMasteryForWord(events);
+    if (masteryCrossedAt) crossings.push({ word, masteryCrossedAt, attemptCount, correctCount });
   }
   return crossings;
 }

@@ -191,6 +191,37 @@ async function main() {
       body: JSON.stringify({ eventType: 'paywall_viewed', payload: { surface: 'settings' } }),
     });
     check('track: unauthenticated request rejected (401)', unauthedTrackRes.status === 401);
+
+    // 11. FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5 — track.js's new
+    //     scaffold_down event accepts a client-supplied childId (unlike
+    //     every other event here, which is child-agnostic). A forged
+    //     childId (B's, not A's) must never be trusted — the endpoint
+    //     verifies child_profiles.parent_id === the verified caller before
+    //     attaching it, same ownership-check pattern as session-generator's
+    //     fetchChildContext. The request still succeeds (200) — a bad
+    //     childId is a data-quality detail, not a reason to fail the whole
+    //     analytics call — but the written row must land with no childId,
+    //     never B's.
+    const forgedChildTrackRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ eventType: 'scaffold_down', childId: b.childId, payload: { word: 'cat', activityId: 'word_match' } }),
+    });
+    check('track: a scaffold_down event with a forged (B\'s) childId still succeeds (200)', forgedChildTrackRes.status === 200);
+    const { data: forgedChildRows } = await admin.from('product_events')
+      .select('child_id').eq('event_type', 'scaffold_down').eq('user_id', a.userId)
+      .order('created_at', { ascending: false }).limit(1);
+    check('track: a forged childId (B\'s) is silently dropped, never attached to the written row', forgedChildRows?.[0]?.child_id !== b.childId);
+
+    // A's own real childId IS accepted and attached correctly.
+    const ownChildTrackRes = await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ eventType: 'scaffold_down', childId: a.childId, payload: { word: 'cat', activityId: 'word_match' } }),
+    });
+    check('track: a scaffold_down event with A\'s own real childId succeeds (200)', ownChildTrackRes.status === 200);
+    const { data: ownChildRows } = await admin.from('product_events')
+      .select('child_id').eq('event_type', 'scaffold_down').eq('user_id', a.userId)
+      .order('created_at', { ascending: false }).limit(1);
+    check('track: A\'s own real childId IS attached to the written row', ownChildRows?.[0]?.child_id === a.childId);
   } else {
     console.log('  SKIP: create-portal-session/create-checkout-session live endpoint checks (set DEPLOY_BASE_URL to run them)');
   }

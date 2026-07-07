@@ -3,9 +3,8 @@ import { colors, fonts, skyGradient } from '../theme/tokens';
 import GalaxyPath from '../components/candy/GalaxyPath';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useWordSpeak } from '../lib/useWordSpeak';
+import { isRealMastery } from '../lib/masteryCalibration';
 import { IconGalaxy, IconStar, IconSpark } from '../components/icons';
-
-const MASTERED_THRESHOLD = 80;
 
 // The full 200-word constellation — the "trophy room" (200MW_Product_
 // Blueprint.md 7.1). Same GalaxyPath component as Home's short preview,
@@ -16,7 +15,10 @@ export default function GalaxyScreen({ onOpenWord }) {
 
   const pathWords = useMemo(() => {
     return words.map((w) => {
-      const done = w.mastery >= MASTERED_THRESHOLD;
+      // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3 — isRealMastery, not raw
+      // mastery>=80: a 1-tap word must not show as `done` here, same
+      // reasoning as useCandyGalaxyData's currentWord/masteredCount.
+      const done = isRealMastery(w.mastery, w.attemptCount);
       const isCurrent = !done && currentWord && w.word === currentWord.word;
       // Bug (Prompt 7, Part 1): the adaptive engine only ever names ONE
       // word `currentWord` at a time. Before this fix, every other

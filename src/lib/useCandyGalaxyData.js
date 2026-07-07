@@ -9,9 +9,8 @@ import { useChildProfilesQuery } from './queries/childProfiles';
 import { useSubscriptionQuery, maxChildrenForPlan, isUnitLocked, FREE_TIER_MAX_UNIT } from './queries/subscription';
 import { getLevelInfo } from './levels';
 import { isStarSleepy } from './starKeeper';
+import { isRealMastery } from './masteryCalibration';
 import { useUIStore } from '../stores/useUIStore';
-
-const MASTERED_THRESHOLD = 80;
 
 // Combines every server-state query into the shape Candy Galaxy's screens
 // need: the active child (Phase 2 multi-child — see
@@ -52,6 +51,13 @@ export function useCandyGalaxyData() {
         ...w,
         mastery: p?.mastery ?? 0,
         attemptCount: p?.attempt_count ?? 0,
+        // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 6 — needed by
+        // computeWeeklyMasteryCrossings's truncation guard, which compares
+        // a replay's final (attemptCount, correctCount) against the real
+        // stored word_progress row to detect an 84-day window that cut off
+        // a word's earlier history. Already fetched by useWordProgressQuery
+        // (correct_count), just not previously exposed on this merged shape.
+        correctCount: p?.correct_count ?? 0,
         nextReviewAt: p?.next_review_at ?? null,
         sleepy: p ? isStarSleepy(p.next_review_at) : false,
         premiumLocked: isUnitLocked(w.unit, plan),
@@ -84,25 +90,31 @@ export function useCandyGalaxyData() {
   const placementFloor = activeChild?.placement_unit
     ? Math.min(activeChild.placement_unit, plan === 'family' ? 18 : FREE_TIER_MAX_UNIT)
     : null;
+  // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3 — a word answered correctly once
+  // (100% stored mastery, 1 attempt) must not roll the guided path forward
+  // to the next word: isRealMastery requires MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION
+  // attempts, so a 1-tap word stays `currentWord` and keeps getting
+  // repeated meaningful exposure (Dr. Blank's method), matching the
+  // celebration threshold that already gated PlayScreen's confetti.
   const currentWord = useMemo(() => {
     const playable = words.filter((w) => !w.premiumLocked && (!placementFloor || w.unit >= placementFloor));
-    return playable.find((w) => w.mastery < MASTERED_THRESHOLD) ?? playable[playable.length - 1] ?? null;
+    return playable.find((w) => !isRealMastery(w.mastery, w.attemptCount)) ?? playable[playable.length - 1] ?? null;
   }, [words, placementFloor]);
 
   const sleepyStars = useMemo(
-    () => words.filter((w) => w.mastery >= MASTERED_THRESHOLD && w.sleepy),
+    () => words.filter((w) => isRealMastery(w.mastery, w.attemptCount) && w.sleepy),
     [words]
   );
 
   const masteredCount = useMemo(
-    () => words.filter((w) => w.mastery >= MASTERED_THRESHOLD).length,
+    () => words.filter((w) => isRealMastery(w.mastery, w.attemptCount)).length,
     [words]
   );
 
   const completedUnits = useMemo(() => {
     const done = [];
     for (const [unit, unitWords] of unitsById) {
-      if (unitWords.length && unitWords.every((w) => w.mastery >= MASTERED_THRESHOLD)) done.push(unit);
+      if (unitWords.length && unitWords.every((w) => isRealMastery(w.mastery, w.attemptCount))) done.push(unit);
     }
     return done;
   }, [unitsById]);

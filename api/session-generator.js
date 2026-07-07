@@ -29,6 +29,23 @@ const client = new Anthropic({
 
 const MASTERED_THRESHOLD = 80;
 
+// FEAT_PEDAGOGY_CALIBRATION_R1 — mirrors src/lib/masteryCalibration.js's
+// isRealMastery exactly (same threshold, same minimum-attempts floor).
+// NOT a direct require() of that ES-module file: this is a CommonJS
+// Vercel function (no "type": "module" in package.json), and while a
+// plain `require()` of an ES module resolves fine on this machine's local
+// Node v24.16.0 (stable require()-of-sync-ESM, Node 22.12+/24.x), the
+// actual Vercel serverless runtime's Node version for this project could
+// not be independently confirmed (see docs/PEDAGOGY_CALIBRATION_REPORT.md
+// ARCHITECTURE) -- session-generator.js is the core gameplay endpoint, so
+// an unverified cross-module-system import here is the wrong place to
+// find out the hard way. scripts/check-mastery-predicate-sync.mjs asserts
+// this stays numerically identical to the shared client-side predicate.
+const MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION = 3;
+function isRealMastery(mastery, attemptCount) {
+  return mastery >= MASTERED_THRESHOLD && (attemptCount ?? 0) >= MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION;
+}
+
 // Mirrors src/lib/queries/subscription.js's FREE_TIER_MAX_UNIT /
 // isUnitLocked — server-side copy because this endpoint must enforce the
 // gate itself, not trust whatever the client claims its plan is.
@@ -310,7 +327,7 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
     .filter((u) => !effectiveFloor || u >= effectiveFloor);
   let currentUnit = units[0] ?? effectiveFloor ?? 1;
   for (const unit of units) {
-    const hasUnmastered = withProgress.some((w) => w.unit === unit && w.mastery < MASTERED_THRESHOLD);
+    const hasUnmastered = withProgress.some((w) => w.unit === unit && !isRealMastery(w.mastery, w.attemptCount));
     currentUnit = unit;
     if (hasUnmastered) break;
   }
@@ -345,9 +362,9 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
     return { pool: reviewPool.slice(0, REVIEW_BATTLE_SIZE), currentUnit, artWords, wordMetaByWord, wordsByType };
   }
 
-  const currentUnitWords = withProgress.filter((w) => w.unit === currentUnit && w.mastery < MASTERED_THRESHOLD);
+  const currentUnitWords = withProgress.filter((w) => w.unit === currentUnit && !isRealMastery(w.mastery, w.attemptCount));
   const dueForReview = withProgress.filter((w) => w.dueForReview && w.unit !== currentUnit);
-  const masteredSample = shuffled(withProgress.filter((w) => w.mastery >= MASTERED_THRESHOLD)).slice(0, 2);
+  const masteredSample = shuffled(withProgress.filter((w) => isRealMastery(w.mastery, w.attemptCount))).slice(0, 2);
 
   const seen = new Set();
   const pool = [...currentUnitWords, ...dueForReview, ...masteredSample].filter((w) => {

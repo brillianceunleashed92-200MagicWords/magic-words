@@ -16,7 +16,15 @@ import { suggestActivity } from '../../lib/difficultyGovernor';
 // Presentation only — does not itself write progress or fire celebrations;
 // PlayScreen owns session lifecycle and queues the pathComplete celebration
 // once `allDone` is true here (via the same today-activity query).
-export default function QuestPath({ word, childId, recommendedRate, onSelectActivity, speak }) {
+//
+// FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5 — `pinnedActivityId` (set by
+// PlayScreen's scaffold-down tracking) redirects the "current" node to
+// this word's easiest eligible tier, overriding the natural
+// first-not-done-today sequencing, even if that tier was already
+// completed today. No visual demotion: the redirected node just re-glows
+// as "current" (same styling any current node gets) — nothing already
+// unlocked becomes locked, nothing regresses.
+export default function QuestPath({ word, childId, recommendedRate, onSelectActivity, speak, pinnedActivityId = null }) {
   const eligible = getEligibleActivities(word);
   const { data: todayRows, isLoading } = useTodayWordActivityQuery(childId, word?.word);
   const summary = summarizeTodayActivity(todayRows ?? []);
@@ -47,14 +55,31 @@ export default function QuestPath({ word, childId, recommendedRate, onSelectActi
         <NovaSprite state={allDone ? 'correct' : 'idle'} size={48} />
       </div>
 
+      {/* Scaffold-down (FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5) — encouraging,
+          never mentions difficulty or the misses that triggered it. Shown
+          for as long as the pin is active, not just a one-shot transition
+          moment. */}
+      {pinnedActivityId && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,.12)',
+          borderRadius: radii.lg, padding: '10px 16px', marginBottom: '1rem',
+        }}>
+          <IconSpark size={16} color={colors.sun} />
+          <span style={{ fontFamily: fonts.body, fontWeight: 700, fontSize: '.8rem', color: colors.cloud }}>
+            Let's look at this one together!
+          </span>
+        </div>
+      )}
+
       {/* Path */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {eligible.map((activity, idx) => {
+          const isPinned = pinnedActivityId != null && activity.id === pinnedActivityId;
           const isDone = summary.has(activity.id);
-          const isCurrent = !isDone && idx === firstNotDoneIdx;
-          const state = isDone ? 'completed' : isCurrent ? 'current' : 'locked';
+          const isNaturalCurrent = !pinnedActivityId && !isDone && idx === firstNotDoneIdx;
+          const state = isPinned ? 'current' : isDone ? 'completed' : isNaturalCurrent ? 'current' : 'locked';
           const stars = summary.get(activity.id)?.stars ?? 0;
-          const showRecommended = isCurrent && activity.id === recommendedId;
+          const showRecommended = isNaturalCurrent && activity.id === recommendedId;
 
           return (
             <div key={activity.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>

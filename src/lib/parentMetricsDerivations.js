@@ -31,12 +31,34 @@ function weekStartLabel(weeksAgoValue, now) {
 // replaying a word's entire fetched event history — replaying a truncated
 // slice would undercount attempt_count/correct_count for words whose
 // practice started earlier in the fetch window.
-export function computeWeeklyMasteryCrossings(learningEventsRows, now = new Date(), weeksBack = 8) {
+//
+// FEAT_PEDAGOGY_CALIBRATION_R1 Phase 6 (Package A coupling) — truncation
+// guard: even with the full 84-day fetch, a word whose practice genuinely
+// started MORE than 84 days ago has its earlier history cut off by the
+// fetch window itself. Replaying only the in-window events for such a
+// word can produce a false "crossing" — really just a later REVIEW of a
+// word mastered long before the window began, misread as a first-time
+// crossing. `words` (the same merged useCandyGalaxyData() shape charts
+// 5/6 already use, carrying the REAL all-time stored attemptCount/
+// correctCount) lets this be caught: if the replay's final counts don't
+// exactly match the real stored row, the window truncated this word's
+// history, so the "crossing" is discarded rather than risk a false
+// positive. Honest direction of error: this makes chart 1 slightly
+// UNDER-count the rare word that began just before the window and
+// genuinely crossed inside it (indistinguishable, from inside this
+// function, from a truncated review sequence) — under-counting a real
+// metric is preferable to over-counting a fake one.
+export function computeWeeklyMasteryCrossings(learningEventsRows, words = [], now = new Date(), weeksBack = 8) {
   const crossings = computeMasteryCrossings(learningEventsRows);
+  const storedByWord = new Map(words.map((w) => [w.word, w]));
   const buckets = new Map();
   for (let i = 0; i < weeksBack; i++) buckets.set(i, 0);
 
-  for (const { masteryCrossedAt } of crossings) {
+  for (const { word, masteryCrossedAt, attemptCount, correctCount } of crossings) {
+    const stored = storedByWord.get(word);
+    if (stored && (stored.attemptCount !== attemptCount || stored.correctCount !== correctCount)) {
+      continue; // truncated window -- likely a re-cross of a long-mastered word's later review, not a genuine first crossing
+    }
     const wa = weeksAgo(masteryCrossedAt, now);
     if (wa >= 0 && wa < weeksBack) buckets.set(wa, buckets.get(wa) + 1);
   }

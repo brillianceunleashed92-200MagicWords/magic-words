@@ -5,6 +5,7 @@ import StoryReader from '../components/candy/StoryReader';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useGenerateStoryMutation, useMarkStoryReadMutation } from '../lib/queries/stories';
 import { useEarnSparksMutation } from '../lib/queries/sparks';
+import { isRealMastery } from '../lib/masteryCalibration';
 import { useUIStore } from '../stores/useUIStore';
 import { supabase } from '../supabaseClient';
 
@@ -27,7 +28,7 @@ export default function StoryScreen({ existingStory, onDone }) {
 
   useEffect(() => {
     if (existingStory || !activeChild) return;
-    const masteredWords = words.filter((w) => w.mastery >= 80).map((w) => w.word);
+    const masteredWords = words.filter((w) => isRealMastery(w.mastery, w.attemptCount)).map((w) => w.word);
     generateStory.mutateAsync({
       childName: activeChild.name,
       interests: activeChild.interests ?? [],

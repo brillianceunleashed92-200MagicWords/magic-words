@@ -48,7 +48,7 @@ async function provisionFixture() {
   await fetch(`${SUPABASE_URL}/rest/v1/word_progress`, {
     method: "POST",
     headers: adminHeaders,
-    body: JSON.stringify(words.map((w) => ({ user_id: userId, child_id: childId, word: w.word, mastery: 100 }))),
+    body: JSON.stringify(words.map((w) => ({ user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 3 }))),
   });
 
   const priorActivities = ["word_match", "word_hunt", "rhyme_time"];

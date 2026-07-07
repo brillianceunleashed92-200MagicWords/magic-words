@@ -61,15 +61,20 @@ async function provisionFixture() {
   // "cat" gets real attempt history + a past next_review_at (due for
   // review) — the one word this fixture wants the reviewOnly pool to
   // pick up as "previously encountered". Every other unit-1/2 word is
-  // mastered but has attempt_count 0 and a far-future next_review_at, so
-  // it does NOT count as "encountered" (attemptCount > 0) and can't leak
-  // into the pool. PostgREST bulk inserts require every object to share
-  // the same key set ("All object keys must match") -- so every row gets
-  // attempt_count/correct_count/next_review_at explicitly, not just
-  // "cat"'s. next_review_at is NOT NULL in the schema (confirmed the hard
-  // way: an explicit `null` here 400s the *entire* batch insert, leaving
-  // every word unmastered and pathWord stuck on "cat") -- hence the
-  // far-future date instead of null for the non-"cat" rows.
+  // genuinely mastered (attempt_count 3, meets isRealMastery's minimum —
+  // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3: computeFallbackCurrentUnit now
+  // requires real mastery, not raw mastery>=80, to consider a unit "done";
+  // this fixture's whole premise (units 1-2 done, unit 3 is current) broke
+  // under the old attempt_count:0 shape once that predicate changed) with
+  // a far-future next_review_at, so none of them count as "due for review"
+  // and none leak into the reviewOnly pool ahead of "cat". PostgREST bulk
+  // inserts require every object to share the same key set ("All object
+  // keys must match") -- so every row gets attempt_count/correct_count/
+  // next_review_at explicitly, not just "cat"'s. next_review_at is NOT
+  // NULL in the schema (confirmed the hard way: an explicit `null` here
+  // 400s the *entire* batch insert, leaving every word unmastered and
+  // pathWord stuck on "cat") -- hence the far-future date instead of null
+  // for the non-"cat" rows.
   await fetch(`${SUPABASE_URL}/rest/v1/word_progress`, {
     method: "POST",
     headers: adminHeaders,
@@ -77,7 +82,7 @@ async function provisionFixture() {
       words.map((w) => (
         w.word === "cat"
           ? { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 5, correct_count: 5, next_review_at: yesterday }
-          : { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 0, correct_count: 0, next_review_at: farFuture }
+          : { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 3, correct_count: 3, next_review_at: farFuture }
       ))
     ),
   });

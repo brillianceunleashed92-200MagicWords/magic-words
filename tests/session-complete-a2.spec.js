@@ -42,13 +42,18 @@ async function provisionFixture() {
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const farFuture = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+  // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 3 — non-"cat" words need a real
+  // attempt_count (3, meets isRealMastery's minimum) so units 1-2 still
+  // register as genuinely done and unit 3 stays the fallback's current
+  // unit (see tests/quiz-boss.spec.js's identical fixture for the same
+  // reasoning — this test reuses that battle mechanic).
   await fetch(`${SUPABASE_URL}/rest/v1/word_progress`, {
     method: "POST", headers: adminHeaders,
     body: JSON.stringify(
       words.map((w) => (
         w.word === "cat"
           ? { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 5, correct_count: 5, next_review_at: yesterday }
-          : { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 0, correct_count: 0, next_review_at: farFuture }
+          : { user_id: userId, child_id: childId, word: w.word, mastery: 100, attempt_count: 3, correct_count: 3, next_review_at: farFuture }
       ))
     ),
   });
