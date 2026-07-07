@@ -164,8 +164,64 @@ fixtures needed updating.**
 
 ## PHASE 5 — Ship
 
-Status: IN PROGRESS
+Status: PARTIAL — merged locally, **stopped for approval before push** per
+constraint 3
+
+`git merge --no-ff content/manifest-r1` completed cleanly into local
+`main` (commit `3061159`). Everything past this point — push, deployment
+check, production bundle-string verification, and the automation-Chrome
+smoke pass — requires the actual live deployment to have updated, which
+can't happen before the push itself, so those steps are blocked on the
+approval stop below.
+
+**Approval-stop flag, per constraint 3**: local `main` is currently **6
+commits ahead of `origin/main`**, not just this run's 4. The prior
+`DEVICE_SESSION_PREP.md` run's commit (`63bdb13`,
+"docs(device-prep): automate manifest audit...") was left committed but
+unpushed on local main at that run's own approval stop — **a `git push
+origin main` now will carry that commit along with this run's**. Flagging
+explicitly rather than silently bundling it in.
 
 ## COMPLETION
 
-Status: IN PROGRESS
+Status: BLOCKED ON APPROVAL (push) — everything else done
+
+**Per-row outcome**: 17 APPLIED (7 primary as listed, 10 via the table's
+own fallback), 2 UNRESOLVED:
+- Row 5 (`a`/`I`): both primary (`at`, collided) and fallback (`as`, passed
+  manual review but failed the build-wired inflection-heuristic gate)
+  failed. Left as `I`. Proposed alternative for Sal: **`am`**.
+- Row 11 (`zero`/`zeal`): both primary (`hero`) and fallback (`zebra`)
+  already existed elsewhere in the same entry. Left as `zeal`. Proposed
+  alternative for Sal: **`zest`**.
+
+**Accepted, no code change**: `because/cause`, plus all remaining
+ODD-flagged distractors not in the edit table (`colon`, `mellow`, `bellow`,
+`omen`, `fount`, `petty`, `posh`, `prone`, `phony`, `envy`, `empire`,
+`glean`, `clan`, `sappy`, `kelp`, `mast`, `clack`, etc.).
+
+**Dedupe results**: `nine`/`eight`/`zero`/`this` each had two
+byte-identical literals; later occurrence deleted for all four. File now
+has exactly 200 unique keys backed by exactly 200 literals (was 204).
+
+**Integrity results**: custom mechanical check (200 keys, 3 distractors
+each, no self-matches, no in-entry duplicates, no empty strings) — all
+passed. Build-wired `check-findtheword-sync.mjs` — passed (and is what
+caught row 5's fallback problem before it shipped).
+
+**Gate results**: `npm run build` green, `npm run check:no-emoji` green,
+`eslint` on the touched file clean (repo-wide lint has 158 pre-existing,
+unrelated test-file problems — confirmed not a new category), full
+Playwright suite **41/41 passed**.
+
+**Production verification**: not yet run — blocked on the push approval
+stop below (bundle hash / string-level grep / smoke pass all require the
+live deployment to reflect this merge first).
+
+**Next action needed from you**: approve `git push origin main`. This will
+push both this run's 4 commits AND the previously-unpushed
+`DEVICE_SESSION_PREP.md` docs commit (`63bdb13`) sitting ahead of it on
+local main. Once pushed, I'll run the deployment check, production
+bundle-string verification (`bandana`/`rookie`/`cooker`/etc. present,
+`bookie`/`flirty`/`piazza`/etc. absent), and the automation-Chrome
+Find-the-Word smoke pass, then update this report to DONE.
