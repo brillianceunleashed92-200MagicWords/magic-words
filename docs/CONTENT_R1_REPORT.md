@@ -71,13 +71,13 @@ Fell back in those cases per constraint 2.
 | 2 | eight | eighty | APPLIED (primary) | night | passes all checks |
 | 3 | cookie | bookie | FALLBACK-USED | cooker | primary "rookie" already in entry (index 0) — would dup |
 | 4 | dirty | flirty | FALLBACK-USED | thirsty | primary "thirty" already in entry (index 0) — would dup |
-| 5 | a | I | **UNRESOLVED** (revised — see note) | *(left as "I")* | primary "at" collided (dup); fallback "as" passed the manual checklist but failed the build-wired sync gate in Phase 4 — reverted |
+| 5 | a | I | APPLIED (Phase 3b follow-up, Sal-approved alternative) | am | primary "at" collided; fallback "as" failed the build gate; `am` re-validated + gate-clean |
 | 6 | I | a | APPLIED (primary) | if | passes all checks |
 | 7 | six | silk | APPLIED (primary) | sick | passes all checks |
 | 8 | pizza | piazza | FALLBACK-USED | dizzy | primary "plaza" already in entry (index 1) — would dup |
 | 9 | banana | manna | FALLBACK-USED | banner | primary "bandana" already in entry (index 0) — would dup |
 | 10 | heart | hearth | FALLBACK-USED | hear | primary "heard" already in entry (index 0) — would dup |
-| 11 | zero | zeal | **UNRESOLVED** | *(left as "zeal")* | primary "hero" AND fallback "zebra" both already in entry (indices 0/1) — double failure per constraint 2 |
+| 11 | zero | zeal | APPLIED (Phase 3b follow-up, Sal-approved alternative) | zest | primary "hero" and fallback "zebra" both already in entry — double failure; `zest` re-validated + gate-clean |
 | 12 | green | preen | APPLIED (primary) | greet | passes all checks |
 | 13 | pencil | council | FALLBACK-USED | pretzel | primary "stencil" already in entry (index 0) — would dup |
 | 14 | door | doer | APPLIED (primary) | deer | passes all checks |
@@ -118,6 +118,37 @@ table (`colon`, `mellow`, `bellow`, `omen`, `fount`, `petty`, `posh`,
 `prone`, `phony`, `envy`, `empire`, `glean`, `clan`, `sappy`, `kelp`,
 `mast`, `clack`, etc.) — distractors are never taught or read aloud, so
 mild obscurity doesn't impair the visual-discrimination task itself.
+
+## PHASE 3b — Follow-up: approved UNRESOLVED rows applied
+
+Status: DONE (2026-07-07, follow-up commit on `main`, merge not rewritten)
+
+Sal approved both proposed alternatives. Applied directly (not through a
+new branch/merge — a follow-up commit on `main`, since the original merge
+already landed):
+- `a: ['an', 'at', 'I']` → `a: ['an', 'at', 'am']`
+- `zero: ['hero', 'zebra', 'zeal']` → `zero: ['hero', 'zebra', 'zest']`
+
+Re-validated both against the full Phase 1 checklist before applying:
+real words, age-appropriate, not derivational of their targets, visually
+similar (`am`/`a` share the "a" opening; `zest`/`zero` share the "ze-"
+opening and similar length), unique within their entry and ≠ target, no
+in-entry duplicates after the edit (`am` vs `an`/`at`; `zest` vs
+`hero`/`zebra`).
+
+**Re-ran the exact gate that caught the original problem**:
+`node scripts/check-findtheword-sync.mjs` → *"findTheWordManifest.js
+covers all 200 curriculum words with valid distractor sets. OK."* — the
+inflection heuristic that flagged `as` does not trip on `am` or `zest` in
+either direction.
+
+Also re-ran: the custom mechanical-integrity script (200 keys, all checks
+passed), `npm run build` (green), and `tests/find-the-word.spec.js` (2/2
+passed — exercises the untouched `eat` entry, unaffected either way, run
+again per your instruction as the targeted regression check for this
+follow-up).
+
+Both rows are now **APPLIED**, not UNRESOLVED — table below updated.
 
 ## PHASE 4 — Integrity + gates
 
