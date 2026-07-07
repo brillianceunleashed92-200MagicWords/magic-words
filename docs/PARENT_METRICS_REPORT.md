@@ -319,11 +319,81 @@ introduced by this run. Not silently dismissed — flagged here as a
 pre-existing, documented category of flakiness this run did not cause and
 did not fix (out of scope).
 
-Gates, `idor-proof.mjs`, and the preview + production walks are covered in
-Phase 5 below.
+**Gates (Phase 5, all green)**: `npm run build` (clean, no errors/warnings),
+all 5 sync checks (`check:no-emoji`, `check:wordart-sync`,
+`check:stroke-coverage`, `check:activitydefs-sync`,
+`check:findtheword-sync` — all "OK"), full Playwright suite at
+`workers:1` — 60/60 passed on the final clean run (an earlier run in the
+same session hit the pre-existing full-suite provisioning-contention
+flakiness noted above; re-run clean).
+
+**`idor-proof.mjs`**: re-run, all checks PASS. This run added **no new
+server endpoint** — every new query (`useParentMetricsHistoryQuery`) reads
+`learning_events` via the existing Supabase client + existing RLS
+policies, the same access pattern `useWeeklyStatsQuery` already used
+before this run. Rule 1's STOP-and-report clause did not fire; nothing
+here required a schema or endpoint change.
+
+**Reduced-motion pass**: verified live (`page.use({ reducedMotion:
+'reduce' })`) against a small real-data account — all 6 charts render
+correctly (bars/line/heatmap all present, no console/page errors beyond
+the pre-existing local-dev AI-Insight-endpoint 404, unrelated to this
+feature), confirming `isAnimationActive={!reducedMotion}` is correctly
+threaded through.
+
+**375px pass**: verified live at a 375px viewport (both empty-state and
+populated-state) — all 6 cards stack cleanly, no text truncation or
+horizontal overflow within the Progress section.
+
+**Preview walk (both children)**: verified live via the self-provisioned
+Playwright fixture (`ChartKid`/`EmptyKid`) — populated state, empty
+state, and child-switch refetch all confirmed correct (Phase 4).
 
 ### COPPA NOTE — one paragraph legal can read: display-only aggregation of already-inventoried tables, no new collection, no PII in any chart payload
-IN PROGRESS
+
+This feature collects nothing new. All 6 charts are read-only, client-side
+aggregations of two tables the app already writes during normal gameplay —
+`learning_events` (word, correctness, activity type, response time,
+timestamp) and `word_progress` (mastery, attempt counts, review dates) —
+both scoped to a `child_id` the signed-in parent already owns, behind the
+existing Grown-Ups hold-gate + quick-check math gate, same RLS as every
+other parent-facing screen. No new table, no new column, no new server
+endpoint, and no new personally-identifiable field is introduced or
+displayed: charts show words, dates, counts, and percentages, never a
+child's name, email, or any identifier beyond what the Dashboard already
+shows today (first name, already-visible elsewhere in the same tab). The
+data is aggregated in the browser after a normal authenticated read — no
+new export, download, or third-party transmission path was added.
 
 ### NOTES FOR PACKAGES B/C — where the calibration gate (B) and placement report / Star Check-In (C) should hook into what this run built
-IN PROGRESS
+
+- **Calibration gate (Package B)**: every mastery figure in this run
+  (charts 1, 3-implicitly via activity accuracy, and 6) already reads
+  through `isRealMastery` / `src/lib/masteryCalibration.js`, never raw
+  `mastery >= 80`. When Package B ships a real calibration fix (e.g.
+  changing the threshold, or replacing the flat 80%/3-attempt rule with
+  something adaptive), it only needs to change `masteryCalibration.js` —
+  every chart here, `PlayScreen.jsx`'s celebration trigger, and
+  `useCandyGalaxyData`'s `masteredCount`/`completedUnits` all update
+  automatically since they all import the same function. No chart-specific
+  follow-up work should be needed.
+- **`masteryReplay.js` is the reusable seam for any future "when did X
+  happen" question.** Package C's placement report or a future Star
+  Check-In summary that needs "which words did this child master before
+  vs. after placement" or similar historical framing can reuse
+  `computeMasteryCrossings`/`replayMasteryForWord` directly rather than
+  re-deriving crossing logic — it's already proven pure against real data
+  (Phase 1) and unit-tested.
+- **`useParentMetricsHistoryQuery`'s 84-day paginated read is the one
+  learning_events fetch point** a future package needing broader history
+  (e.g. a full-tenure retrospective for Package C) should extend or
+  parameterize rather than adding a second competing query — right now
+  the window is hardcoded to 84 days for this run's chart set specifically.
+- **Not addressed by this run, flagged for whoever picks up B or C
+  next**: `useWeeklyStatsQuery`'s `weakWords`/`wordsThisWeek` (the
+  pre-existing This Week hero stats, untouched here) still use raw
+  `mastery`, not `isRealMastery` — the same A2 calibration gap this run's
+  rule 3 worked around for every new chart. Left untouched per this run's
+  scope boundary (rule 1: no changes beyond the additive Progress
+  section), but Package B's calibration fix should include this file in
+  its sweep, not just the new charts.
