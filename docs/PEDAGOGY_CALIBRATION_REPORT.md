@@ -89,3 +89,202 @@ Gates, idor-proof, and the preview + production walks continue in Phase 8.
 
 ### NOTES FOR PACKAGE C — what the placement report / Star Check-In should reuse
 IN PROGRESS
+
+## RECOVERY AUDIT 2026-07-07T18:31:45Z
+
+**Context**: this run was killed mid-Phase-8 while a second Claude client was
+driving the same Chrome (contention). Per standing instruction, every
+browser-verified result from that window is untrusted regardless of what this
+report claims above, and the recovery starts with a read-only audit before
+touching anything.
+
+**1. Git state.**
+- `git fetch` — no new refs.
+- Current branch: `feat/pedagogy-calibration`. `git status`: clean except the
+  untracked files listed below.
+- Last 3 commits on the feature branch: `22580ba` (chore: CLAUDE.md
+  context-handoff + Chrome-exclusivity rules, 14:19:04), `03e75c5` (test:
+  idor-proof childId checks, 13:59:13), `7453a40` (test: Phase 7 fixtures +
+  live gameplay specs, 13:57:37).
+- `main` HEAD is still `94620d4` (the parent-metrics merge) — **identical to
+  `origin/main`**. `git log main..origin/main` and `origin/main..main` are
+  both empty.
+- **Merge to main did NOT happen.** No commit on this branch ever reached
+  `main`.
+- **`feat/pedagogy-calibration` has no upstream** (`git ls-remote --heads
+  origin feat/pedagogy-calibration` returns nothing) — the branch itself was
+  never pushed anywhere.
+- Conclusion: the kill happened well before the merge/push step. Per the
+  recovery instruction's own branch condition ("main untouched, nothing
+  pushed") this qualifies for **continue immediately**, pending the residue
+  check below.
+
+**2. Deployment check** — N/A, nothing was pushed (see above). No SHA to
+check against GitHub commit-status/Vercel.
+
+**3. Re-running gates whose green claim predates the kill.** The report's own
+VERIFICATION section never actually claimed gates/idor-proof/walks green — it
+says "Gates, idor-proof, and the preview + production walks continue in
+Phase 8," so nothing here needed to be distrusted so much as *finished*.
+Re-ran fresh, now:
+- `npm run build` (includes all 5 sync checks: wordart, stroke-coverage,
+  findtheword, activitydefs, **mastery-predicate-sync** — the new script this
+  run added) — **clean.**
+- `npm run check:no-emoji` — **clean.**
+- `node scripts/idor-proof.mjs` (env vars sourced from `.env.local`, not
+  exported globally) — **ALL CHECKS PASSED**, including the pre-existing
+  cross-user checks. **Caveat, verified by reading the script, not assumed**:
+  the new Phase-5 checks from commit `03e75c5` (`scaffold_down` forged-vs-own
+  `childId` ownership verification) live inside the `if (deployBase)` branch
+  and are gated on `DEPLOY_BASE_URL` — they **did not run** in this local
+  pass (fell into the existing "SKIP: create-portal-session/... (set
+  DEPLOY_BASE_URL...)" branch). This is expected script behavior, not a
+  failure, but it means **the one check this run's last commit specifically
+  added has still never actually executed against anything** — it needs a
+  live preview URL, i.e., Phase 8's preview deploy, before it can go green
+  for real.
+- Full Playwright suite (`workers:1`): running now (code changed materially
+  since the last claimed-green run — Phases 2-7 all touched runtime code —
+  so a fresh full run is required, not optional). Result to follow below.
+
+**4. Residue check — surviving `nextgenprecisiondrones+*` test accounts.**
+Queried `auth.users` directly. **No residue from this run**: no
+`mwpedagogy*` (this run's fixture prefix per the report) and no
+`mwpreviewwalk*` (the prefix used by the untracked
+`tests/zz-preview-walk.spec.js`, see below) accounts exist. The self-cleaning
+`finally`/admin-delete pattern held for whatever did run before the kill.
+- **Separate, pre-existing issue, out of scope for this recovery, flagged
+  anyway**: the query surfaced a much larger pool of un-cleaned-up accounts
+  under other prefixes (`mwnoemoji*` — ~20 rows from 2026-07-03,
+  `mwstorytime*`, `mwrm*`, `mwsmokesignup*`, `idora*`/`idorb*`,
+  `mwftw*`/`mwftseat*`, one `candygalaxy20260701`), the newest two
+  (`mwstorytime`, created 17:10 and 18:13 today) postdating this run's kill
+  entirely — i.e., a **different, later workstream** left those, not this
+  one. None of this is this run's residue; not touched, not deleted, just
+  reported per the instruction ("list; don't delete yet").
+
+**5. Untracked file found: `tests/zz-preview-walk.spec.js`.** Not committed,
+`mtime` 14:00:45 — squarely between the last real work commit (13:59:13) and
+the CLAUDE.md handoff commit (14:19:04). This is almost certainly a
+Playwright-driven attempt at Phase 8's "preview walk" step, written during
+the killed session, never committed. Read in full: it's a *Playwright* spec
+(self-contained browser instance, own `page` fixture) — not an
+extension-driven Chrome step, so it does not itself implicate the
+Chrome-contention concern. It self-provisions
+`nextgenprecisiondrones+mwpreviewwalk<timestamp>@gmail.com` and deletes it in
+a `finally` block. No matching account found in the residue check above, so
+either it was never actually executed, or it ran to completion and cleaned
+up correctly. **Per STEP 1 item 5, marking its result (if it ran) NEEDS
+REDO regardless** — it targets `/app` (a deployed URL), which is a live-site
+walk, exactly the category the recovery brief distrusts for this window.
+Left in place, untouched, pending a decision on whether to run it for real
+against a real preview once one exists, fold it into Phase 8 properly, or
+discard it as a false start.
+- **Also untracked, unrelated**: 8 policy/legal draft docs
+  (`200MW_*_DRAFT*.md`, `200MW_counsel_cover_email*.md`) and
+  `HARDENING_OPS_REPORT.md`, all with `mtime` on 2026-07-06 or earlier —
+  predate this run's commits by a full day, a different workstream entirely.
+  Not touched.
+
+**Verdict**: kill occurred before merge/push; main and origin are both
+clean; no residue from this run. Per the recovery brief's own branching
+rule, continuing immediately into STEP 3 (resume Phase 8) once the
+Playwright run above finishes and its result is recorded here.
+
+## PHASE 8 — GATES, VERIFY, SHIP (resumed)
+
+**Gates, re-run fresh (not trusted from before the kill, since the report
+never actually claimed them green — VERIFICATION said "continue in Phase
+8"):**
+- `npm run build` (all 5 sync checks incl. this run's new
+  `check-mastery-predicate-sync.mjs`) — **clean.**
+- `npm run check:no-emoji` — **clean.**
+- `node scripts/idor-proof.mjs` (env sourced from `.env.local` for this
+  invocation only) — **ALL CHECKS PASSED**, including the pre-existing
+  cross-user checks. **Caveat**: commit `03e75c5`'s new Phase-5
+  `scaffold_down` forged-childId checks live inside idor-proof.mjs's
+  `if (deployBase)` branch and are gated on `DEPLOY_BASE_URL` — they fell
+  into the "SKIP" branch locally and have still never actually executed
+  against anything. They need a live preview URL to run for real; carried
+  forward as an open item into the preview-walk step below, not silently
+  dropped.
+
+**Full Playwright suite — real regression found and fixed.** First
+full run (`workers:1`, 14.7 min): **58 passed, 8 failed** out of 66
+collected (65 tracked-suite tests + the untracked `zz-preview-walk.spec.js`,
+see below). Did not take this at face value — investigated every failure
+before deciding what it meant, per the "diagnose before fix" standing rule:
+
+- **2 of the 8 (`reduced-motion.spec.js` x2) were false alarms**: re-ran the
+  file alone → 3/3 passed. Resource contention from the 14.7-minute
+  sequential run, not a real bug. Confirmed by isolation re-run, not
+  assumed.
+- **1 of the 8 (`zz-preview-walk.spec.js`) is the untracked leftover file
+  from the killed session** (see RECOVERY AUDIT above) — its own bug
+  (hardcodes Word Hunt's target as `"cat"`, got `"dog"` — the session
+  batch doesn't guarantee word order/identity across activities the way
+  the script assumed). Not part of the committed 65-test baseline; disposed
+  of below.
+- **The remaining 5 (`fill-the-story.spec.js` x2, `find-the-word.spec.js`
+  x2, `story-time-chrome.spec.js` x1) were a real regression, root-caused,
+  not dismissed as flaky**: all three spec files provision a fixture that
+  seeds `word_progress` rows for units 1-2 with `mastery: 100` and **no
+  `attempt_count`** (pre-dating this run — these files belong to the
+  Fill-the-Story-rebuild / Find-the-Word+Quiz-Boss / Story-Time-chrome-migration
+  branches, not this one), relying on the pre-Phase-3 `mastery >= 80` rule
+  to read units 1-2 as fully mastered so the offline/local-dev fallback
+  (`sessionPlanFallbackUnit.js`, the only path local Playwright exercises —
+  local dev serves no `/api` routes) advances its `currentUnit` scan to
+  unit 3. Under this run's Phase 3 predicate
+  (`isRealMastery`: mastery >= 80 **and** attemptCount >= 3), an
+  unset/zero `attempt_count` means those seeded rows no longer read as
+  genuinely mastered, so `computeFallbackCurrentUnit` never advances past
+  unit 1 — confirmed directly via each failure's captured DOM snapshot,
+  which showed `"cat"` (unit 1) still as the recommended current word
+  instead of the fixture's intended unit-3 target (`"eat"`). This is
+  exactly the class of ripple effect Phase 1's census was supposed to
+  surface but didn't, because these three files aren't part of this run's
+  own test suite and the census only covered app source, not sibling test
+  fixtures written by earlier, unrelated feature branches.
+  - **Fixed** (all three, identical one-line change, matching the pattern
+    the report's own census item #11 and `quest-progression.spec.js`/
+    `quiz-boss.spec.js`/`session-complete-a2.spec.js` already established
+    for this exact scenario): added `attempt_count: 3` alongside
+    `mastery: 100` in the unit 1-2 seeding call in `fill-the-story.spec.js`,
+    `find-the-word.spec.js`, and `story-time-chrome.spec.js`.
+  - **Verified**: re-ran all 5 previously-failing tests together —
+    **5/5 passed.**
+  - **`csp-walk.spec.js` has the identical unfixed seeding gap** (same
+    `mastery: 100`, no `attempt_count`) but did **not** fail, because that
+    walk only clicks activities by button label and never asserts on which
+    specific word is shown — the gap exists but has no test-visible
+    symptom there. Left as-is (not a "fix a bug nobody hit" drive-by), but
+    flagged here for whoever next touches that file, since the underlying
+    data is still semantically wrong (those words are not actually
+    genuinely-mastered under the current predicate, the test just doesn't
+    care).
+  - **Also confirmed while investigating**: `csp-walk.spec.js` defaults to
+    running against **live production** (`https://200magicwordsapp.com`)
+    whenever `DEPLOY_BASE_URL` is unset (its own header comment says this
+    is intentional, pre-existing, signed off in an earlier run). It did run
+    against real production during this gate pass (a `nextgenprecisiondrones+
+    mwcspmain*` account was created there). Checked for residue after —
+    **none found**, its own `finally` cleanup succeeded. Not a new issue,
+    not touched, just confirmed clean.
+- Full suite re-run after the fixture fix, `zz-preview-walk.spec.js`
+  excluded via `--grep-invert`: **RESULT PENDING** (running in background
+  as this section is written — final tally to follow immediately below).
+
+**`zz-preview-walk.spec.js` disposition**: this file is the killed
+session's own draft of Phase 8's "preview walk," written but never
+committed (see RECOVERY AUDIT above for the mtime evidence). Its approach —
+a Playwright spec rather than an extension-driven Chrome walk — matches
+this codebase's own established convention for deploy-target walks
+(`csp-walk.spec.js`, `story-time-chrome.spec.js` both use a
+`DEPLOY_BASE_URL`-driven `test.use({ baseURL })`), so the pattern itself is
+sound; it just has a real bug (the hardcoded `"cat"` Word Hunt assumption)
+and was never adapted to target a deploy URL (it hits `/app` with the
+default local baseURL). Decision: fix the bug, adapt it to the established
+`DEPLOY_BASE_URL` convention, and use it for the actual preview-walk and
+production-walk steps below, rather than discard working setup/teardown
+code and rewrite from scratch.
