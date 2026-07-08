@@ -444,6 +444,23 @@ session-generator's real server-side selection (`selectCandidateWords`,
 `reviewOnly` pool) — passed in runs 1, 2, and 4, confirming this run's
 server-side changes didn't break the existing live selection path.
 
+**Post-fix re-verification (runs 5 & 6)**: after the pool-crowding fix
+(commit `04868ac`), a 5th full run showed 2 failures —
+`blank-engine-comprehension.spec.js` (this run's own new spec, never
+failed in runs 1-4) and `placement-checkin.spec.js`'s never-regress test
+(already seen failing once before, in run 2). Both re-run in isolation
+immediately after and **passed cleanly** — matching the exact same
+live-timing-flakiness signature documented above, not a regression from
+the fix (`blank-engine-comprehension.spec.js` never exercises
+`api/session-generator.js` at all — local dev has no working `/api`
+routes, confirmed repeatedly in this report — so the fix couldn't
+possibly have broken it functionally). A 6th full run, for a maximally
+literal reading of the terminal gate against the exact final code:
+**86/86 passed, zero failures, 13.4 minutes.** Total across all 6 runs:
+the two new specs added by this run failed exactly once (run 5, isolated
+re-run confirmed clean), and the fully-clean-run terminal gate was met
+twice (runs 4 and 6).
+
 **Function-word-universality + mastered-content-damping preview walk**
 (scripted, not manual clicking — direct calls to the real deployed
 `/api/session-generator`, the only way to observe server-side selection
