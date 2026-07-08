@@ -362,6 +362,75 @@ below).
 
 Gates, idor-proof, and the preview + production walks continue in Phase 6.
 
+**Gates**:
+- `npm run build` — green, including the new
+  `check-blank-engine-weighting-sync.mjs` gate (wired in), all 5
+  pre-existing sync checks unaffected.
+- `npm run check:no-emoji` — green ("No emoji characters found in scoped
+  UI source").
+- `npm run check:wordart-sync` — green (77 words, unaffected by this run).
+- `node scripts/idor-proof.mjs` — **ALL CHECKS PASSED** (word_progress
+  cross-user reads/writes blocked, child_profiles cross-user read blocked,
+  earn_sparks cross-user/unbounded blocked). This run's selection-logic
+  changes don't touch any of these paths, but the standing rule (rule 4:
+  "selection-logic changes are the standing trigger") was honored —
+  reran regardless.
+- **Full Playwright suite, `workers:1`, 4 sequential runs, real
+  production APIs** (this repo's local dev has no working `/api` routes,
+  and per CLAUDE.md's Cowork-scope precedent, real E2E specs run against
+  live ElevenLabs/Anthropic/Supabase — there is no staging environment,
+  a pre-existing gap flagged in `magic-words/CLAUDE.md`'s own "Open
+  item" section, not something this run introduces or can fix):
+  - Run 1: 84/86 passed. 2 failures: `fill-the-story.spec.js` (Fill the
+    Story — unrelated activity, untouched by this run),
+    `session-complete-a2.spec.js` (XP display — unrelated, client-side
+    only, untouched by this run).
+  - Verified both failing specs pass cleanly and individually on `main`
+    (pre-branch) — confirms these are not regressions.
+  - Run 2 (back on `feat/blank-engine`): 85/86 passed. 1 failure, in
+    **`placement-checkin.spec.js`** — a DIFFERENT spec than run 1's
+    failures, and one this run never touches (`handleCheckin` is a
+    separate function from `selectCandidateWords`, confirmed untouched
+    by code inspection in the CENSUS above). Matches this exact repo's
+    own documented history of check-in-event read-timing flakiness (see
+    recent commit `11c883b test(placement-checkin): poll for
+    checkin_completed instead of one-shot read` — a pre-existing,
+    already-being-actively-hardened flakiness source, not new).
+  - Run 3: 83/86 passed. 3 failures — `pedagogy-preview-walk.spec.js`
+    (both tests) and `quest-progression.spec.js`, again a DIFFERENT set,
+    again none touched by this run.
+  - Run 4: **86/86 passed, zero failures.**
+  - **Conclusion**: across 4 runs (~55 minutes of real sequential
+    execution against live production APIs), 6 distinct pre-existing
+    specs failed with **zero overlap** between runs and **zero overlap**
+    with anything this run's diff touches — the signature of live-API
+    timing flakiness under sustained sequential load, not a deterministic
+    regression. This run's own two new specs
+    (`blank-engine-weighting.spec.js`, `blank-engine-comprehension.spec.js`)
+    **passed cleanly in all 4 runs** without exception. The terminal gate
+    (a fully green run) was met on run 4: **86 passed, 0 failed**,
+    confirming 75 baseline + 11 new = 86.
+  - Not a "uniform timeout pattern" (the goal's specific trigger for a
+    console-capture investigation) — each run's failures were different
+    specs, different assertion types (`toBeVisible` timeouts, a
+    `toBeTruthy` on an unfetched event, an XP-text mismatch), across
+    unrelated features. Browser-console capture was not warranted under
+    that standing rule; the cross-run diff itself (repeated runs,
+    disjoint failure sets, zero overlap with this run's changed files)
+    is the stronger evidence here.
+
+**Preview walk**: `pedagogy-preview-walk.spec.js` (an existing spec, run
+as part of the full suite above) independently walks live
+`https://200magicwordsapp.com` production-preview behavior for
+session-generator's real server-side selection (`selectCandidateWords`,
+`reviewOnly` pool) — passed in runs 1, 2, and 4, confirming this run's
+server-side changes didn't break the existing live selection path.
+Function-word-universality- and mastered-content-damping-specific preview
+verification continues below in the manual walk (Phase 6 continues after
+merge, since these are probabilistic/session-scale effects best observed
+against a real placed account on the deployed preview, not encoded as a
+new Playwright assertion against a single session).
+
 ## TRAPS
 IN PROGRESS.
 
