@@ -76,7 +76,7 @@ Three full-suite attempts under memory pressure (up to 36.4 min each) all showed
 
 **Final clean run, Chrome fully quit, after the fix**: **74 passed, 1 failed** (13.4 min). The one failure — `password-reset.spec.js`'s `verifyOtp establishes recovery session...` — is the same pre-existing, unrelated flake already diagnosed and confirmed during `FIX_CELEBRATION_R1` (reproduces identically on unmodified `main` in a throwaway `git worktree`; nothing in either branch's diff touches password-reset code). **0 real regressions from this branch.**
 
-**Preview walk**: parent initiates check-in from the portal, child completes it, portal shows the new growth point, free-tier upsell still reads correctly — covered by the same `placement-checkin.spec.js` full-flow test above (it already exercises exactly this path against the real deployed preview) plus a dedicated manual walk before merge (see PHASE 4 close-out below).
+**Preview walk**: re-ran `tests/placement-checkin.spec.js` (all 6) plus `idor-proof.mjs` (28/28) against the FINAL preview deployment (`840a902`, post the dead-import fix and the idor-proof polling fix) — both clean, confirming the actual deployed artifact (not just an earlier commit) works end to end: parent-facing Placement Report + eligibility-gated Check-In card render correctly, the child-facing probe completes with §5a tone parity, `child_profiles`/`product_events` update correctly, and the free-tier upsell path (folded into `PlacementReportCard`) still reads correctly. Zero orphan test accounts remained afterward (verified via direct query).
 
 ## TRAPS — reusable lessons
 
