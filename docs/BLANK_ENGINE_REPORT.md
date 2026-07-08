@@ -234,7 +234,71 @@ of unit, so a below-floor mastered content word now receives the exact same
 reintroduce mastered content at full rate.
 
 ## STORY COMPREHENSION
-IN PROGRESS.
+
+**No STOP — structured content already exists** (see STEP 0 finding 5):
+`story_catalog.comprehension_question` was seeded (mission A4,
+`scripts/seed-story-catalog.mjs`) with 20 real, story-content-derived
+questions before this run started (e.g. the frog story's "What did the
+frog catch?" / choices `a fly, a ball, a leaf` / `correctIndex: 0` —
+matching the mission's own worked example almost verbatim). `localStory.js`'s
+deterministic fallback also already produces a (simpler) comprehension
+question at tiers 2-3. No `supabase db push` needed — the column has existed
+since migration 0030.
+
+**How questions are built from story content**: unchanged — this run does
+not touch question authorship or the data model, only the interaction/UI.
+`findCatalogStory` (`src/lib/queries/storyCatalog.js`) already projects
+`comprehension_question` into the `{ comprehensionQuestion }` shape
+`StoryReader.jsx` reads.
+
+**Data cleanup (in scope, not new authoring)**: two catalog stories (dog,
+fish) plus two more found during implementation (pig, turtle) had
+prepositional-phrase choices (`"in the park"`, `"on the sand"`) that would
+overflow `WordArt`'s typographic-fallback SVG text (untested for
+multi-word phrases — it's built for single vocabulary words). Trimmed to
+bare nouns (`"park"`, `"sand"`) in `scripts/seed-story-catalog.mjs`,
+re-run against production (idempotent upsert on `(target_word, tier)`,
+verified all 20 rows re-seeded cleanly). The `ball` story's choices (`"the
+dog"`, `"the cat"`, `"the bird"`) now strip to real curriculum words with
+genuine hand-illustrated art via the same regex — a nice side effect, not
+a separate change.
+
+**Scaffold + tile reuse** (`src/components/candy/StoryReader.jsx`):
+- Imports `AnswerTile` (`src/games/lessonChrome.jsx`) and `WordArt`
+  (`src/components/WordArt.jsx`) — the exact same primitives WordMatch/
+  WordHunt/RhymeTime already use. No new tile/question component built.
+- `handleChoiceTap` now implements the identical wiggle+soften →
+  hint-glow → second-miss-completes state machine as WordMatch's
+  `handleTap` (`src/games/GameEngine.jsx` lines 214-246): first wrong tap
+  sets `wrongTileIdx` (450ms wiggle+soften), then `revealCorrect=true`
+  (persistent hint-glow on the correct tile — stays lit, not a timed
+  pulse, so the cue is still visible the instant input re-enables, per the
+  CLAUDE.md lesson from the original WordMatch scaffold work). Only a
+  second miss lets the wrong answer complete.
+- Scoring contract unchanged: `onComplete(isCorrect)` → StoryTimeReader's
+  `onAnswer({ correct, responseTimeMs, firstTry: true })` — same call
+  shape as before this run, same as WordMatch's own "byte-for-byte
+  unchanged" precedent (docs/BLANK_ENGINE_REPORT.md's mission doesn't ask
+  for a `firstTry:false` distinction, matching the established scope
+  boundary from Phase 5b item 4 of the redesign work).
+- `AnswerTile` internally gates all animation on `usePrefersReducedMotion`
+  — inherited for free, confirmed by reading the primitive (STEP 0), not
+  re-implemented.
+- Choices that aren't exact curriculum words (e.g. category names like
+  `"animals"`) fall through to `WordArt`'s typographic candy-tile
+  (`TypographicWord`) — never emoji, never broken, confirmed by reading
+  `WordArt.jsx`.
+- `StoryScreen.jsx` (freeform Story Engine / "New Story Friday") never
+  sets `comprehensionQuestion` — confirmed unchanged: the whole question
+  block simply never renders there (`hasQuestion` is always false),
+  exactly as before this run.
+
+**Logging**: no new `game_type`, no new `product_events` type — confirmed
+by inspection, so the CHECK-constraint/allowlist/positive-landing-test
+lesson (migrations 0035/0036) does not apply. The existing
+`story_time` → `handleAnswer` → `onProgress` → `learning_events` pipeline
+is unchanged; only the interaction leading up to the single `onAnswer`
+call changed.
 
 ## VERIFICATION
 IN PROGRESS.
