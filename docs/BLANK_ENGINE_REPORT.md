@@ -301,7 +301,66 @@ is unchanged; only the interaction leading up to the single `onAnswer`
 call changed.
 
 ## VERIFICATION
-IN PROGRESS.
+
+**Fixtures**:
+- `tests/blank-engine-weighting.spec.js` — 10 plain Node assertions
+  against the extracted pure functions in `src/lib/blankEngineWeighting.js`
+  (no Supabase, no browser). Covers: below-floor unmastered function word
+  is eligible; at/above-floor function word is not; CONTENT word below
+  floor is never eligible (content-gating untouched); already-mastered
+  below-floor function word is not eligible (already reachable via
+  masteredSample); no floor → no candidates; the sample size constant is
+  small/deliberate; mastered function words always pass damping; mastered
+  content words pass only under the weight; the weight is never 0 or 1
+  (never a hard exclusion, never undamped); and a 2000-draw statistical
+  sanity check against real `Math.random` lands within ±0.08 of the
+  configured 0.35 weight.
+- `tests/blank-engine-comprehension.spec.js` — real end-to-end Playwright
+  run against a provisioned test account
+  (`nextgenprecisiondrones+mwblankcompr*`): seeds the guided path's first
+  5 activities for "cat" (deliberately does NOT seed `word_progress` — see
+  the fixture's own comment for why "cat," sort_order 1, is the natural
+  `currentWord` with zero progress rows, and why the events must be
+  stamped for that exact word to satisfy `useTodayWordActivityQuery`'s
+  `.eq('word', word)` unlock gate — a real bug caught while building this
+  fixture, not the app: an earlier version mastered units 1-2 like
+  `story-time-chrome.spec.js`'s exit-only fixture does, which left Story
+  Time locked/unclickable because the resulting `currentWord` (from unit 3)
+  never matched the events' hardcoded word), plus a `user_stats` row
+  (`total_xp: 2000`) so the child computes to level 12+ (tier 3), matching
+  the "cat" catalog entry (tier 3 only). Drives real gameplay through to
+  Story Time, reads the "cat" catalog story to its comprehension question,
+  confirms picture tiles render (`<svg role="img" aria-label="ball">` /
+  `"book"`, not plain text buttons), taps the wrong choice first (confirms
+  the question does NOT complete — errorless retry), waits past the
+  450ms wiggle→hint-glow transition, retries with the correct choice
+  (confirms completion + "Great reading!"), then polls
+  `learning_events` for the resulting `story_time` row and confirms
+  `word: 'cat', correct: true`.
+  - **Second real bug found and fixed while building this test, not the
+    app**: `renderSentence()` (`StoryReader.jsx`) splits a sentence into
+    one `<span>` per word (for tap-to-speak) with CSS `marginRight` for
+    visual spacing only — no real space characters exist between the
+    words in the DOM, so a `getByText('What did the cat play with?')`
+    locator with literal spaces never matches. Fixed the TEST (not the
+    component — the split-span structure is intentional, existing
+    behavior for tap-to-speak) by detecting question-page arrival via a
+    choice tile's label instead (`AnswerTile`'s text child is a single
+    plain-string node, not word-split, so it matches reliably).
+  - **Third real bug found and fixed while building this test, not the
+    app**: `learning_events`' timestamp column is `recorded_at`, not
+    `created_at` (confirmed by reading `questProgress.js`'s own comment) —
+    an initial `select=...,created_at` silently returned a PostgREST error
+    object instead of an array, surfacing as `events.length` being
+    `undefined` rather than a clear failure. Fixed the test's own select
+    clause.
+
+**Tests vs. 75 baseline**: 75 (baseline) + 10
+(`blank-engine-weighting.spec.js`) + 1 (`blank-engine-comprehension.spec.js`)
+= **86**, confirmed via `npx playwright test --list` (see full-suite run
+below).
+
+Gates, idor-proof, and the preview + production walks continue in Phase 6.
 
 ## TRAPS
 IN PROGRESS.
