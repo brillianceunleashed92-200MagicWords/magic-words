@@ -6,7 +6,7 @@ import { useParentDigest } from '../../lib/queries/parentDigest';
 import { FREE_TIER_MAX_UNIT } from '../../lib/queries/subscription';
 import UpgradeBanner from './UpgradeBanner';
 import PlacementReportCard from './PlacementReportCard';
-import StarCheckInCard, { isCheckinEligible } from './StarCheckInCard';
+import StarCheckInCard from './StarCheckInCard';
 
 // Lazy so recharts (Progress section's only reason to exist) never ships
 // in the shared CandyGalaxyShell chunk a child playing Home/Play/Galaxy
