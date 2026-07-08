@@ -408,8 +408,23 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
     : [];
   const belowFloorFunctionSample = shuffled(belowFloorFunctionEligible).slice(0, BELOW_FLOOR_FUNCTION_SAMPLE_SIZE);
 
+  // FEAT_BLANK_ENGINE_R1 bug found live (Phase 6 preview walk): a fresh/
+  // unstarted current unit with >=8 words (common — several units have
+  // exactly 8) already fills the final `.slice(0, 8)` cap on its own,
+  // silently crowding out masteredSample/belowFloorFunctionSample even
+  // though they were computed correctly — they used to be appended LAST
+  // in the array, so slice(0,8) never reached them. This pre-dates this
+  // run for masteredSample (the original "1-2 mastered words for
+  // confidence" feature had the exact same latent bug — never observed
+  // before because nothing previously depended on live-verifying its
+  // presence). Fixed by putting masteredSample + belowFloorFunctionSample
+  // FIRST in the array, so they win the slice(0,8) cap ahead of
+  // currentUnitWords/dueForReview — guarantees both features are actually
+  // reachable rather than only "correct in isolation." A child with
+  // nothing mastered and no floor has both arrays empty, so this is
+  // byte-identical to the prior pool composition for that population.
   const seen = new Set();
-  const pool = [...currentUnitWords, ...dueForReview, ...masteredSample, ...belowFloorFunctionSample].filter((w) => {
+  const pool = [...masteredSample, ...belowFloorFunctionSample, ...currentUnitWords, ...dueForReview].filter((w) => {
     if (seen.has(w.word)) return false;
     seen.add(w.word);
     return true;
