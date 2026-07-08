@@ -136,7 +136,11 @@ Both pass against the fixed code (`npx playwright test tests/celebration-timing.
 - `npm run check:no-emoji` — **OK**, no emoji in scoped UI source.
 - `npm run check:wordart-sync` — **OK**, 77 words agree between REGISTRY and manifest.
 - `node --env-file=.env.local scripts/idor-proof.mjs` — **ALL CHECKS PASSED** (6/6 local checks; the 2 `DEPLOY_BASE_URL`-gated live-endpoint checks skip locally as designed, re-run against the deployed preview below).
-- Full Playwright suite (`workers:1`, 69 tests): running — result recorded below once complete.
+- Full Playwright suite (`workers:1`, 69 tests): **66 passed, 3 failed** on the first full run (12.9min). All 3 investigated, not assumed benign:
+  - `celebration-timing.spec.js` (new, this run) — timed out at 90s in the full-suite run; re-ran standalone (with the other 2 failures) and **passed clean, 2/2, ~36-37s each** — consistent with resource contention after 60+ prior tests' worth of account provisioning in one sequential run, not a real defect.
+  - `pedagogy-preview-walk.spec.js` — failed asserting Home showed `"cat"` (showed an in-progress "bear" question instead); re-ran standalone and **passed clean, 2/2**, including its live production run confirming "cat" still stays current through attempts 1-2 and crosses real mastery at attempt 3 exactly as before this fix. Same contention conclusion.
+  - `password-reset.spec.js` (`verifyOtp establishes recovery session...`) — failed both in the full run and standalone. **Verified pre-existing and unrelated**: reproduced identically (`expect(oldResult.errorCode).toBe('invalid_credentials')` → received `undefined`) against unmodified `main` in a throwaway `git worktree`, with zero relation to any file this run touched (auth/password-reset code, untouched by this fix). Not this run's regression — flagged as a standing issue, not blocking this ship.
+  - Re-ran the two contention-flaked specs standalone: **all pass**. Full suite total: **68/69 passing** (68 = 66 + 2 re-confirmed), 1 known pre-existing unrelated flake (`password-reset.spec.js`), 0 real regressions from this fix.
 
 ## TRAPS — every reusable lesson from this run, phrased as standing rules
 IN PROGRESS
