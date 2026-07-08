@@ -198,6 +198,24 @@ that derives `currentUnit`, `currentUnitWords`, and `dueForReview` are all
 byte-identical to before this run — the exemption is purely additive (one
 new filter + one new pool member), confirmed by diff.
 
+**BUG FOUND AND FIXED live, during the Phase 6 preview walk** (not
+assumed from theory, reproduced against the real deployed
+`/api/session-generator`): a family-plan child placed at floor=15 with
+"the" (unit 11) left completely unplayed showed **zero** below-floor
+function words across 9 real calls. Root cause: `currentUnitWords` for
+unit 15 (8 words, all unmastered on a fresh account) already filled the
+final `pool.slice(0, 8)` cap on its own — `masteredSample` and
+`belowFloorFunctionSample` were appended AFTER `currentUnitWords` in the
+array, so the cap never reached them. This silently starved BOTH new
+mechanisms (and, it turns out, was a latent pre-existing bug in the
+original "1-2 mastered words for confidence" feature too — see
+MASTERED-CONTENT DAMPING below). Fixed by reordering the pool array so
+`masteredSample`/`belowFloorFunctionSample` come FIRST (reserved slots),
+with `currentUnitWords`/`dueForReview` filling the remainder — see
+`api/session-generator.js`'s own comment at the fix site for the full
+before/after. Re-verified live after the fix (see VERIFICATION): every
+one of 9 calls now includes a below-floor function word.
+
 ## MASTERED-CONTENT DAMPING
 
 **Verbatim weighting rule** (`src/lib/blankEngineWeighting.js`,
@@ -425,14 +443,144 @@ as part of the full suite above) independently walks live
 session-generator's real server-side selection (`selectCandidateWords`,
 `reviewOnly` pool) — passed in runs 1, 2, and 4, confirming this run's
 server-side changes didn't break the existing live selection path.
-Function-word-universality- and mastered-content-damping-specific preview
-verification continues below in the manual walk (Phase 6 continues after
-merge, since these are probabilistic/session-scale effects best observed
-against a real placed account on the deployed preview, not encoded as a
-new Playwright assertion against a single session).
+
+**Function-word-universality + mastered-content-damping preview walk**
+(scripted, not manual clicking — direct calls to the real deployed
+`/api/session-generator`, the only way to observe server-side selection
+weighting live, matching this repo's own established "preview walk"
+precedent of `pedagogy-preview-walk.spec.js`'s reviewOnly-pool check
+above): provisioned a family-plan child, placed (floor) at unit 15, with
+"cat"/"dog" (unit-1 content) and "and" (unit-11 function) genuinely
+mastered (100%, 5 attempts), "the" (unit 11, below floor) and "what"
+(unit 18, above floor) left completely unplayed. Called the deployed
+endpoint 9 times (the 10/min rate limit's ceiling) with a real signed-in
+token:
+
+- **First attempt surfaced a real bug** (documented above in FUNCTION-WORD
+  UNIVERSALITY and fixed in commit `04868ac`): 0/9 calls included any
+  below-floor function word or any mastered-sample word at all —
+  `currentUnitWords` alone (unit 15's 8 words) filled the pool cap before
+  the new logic was ever reached.
+- **After the fix**, re-deployed (`vercel deploy --yes`, a preview build —
+  the GitHub-integration auto-deploy for this specific push was
+  unusually slow/never fired within ~20 minutes, so a direct CLI deploy
+  was used instead; both are ordinary preview deployments, no approval
+  gate applies to either) and re-ran the same 9-call walk:
+
+  | word | type | expected | observed (9 calls) |
+  |---|---|---|---|
+  | `and` | mastered function | always (weight 1.0) | **9/9 (100%)** |
+  | `cat` | mastered content | ~35% | **3/9 (33%)** |
+  | `dog` | mastered content | ~35% | **2/9 (22%)** |
+  | `the` | below-floor function (this exact word) | low (1-of-~15-eligible-pool chance per call) | 0/9 — expected: see below |
+  | *any* below-floor function word | — | present every call | **9/9 (100%)** — cycled through `me`, `she`, `I`, `but`, `we`, `a` across the 9 calls |
+  | `what` | above-floor function (control — never exempted) | never | **0/9 (0%)** |
+
+  `the` specifically landing on 0/9 is expected, not a failure: the
+  below-floor eligible pool for this fixture is ~15 unmastered function
+  words (units 11-12 minus "and," which is mastered), and
+  `BELOW_FLOOR_FUNCTION_SAMPLE_SIZE=1` picks ONE at random per call — a
+  ~6.7%-per-call chance for any single specific word, so 0/9 for one
+  named word is unsurprising while the *mechanism itself* (some
+  below-floor function word, any of them) fired on all 9/9 calls. This
+  is the live, real-server confirmation of both gaps: function words are
+  now universally reachable regardless of placement floor, mastered
+  content recedes to roughly the configured weight while mastered
+  function words never do, and no premium/above-floor content leaked
+  through (`what` never appeared).
+
+**Story comprehension preview check**: `tests/blank-engine-comprehension.spec.js`
+already exercises the full flow end-to-end against real production
+Supabase data (see VERIFICATION above) — the picture-tile scaffold,
+wrong-then-correct-retry, and `learning_events` logging are the same code
+path whether hit from local dev or the deployed preview (this feature has
+no server-only branch — `StoryReader.jsx` is pure client code, and
+`useStoryCatalogQuery` talks to Supabase directly, not through `/api`).
+No separate preview-specific check was needed beyond what that spec
+already proves.
 
 ## TRAPS
-IN PROGRESS.
+
+- **A pool array's element ORDER matters when it's later truncated with
+  `.slice(0, N)`** — appending a new, intentionally-small contribution
+  (a "reserved slot" of 1-2 words) to the END of an array that's already
+  built from an unbounded-size source (a full unit's word list) means the
+  truncation can silently swallow the new contribution whenever the
+  unbounded source alone already reaches N. This bit BOTH this run's two
+  new mechanisms AND a pre-existing feature (`masteredSample`) that had
+  gone unnoticed because nothing had ever live-verified its actual
+  presence before. **Lesson: any "small fixed sample size added to a
+  larger candidate pool" pattern needs either (a) reserved-slots-first
+  ordering, or (b) an explicit live check that the small sample actually
+  survives the final cap** — a correct-in-isolation computation
+  (confirmed by the offline unit tests, which never exercised the
+  truncation) is not the same as a correct end-to-end result.
+- **A scripted, direct-API preview walk beats a manual browser click-through
+  for server-side-only, probabilistic behavior.** Clicking through the UI
+  would show one session's worth of words — not enough calls to
+  distinguish "35% damping" from "these specific words just weren't
+  picked this time," and no visibility into the raw candidate pool at
+  all (the UI only ever shows the final quiz sequence). A short Node
+  script hitting the real deployed endpoint N times with a real signed-in
+  token, following this repo's own `idor-proof.mjs`/`pedagogy-preview-walk.spec.js`
+  precedent, gave exact, inspectable, repeatable evidence in under a
+  minute per run — and directly surfaced the pool-crowding bug above,
+  which a single manual walk-through likely would have missed entirely
+  (a lucky word order could easily have shown 1 mastered/exempt word by
+  chance from `currentUnitWords`/`dueForReview` alone, masking that the
+  new logic was never actually contributing).
+- **When a GitHub-integration auto-deploy doesn't fire within a normal
+  window (~20 minutes, vs. this project's typical <1 minute), don't wait
+  indefinitely — deploy directly.** `vercel deploy --yes` from a linked,
+  authenticated CLI (`vercel whoami` confirms the account) produces an
+  ordinary preview deployment identical in kind to a GitHub-push-triggered
+  one; no approval gate applies to a preview deploy either way (only
+  `git push origin main` and `supabase db push` are gated). Useful to
+  know the CLI escape hatch exists rather than blocking a verification
+  step on a webhook that may simply be slow that day.
+- **`ScheduleWakeup`'s requested delay did not correspond to real elapsed
+  wall-clock time in this session** — three consecutive `ScheduleWakeup`
+  calls each requesting ~1200s fired back-to-back within about 2 real
+  minutes total, while a background shell command's own process
+  `ELAPSED` time (`ps -o etime`) advanced normally. Switched to blocking
+  `while ps -p <pid> ...; sleep N; done` loops inside single Bash calls
+  (bounded by the Bash tool's own timeout, using bash's built-in
+  `$SECONDS` rather than the non-existent-on-macOS `timeout` command) to
+  get reliable real-time waits for the long-running full-suite runs.
+  Worth checking process `ELAPSED` (not turn count, not prior
+  `ScheduleWakeup` confirmation timestamps) before concluding a
+  long-running background command is hung.
 
 ## NOTES FOR WEEKLY_INSIGHTS
-IN PROGRESS.
+
+- **`MASTERED_CONTENT_INCLUSION_WEIGHT` (0.35)** — `src/lib/blankEngineWeighting.js`.
+  Conservative v1, explicitly flagged in-code as tunable. Once real
+  accuracy/engagement data exists (does a 35%-damped mastered word still
+  get answered correctly at a rate indicating it's genuinely retained, or
+  does damping need to be more/less aggressive?), WEEKLY_INSIGHTS should
+  be able to propose a new value for this single constant (mirrored copy
+  in `api/session-generator.js`, kept in sync by
+  `scripts/check-blank-engine-weighting-sync.mjs`).
+- **`BELOW_FLOOR_FUNCTION_SAMPLE_SIZE` (1)** — same file. If placement
+  data shows below-floor function-word exposure at 1-per-session is too
+  sparse (or too frequent, crowding out current-unit content) once real
+  session composition data exists, this is the single tunable knob.
+- **Comprehension accuracy** — `learning_events` rows with
+  `game_type='story_time'` now carry a real pass/fail signal from the
+  comprehension question specifically (previously the whole activity's
+  `correct` value conflated "read the story" with "understood it," since
+  the pre-existing self-referential local-fallback question was closer to
+  a formality). WEEKLY_INSIGHTS could track comprehension accuracy
+  separately from story-completion rate as a new signal once enough
+  volume accumulates — e.g. to flag if a particular story/tier's question
+  is miscalibrated (too easy/hard relative to its reading level).
+- **Free-tier function-word exposure gap** (STEP 0 finding 3, not fixed
+  by this run, out of scope): all 45 function words live in units 11-18,
+  entirely outside `FREE_TIER_MAX_UNIT` (5) — a free-tier child never
+  sees ANY function word today, regardless of this run's placement-floor
+  exemption (which only helps once a word is at least within the plan's
+  unit cap). This is a real, structural product gap worth flagging to
+  Sal directly, separate from WEEKLY_INSIGHTS' tunable-constant scope —
+  it would need a deliberate free-tier-curriculum decision (e.g.
+  reserving a small function-word allotment within the free cap), not a
+  parameter tune.
