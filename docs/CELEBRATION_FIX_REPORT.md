@@ -131,7 +131,12 @@ Presented to Sal for one explicit confirmation before executing (approval gate, 
 
 Both pass against the fixed code (`npx playwright test tests/celebration-timing.spec.js` — 2/2, ~1.2min). Temporary Phase 2 repro spec (`tests/zz-celebration-repro.spec.js`) deleted before this commit, per its own header comment.
 
-**Gates**: see PHASE 7 run below (this section continues after that phase completes).
+**Gates** (Phase 7, local):
+- `npm run build` (chains `check-wordart-sync`, `check-stroke-coverage`, `check-findtheword-sync`, `check-activitydefs-sync`, `check-mastery-predicate-sync`, `vite build`) — **clean**.
+- `npm run check:no-emoji` — **OK**, no emoji in scoped UI source.
+- `npm run check:wordart-sync` — **OK**, 77 words agree between REGISTRY and manifest.
+- `node --env-file=.env.local scripts/idor-proof.mjs` — **ALL CHECKS PASSED** (6/6 local checks; the 2 `DEPLOY_BASE_URL`-gated live-endpoint checks skip locally as designed, re-run against the deployed preview below).
+- Full Playwright suite (`workers:1`, 69 tests): running — result recorded below once complete.
 
 ## TRAPS — every reusable lesson from this run, phrased as standing rules
 IN PROGRESS
