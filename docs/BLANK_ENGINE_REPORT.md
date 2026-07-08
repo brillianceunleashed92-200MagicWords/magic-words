@@ -4,8 +4,14 @@ Branch: `feat/blank-engine` · Prompt: `docs/FEAT_BLANK_ENGINE_R1.md`
 
 ## RUN TIMING
 - **Start**: 2026-07-08
-- **Phase 0 (report + recon)**: IN PROGRESS
-- **End**: —
+- **Phase 0 (report + recon)**: done, 2026-07-08
+- **Phases 1-3 (census + function-word universality + mastered-content
+  damping)**: done, 2026-07-08
+- **Phase 4 (story comprehension scaffold)**: done, 2026-07-08
+- **Phase 5 (fixtures + tests)**: done, 2026-07-08
+- **Phase 6 (gates, preview walk, bug found + fixed, merge, push,
+  production walk, cleanup)**: done, 2026-07-08
+- **End**: 2026-07-08 — **DONE**
 
 ## STEP 0 — RECON FINDINGS (before any code)
 
@@ -318,6 +324,25 @@ lesson (migrations 0035/0036) does not apply. The existing
 is unchanged; only the interaction leading up to the single `onAnswer`
 call changed.
 
+**Production visual walk** (`https://200magicwordsapp.com`, fresh
+provisioned test account, real production build — not local dev):
+signed in, drove the guided path to "Story Time," opened "The Curious
+Cat" (real cover art rendered), clicked through all 8 pages, reached the
+comprehension question ("What did the cat play with?"). **Confirmed
+live**: the question renders as 3 real picture-choice `AnswerTile`s (not
+the old plain-text buttons) — "a ball" and "a book" show genuine
+hand-illustrated `WordArt` SVGs, "a shoe" shows the typographic
+candy-tile fallback (never emoji, never broken) — laid out in the
+`auto-fit` grid exactly as designed, dimmed to 0.55 opacity while
+narration is in progress. Interactive tap-through (wrong→retry→correct)
+could not be completed via this manual channel — see TRAPS below for why
+(a Claude-in-Chrome tool limitation around trusted user-gesture
+detection for audio autoplay, not an app defect) — that exact
+interaction is independently and repeatedly proven by the real Playwright
+suite (`blank-engine-comprehension.spec.js`, run against local dev with
+real production Supabase data, same client bundle logic either way since
+this feature has no server-side branch).
+
 ## VERIFICATION
 
 **Fixtures**:
@@ -518,6 +543,29 @@ already proves.
 
 ## TRAPS
 
+- **Claude-in-Chrome's synthetic clicks aren't "trusted" user-gesture
+  events for the browser's autoplay policy — don't mistake this for a
+  real narration/audio bug during a manual production walk.** Confirmed
+  during the production visual walk (below): after reaching Story Time's
+  comprehension question live on `https://200magicwordsapp.com`, the
+  question stayed on "Listening…" indefinitely and tapping a choice did
+  nothing. `navigator.userActivation.isActive` read `false` immediately
+  after a synthetic click, and `document.querySelectorAll('audio')`
+  returned zero elements — the ElevenLabs fetch+`Audio.play()` chain in
+  `useKaraokeNarration.js` never got a real trusted-gesture token to play
+  against, so playback silently never started (`narrationDone` never
+  flips). This exact `!narrationDone` gate on `handleChoiceTap`
+  **pre-dates this run** (present in the original plain-text-button
+  implementation too) — not something this run introduced, and not a
+  regression: the same live comprehension flow (including tapping
+  through the wiggle→hint-glow→retry scaffold) already passed repeatedly
+  under real Playwright automation (`blank-engine-comprehension.spec.js`,
+  clean in 5 of 6 full-suite runs, the 1 flake reproduced-clean in
+  isolation), which dispatches genuinely trusted input events Chrome's
+  autoplay heuristics accept. **Lesson: for any narration/audio-gated
+  interaction, trust the Playwright suite's verdict over a manual
+  Claude-in-Chrome click-through** — the tool's own input synthesis is
+  the limiting factor here, not the app.
 - **A pool array's element ORDER matters when it's later truncated with
   `.slice(0, N)`** — appending a new, intentionally-small contribution
   (a "reserved slot" of 1-2 words) to the END of an array that's already
@@ -601,3 +649,68 @@ already proves.
   it would need a deliberate free-tier-curriculum decision (e.g.
   reserving a small function-word allotment within the free cap), not a
   parameter tune.
+
+## CLEANUP + CASCADE-VERIFY
+
+All test accounts provisioned during this run (Playwright specs' own
+`finally` blocks, the scripted preview/production weighting walks, the
+production visual walk) were deleted. One orphan was found during the
+final cascade-verify sweep — a `ComprKid` child from a
+`blank-engine-comprehension.spec.js` run whose `finally` cleanup
+apparently didn't complete (likely the same live-timing-flakiness class
+documented in VERIFICATION) — found via a direct DB query for this
+session's email prefixes (`%mwblankcompr%`, `%blankwalk%`,
+`%prodvisual%`) and deleted via `auth.admin.deleteUser`. Final sweep of
+all three prefixes: zero rows. `story_catalog` re-seed (the choice-text
+trim, STORY COMPREHENSION above) was idempotent upsert on
+`(target_word, tier)` — no cleanup needed, no orphaned rows possible.
+
+## FINAL STATUS
+
+**DONE.**
+
+- All three Dr. Blank fidelity gaps closed: function-word universality,
+  mastered-content damping, and the sixth MLC skill (story comprehension)
+  — no STOP triggered; the comprehension gap's structured-content model
+  already existed (`story_catalog.comprehension_question`), so this run
+  built on it rather than needing to invent one.
+- `docs/BLANK_ENGINE_REPORT.md` — this file — complete on `main`, all
+  sections filled (RUN TIMING, CENSUS, FUNCTION-WORD UNIVERSALITY,
+  MASTERED-CONTENT DAMPING, STORY COMPREHENSION, VERIFICATION, TRAPS,
+  NOTES FOR WEEKLY_INSIGHTS, this CLEANUP + CASCADE-VERIFY section).
+- Full Playwright suite passing at its real count: **86** (75 baseline +
+  11 new), confirmed via two independent fully-clean runs (run 4 and run
+  6 of the 6 total runs this session) after the final code state
+  (including the pool-crowding bug found and fixed live) — see
+  VERIFICATION for the complete run-by-run breakdown and the flakiness
+  analysis distinguishing genuine environmental flakes (6 distinct
+  pre-existing specs, zero overlap with this run's files) from
+  regressions (none found).
+- `node scripts/idor-proof.mjs` — ALL CHECKS PASSED, re-run after the
+  final code change per the standing "selection-logic changes are the
+  trigger" rule.
+- `npm run build`, `npm run check:no-emoji`, `npm run check:wordart-sync`
+  — all green.
+- Merged `feat/blank-engine` → `main` with `--no-ff` (commit `04e374b`).
+  `git push origin main` — **approved by Sal in chat before pushing**,
+  executed, deployment confirmed via GitHub commit status (state:
+  success) and `vercel list` (Production, Ready).
+  `supabase db push` — **not needed**: no schema change (the
+  comprehension-question column already existed since migration 0030;
+  confirmed during recon, re-confirmed before merge).
+- Production walk: scripted verification against the real deployed
+  `/api/session-generator` on `https://200magicwordsapp.com` confirmed
+  both selection-weighting changes live (mastered function words 89%,
+  mastered content 22-44% against a 35% target, a below-floor function
+  word present in every one of 9 calls, the above-floor control word
+  never leaking through). Visual production walk confirmed the
+  comprehension question renders as real picture-choice tiles (not the
+  old text buttons) with correct illustrated/typographic-fallback art —
+  the interactive tap-through itself hit a Claude-in-Chrome tool
+  limitation (documented in TRAPS) rather than an app defect, and is
+  independently proven by the Playwright suite using genuine trusted
+  input synthesis.
+- Cleanup + cascade-verify: complete, zero orphaned test accounts.
+- This docs push is self-certified: the report above reflects the actual
+  final state of `main` at commit `04e374b`, not a plan or an
+  in-progress snapshot.
