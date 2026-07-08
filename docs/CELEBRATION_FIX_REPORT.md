@@ -117,7 +117,9 @@ Verdict was H-BY-DESIGN, so Phase 3's H-BY-DESIGN containment (a)/(b)/(c) was im
 
 **Kill list (42 rows)**: `candygalaxy20260701` (1) + `mwnoemoji*` (25) + `mwsmokesignup*` (4) + `idora*`/`idorb*` (4) + `mwftseat*` (1) + `mwrm*` (4) + `mwstorytime*` 2026-07-06 only (2) + `mwftw*` 2026-07-06 only (1).
 
-Presented to Sal for one explicit confirmation before executing (approval gate, per rule 4 and the Phase 6 rider itself).
+Presented to Sal for one explicit confirmation before executing (approval gate, per rule 4 and the Phase 6 rider itself). **Confirmed by Sal.**
+
+**Executed**: `auth.users` count **53 → 11** (42 deleted, verified — one delete initially returned no confirmation in the batch loop's output and was caught by a post-delete re-query, then deleted individually; final re-query confirms all 42 gone). Remaining 11 = the 6 excluded July-7 rows (4 `mwstorytime*`, 2 `mwftw*`) + 5 other real/non-matching accounts untouched by this rider. Re-ran the exact same orphan query post-delete: **zero rows** from any killed pattern remain; only the 6 intentionally-excluded rows are still present.
 
 ## VERIFICATION — tests vs 65 baseline, gates, walks
 
