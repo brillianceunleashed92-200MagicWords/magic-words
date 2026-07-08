@@ -60,7 +60,16 @@ async function fetchChild(childId) {
   const [child] = await res.json();
   return child;
 }
+// checkin_completed is written via a fire-and-forget insert server-side
+// (same pattern as every other product_events writer) -- poll instead of
+// a single immediate read, since the insert's landing time is variable.
 async function fetchCheckinEvents(childId) {
+  for (let i = 0; i < 6; i++) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/product_events?child_id=eq.${childId}&event_type=in.(checkin_started,checkin_completed)&select=event_type,payload,created_at&order=created_at.asc`, { headers: adminHeaders });
+    const events = await res.json();
+    if (events.some((e) => e.event_type === "checkin_completed")) return events;
+    await new Promise((r) => setTimeout(r, 500));
+  }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/product_events?child_id=eq.${childId}&event_type=in.(checkin_started,checkin_completed)&select=event_type,payload,created_at&order=created_at.asc`, { headers: adminHeaders });
   return res.json();
 }
