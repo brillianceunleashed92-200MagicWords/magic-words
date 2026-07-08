@@ -73,27 +73,41 @@ async function signIn(page, email) {
   await expect(page.getByText("Ready to fly?")).toBeVisible({ timeout: 20000 });
 }
 
+function nextCheckinResponse(page) {
+  return page.waitForResponse((r) => r.url().includes("/api/session-generator") && r.request().method() === "POST");
+}
+
 // Drives the check-in ladder to completion, answering every rung either
 // always-correct or always-incorrect. Reads the real target word out of
 // each network response (never assumed/guessed) so correctness is
-// deterministic rather than tapping "the first tile" and hoping.
-async function runCheckin(page, { forceCorrect }) {
+// deterministic rather than tapping "the first tile" and hoping. Takes
+// the FIRST rung's already-armed response promise (set up by the caller
+// BEFORE clicking "Start" -- waitForResponse must be armed before its
+// triggering action, not after, or it waits for a network call that
+// already happened and deadlocks).
+async function runCheckin(page, { forceCorrect }, firstResponsePromise) {
+  let responsePromise = firstResponsePromise;
   for (let round = 0; round < 12; round++) {
-    const resp = await page.waitForResponse((r) => r.url().includes("/api/session-generator") && r.request().method() === "POST");
+    const resp = await responsePromise;
     const body = await resp.json().catch(() => null);
-    if (!body?.checkin) continue;
+    if (!body?.checkin) { responsePromise = nextCheckinResponse(page); continue; }
     if (body.checkin.done) return body.checkin;
 
-    for (const probe of body.checkin.words) {
+    const probes = body.checkin.words;
+    for (let i = 0; i < probes.length; i++) {
+      const probe = probes[i];
       await expect(page.locator(`text=/Which word matches this picture|Find the word Nova said/`)).toBeVisible({ timeout: 10000 });
       const wordButtons = page.locator("button").filter({ hasText: /^[a-z']+$/i });
       const count = await wordButtons.count();
       let target = null;
-      for (let i = 0; i < count; i++) {
-        const text = (await wordButtons.nth(i).innerText()).trim().toLowerCase();
+      for (let j = 0; j < count; j++) {
+        const text = (await wordButtons.nth(j).innerText()).trim().toLowerCase();
         const isMatch = forceCorrect ? text === probe.word : text !== probe.word;
-        if (isMatch) { target = wordButtons.nth(i); break; }
+        if (isMatch) { target = wordButtons.nth(j); break; }
       }
+      // The LAST probe's answer is what actually triggers the next
+      // network call (fetchRung) -- arm the listener before that click.
+      if (i === probes.length - 1) responsePromise = nextCheckinResponse(page);
       await target.click();
       await page.waitForTimeout(1100);
     }
@@ -101,21 +115,30 @@ async function runCheckin(page, { forceCorrect }) {
   throw new Error("Check-in did not finalize within 12 rounds");
 }
 
+// Same gate-automation technique as tests/parent-metrics-charts.spec.js's
+// openGrownUpsDashboard -- a real Playwright mouse hold (not a synthetic
+// click), plus the "Quick check" math gate that can follow it.
 async function openCheckinFromPortal(page) {
-  await page.getByRole("button", { name: /Grown/i }).click().catch(async () => { await page.click("text=Grown-Ups"); });
-  await page.waitForTimeout(800);
-  // Grown-Ups gate (hold/math) -- reuse the same bypass every other
-  // portal spec in this suite uses if present; if the gate isn't shown
-  // (already unlocked this session) this is a no-op.
-  const holdButton = page.getByText(/Hold to unlock/i);
-  if (await holdButton.isVisible().catch(() => false)) {
-    const box = await holdButton.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(2200);
-    await page.mouse.up();
+  await page.click("text=Grown-ups");
+  await page.waitForTimeout(500);
+  const star = page.locator('button[aria-label="Hold to unlock"]');
+  const box = await star.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(2000);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+
+  const quickCheck = page.locator("text=Quick check");
+  if (await quickCheck.isVisible().catch(() => false)) {
+    const questionText = await page.locator("text=/Quick check: what/").textContent();
+    const match = questionText.match(/(\d+)\s*\+\s*(\d+)/);
+    const answer = String(Number(match[1]) + Number(match[2]));
+    await page.click(`button:has-text("${answer}")`, { exact: true });
+    await page.waitForTimeout(500);
   }
-  await page.waitForTimeout(800);
+  await expect(page.getByText("Progress", { exact: true })).toBeVisible({ timeout: 10000 });
+  await page.waitForTimeout(1500); // let the lazy ProgressCharts chunk + query settle
 }
 
 test("Check-In: eligible card visible, Placement Report shows measured level, full flow records result + growth line", async ({ page }) => {
@@ -131,6 +154,7 @@ test("Check-In: eligible card visible, Placement Report shows measured level, fu
     expect(bodyText).toMatch(/Unit 3/);
     expect(bodyText).toMatch(/Time for a Star Check-In/i);
 
+    const firstResponse = nextCheckinResponse(page);
     await page.getByRole("button", { name: "Start" }).click();
     await expect(page.locator(`text=/Which word matches this picture|Find the word Nova said/`)).toBeVisible({ timeout: 15000 });
 
@@ -139,7 +163,7 @@ test("Check-In: eligible card visible, Placement Report shows measured level, fu
     const wiggleCount = await page.locator('[style*="lessonWiggle"]').count();
     expect(wiggleCount).toBe(0);
 
-    await runCheckin(page, { forceCorrect: true });
+    await runCheckin(page, { forceCorrect: true }, firstResponse);
     await expect(page.getByText("Great flying, Star Learner!")).toBeVisible({ timeout: 15000 });
 
     // Zero assessment language anywhere on the result screen.
@@ -174,10 +198,11 @@ test("Check-In: never-regress -- failing every rung does not lower the stored/en
   try {
     await signIn(page, fixture.email);
     await openCheckinFromPortal(page);
+    const firstResponse = nextCheckinResponse(page);
     await page.getByRole("button", { name: "Start" }).click();
     await expect(page.locator(`text=/Which word matches this picture|Find the word Nova said/`)).toBeVisible({ timeout: 15000 });
 
-    await runCheckin(page, { forceCorrect: false });
+    await runCheckin(page, { forceCorrect: false }, firstResponse);
     await expect(page.getByText("Great flying, Star Learner!")).toBeVisible({ timeout: 15000 });
 
     const child = await fetchChild(fixture.childId);

@@ -63,6 +63,17 @@ async function main() {
   if (signInErrA) throw signInErrA;
   const tokenA = signInA.session.access_token;
 
+  // FEAT_PLACEMENT_CHECKIN_R1: B's own token, used only for the "drive a
+  // real check-in to completion" positive-twin flow below -- A's token
+  // has already spent several session-generator calls on the forgery
+  // checks above (rate limit is 10/min per authenticated user), and B's
+  // has spent zero (every earlier B-targeting call above authenticates as
+  // A, attacking B's data -- B's own identity was never used).
+  const clientB = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: signInB, error: signInErrB } = await clientB.auth.signInWithPassword({ email: b.email, password: PASSWORD });
+  if (signInErrB) throw signInErrB;
+  const tokenB = signInB.session.access_token;
+
   console.log('\nAttempting cross-user access as A, targeting B\'s data:\n');
 
   // 1. Direct table read: A's client reading B's word_progress by child_id.
@@ -153,6 +164,112 @@ async function main() {
     check(
       'session-generator: a forged placement ladder state cannot finalize at an unearned unit',
       forgedFinalizeRes.status === 200 && forgedFinalizeBody.placement?.done === false && forgedFinalizeBody.placement?.rung === 1
+    );
+
+    // 9b. FEAT_PLACEMENT_CHECKIN_R1: same forged-token defense, checkinMode
+    //     branch — a bad/forged signature must restart the bounded ladder,
+    //     never finalize at whatever rung the token claims.
+    const forgedCheckinRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: a.childId, checkinMode: true, ladderState: forgedLadderState, answers: [true, true] }),
+    });
+    const forgedCheckinBody = await forgedCheckinRes.json().catch(() => ({}));
+    check(
+      'session-generator: a forged check-in ladder state cannot finalize at an unearned unit',
+      forgedCheckinRes.status === 200 && forgedCheckinBody.checkin?.done === false
+    );
+
+    // 9c. session-generator: A cannot start/advance a check-in for B's child.
+    const forgedCheckinChildRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: b.childId, checkinMode: true }),
+    });
+    check('session-generator: A cannot start a check-in for B\'s child (403)', forgedCheckinChildRes.status === 403);
+
+    // 9d. session-generator historyMode: A cannot read B's growth history.
+    const forgedHistoryRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: b.childId, historyMode: true }),
+    });
+    check('session-generator: A cannot read B\'s growth history (403)', forgedHistoryRes.status === 403);
+
+    // 9e. A REAL, correctly-signed placement token replayed into
+    //     checkinMode (cross-mode token confusion) must be rejected —
+    //     the two modes sign under different context strings specifically
+    //     so this can't work, on top of the ownership/expiry checks both
+    //     already share.
+    const realPlacementStartRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: a.childId, placementMode: true }),
+    });
+    const realPlacementStartBody = await realPlacementStartRes.json().catch(() => ({}));
+    const realPlacementToken = realPlacementStartBody.placement?.ladderState;
+    const crossModeRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: a.childId, checkinMode: true, ladderState: realPlacementToken, answers: [true, true] }),
+    });
+    const crossModeBody = await crossModeRes.json().catch(() => ({}));
+    check(
+      'session-generator: a genuine PLACEMENT token replayed into checkinMode is rejected, not honored',
+      crossModeRes.status === 200 && crossModeBody.checkin?.done === false
+    );
+
+    // 9f. Positive twins (rule 4's "vacuous check" lesson) — the legitimate
+    //     path must demonstrably work, not just reject forgeries. Run this
+    //     part as B (fresh 10/min session-generator rate-limit budget —
+    //     A's has already spent several calls above on the forgery
+    //     checks; B's own identity was never used, every earlier
+    //     B-targeting call above attacks B's data while authenticated AS
+    //     A). B's own check-in starts for real (issues a rung), and —
+    //     driven to completion with claimed-correct answers — actually
+    //     lands a checkin_completed row with the expected payload shape,
+    //     and B's own historyMode read actually returns it.
+    const ownCheckinStartRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenB}` },
+      body: JSON.stringify({ childId: b.childId, checkinMode: true }),
+    });
+    const ownCheckinStartBody = await ownCheckinStartRes.json().catch(() => ({}));
+    check(
+      'session-generator: B\'s own check-in issues a real rung (positive twin)',
+      ownCheckinStartRes.status === 200 && ownCheckinStartBody.checkin?.done === false && Array.isArray(ownCheckinStartBody.checkin?.words)
+    );
+
+    let checkinState = ownCheckinStartBody.checkin;
+    let checkinFinal = null;
+    for (let i = 0; i < 12 && checkinState && !checkinState.done; i++) {
+      const answerCount = checkinState.words.length;
+      const stepRes = await fetch(`${deployBase}/api/session-generator`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenB}` },
+        body: JSON.stringify({ childId: b.childId, checkinMode: true, ladderState: checkinState.ladderState, answers: Array(answerCount).fill(true) }),
+      });
+      const stepBody = await stepRes.json().catch(() => ({}));
+      checkinState = stepBody.checkin;
+      if (checkinState?.done) checkinFinal = checkinState;
+    }
+    check('session-generator: driving check-in to completion with claimed-correct answers finalizes (positive twin)', !!checkinFinal);
+
+    // logProductEvent is fire-and-forget (same pattern as every other
+    // product_events writer) -- give it a moment to land before reading
+    // it back, same reasoning as the existing track: checks below.
+    await new Promise((r) => setTimeout(r, 800));
+    const { data: checkinEventRows } = await admin
+      .from('product_events')
+      .select('event_type, payload')
+      .eq('child_id', b.childId)
+      .eq('event_type', 'checkin_completed');
+    check(
+      'product_events: B\'s own check-in completion actually lands a checkin_completed row (positive twin, not a vacuous empty-result pass)',
+      (checkinEventRows?.length ?? 0) >= 1 && typeof checkinEventRows[0].payload?.rawMeasured === 'number'
+    );
+
+    const ownHistoryRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenB}` },
+      body: JSON.stringify({ childId: b.childId, historyMode: true }),
+    });
+    const ownHistoryBody = await ownHistoryRes.json().catch(() => ({}));
+    check(
+      'session-generator: B\'s own historyMode read returns real growth-line points (positive twin)',
+      ownHistoryRes.status === 200 && Array.isArray(ownHistoryBody.history) && ownHistoryBody.history.some((p) => p.source === 'checkin')
     );
 
     // 10. /api/track (Prompt 9 launch analytics): a strict server-side
