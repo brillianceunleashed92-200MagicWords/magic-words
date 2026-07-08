@@ -23,6 +23,7 @@ import { useTodayWordActivityQuery, summarizeTodayActivity } from '../lib/querie
 import { useQueryClient } from '@tanstack/react-query';
 import { IconSpark, IconArrow } from '../components/icons';
 import { isRealMastery } from '../lib/masteryCalibration';
+import { hasCelebratedToday, markCelebratedToday } from '../lib/celebrationDedup';
 
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 // Fixed bonus for finishing every eligible activity in a word's guided
@@ -111,6 +112,17 @@ export default function PlayScreen({ focusWord, onExit }) {
   // guarantees they're populated before handleSessionEnd reads them —
   // no need to change GameEngine's onXP/onSessionEnd contract.
   const lastSessionRewardsRef = useRef({ xp: 0, sparks: 0 });
+  // FIX_CELEBRATION_R1 — defensive backstop for the "crossing detected
+  // asynchronously after the moment has passed" case: once
+  // handleSessionEnd/handleExitEarly has started tearing this activity
+  // down, a still-in-flight handleProgress must not pop the global
+  // ignition overlay onto whatever screen navigation lands on next —
+  // Session Complete's own `masteredThisSession` recap already covers it.
+  // GameEngine now awaits the qualifying answer's own progress promise
+  // before ever reaching that teardown (see GameEngine.jsx), so this
+  // should be unreachable in the primary path; kept as a backstop for any
+  // other caller of queueCelebration that doesn't offer that guarantee.
+  const sessionEndedRef = useRef(false);
 
   async function handleProgress({ word, correct, responseTimeMs, gameType: playedGameType }) {
     const before = words.find((w) => w.word === word);
@@ -155,15 +167,27 @@ export default function PlayScreen({ focusWord, onExit }) {
     if (!wasMasteredBefore && isMasteredNow) {
       masteredThisSessionRef.current.push(word);
       const wordData = before ?? { word };
-      queueCelebration({ type: 'wordMastered', payload: { word: wordData.word } });
 
-      const unit = wordData.unit;
-      if (unit != null) {
-        const unitWords = unitsById.get(unit) ?? [];
-        const unitNowComplete = unitWords.length > 0 && unitWords.every((w) =>
-          w.word === word ? isMasteredNow : isRealMastery(w.mastery, w.attemptCount)
-        );
-        if (unitNowComplete) queueCelebration({ type: 'unitBoss', payload: { unit } });
+      // FIX_CELEBRATION_R1 (b) — this activity's own screen may already be
+      // gone by the time we get here (sessionEndedRef) if some other
+      // caller triggered navigation without awaiting this promise the way
+      // GameEngine now does; Session Complete's masteredThisSession recap
+      // (pushed just above) already carries the word, so the global
+      // overlay is skipped rather than popping onto whatever's mounted
+      // next. (c) — at most one ignition per word per day, since
+      // cumulative mastery can dip below 80 and re-cross the same day.
+      if (!sessionEndedRef.current && !hasCelebratedToday(childId, word)) {
+        markCelebratedToday(childId, word);
+        queueCelebration({ type: 'wordMastered', payload: { word: wordData.word } });
+
+        const unit = wordData.unit;
+        if (unit != null) {
+          const unitWords = unitsById.get(unit) ?? [];
+          const unitNowComplete = unitWords.length > 0 && unitWords.every((w) =>
+            w.word === word ? isMasteredNow : isRealMastery(w.mastery, w.attemptCount)
+          );
+          if (unitNowComplete) queueCelebration({ type: 'unitBoss', payload: { unit } });
+        }
       }
     }
 
@@ -250,6 +274,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   }
 
   async function handleSessionEnd({ wordsCorrect, totalWords, wordsPlayed }) {
+    sessionEndedRef.current = true;
     // Wait for every learning_events insert this session queued (see
     // handleProgress) before doing anything that reads that table or
     // hands off to a screen that will — otherwise the completion check
@@ -290,6 +315,7 @@ export default function PlayScreen({ focusWord, onExit }) {
   // that has actually finished, so an early exit can't reintroduce the
   // fire-and-forget race Prompt 1 closed for the natural-completion path.
   async function handleExitEarly({ wordsCorrect, totalWords, wordsPlayed, partialXP, gameType: exitedGameType }) {
+    sessionEndedRef.current = true;
     const pending = pendingLearningEventsRef.current;
     pendingLearningEventsRef.current = [];
     await Promise.allSettled(pending);
