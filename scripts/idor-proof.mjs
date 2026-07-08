@@ -249,14 +249,20 @@ async function main() {
     check('session-generator: driving check-in to completion with claimed-correct answers finalizes (positive twin)', !!checkinFinal);
 
     // logProductEvent is fire-and-forget (same pattern as every other
-    // product_events writer) -- give it a moment to land before reading
-    // it back, same reasoning as the existing track: checks below.
-    await new Promise((r) => setTimeout(r, 800));
-    const { data: checkinEventRows } = await admin
-      .from('product_events')
-      .select('event_type, payload')
-      .eq('child_id', b.childId)
-      .eq('event_type', 'checkin_completed');
+    // product_events writer) -- poll rather than a single fixed wait,
+    // since a one-shot 800ms sleep was observed to be marginal (passed
+    // most runs, failed once) rather than reliably enough ahead of the
+    // insert's own landing time.
+    let checkinEventRows = [];
+    for (let i = 0; i < 6 && checkinEventRows.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const { data } = await admin
+        .from('product_events')
+        .select('event_type, payload')
+        .eq('child_id', b.childId)
+        .eq('event_type', 'checkin_completed');
+      checkinEventRows = data ?? [];
+    }
     check(
       'product_events: B\'s own check-in completion actually lands a checkin_completed row (positive twin, not a vacuous empty-result pass)',
       (checkinEventRows?.length ?? 0) >= 1 && typeof checkinEventRows[0].payload?.rawMeasured === 'number'
