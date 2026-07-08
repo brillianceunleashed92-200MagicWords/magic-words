@@ -5,6 +5,8 @@ import { useWeeklyStatsQuery } from '../../lib/queries/weeklyStats';
 import { useParentDigest } from '../../lib/queries/parentDigest';
 import { FREE_TIER_MAX_UNIT } from '../../lib/queries/subscription';
 import UpgradeBanner from './UpgradeBanner';
+import PlacementReportCard from './PlacementReportCard';
+import StarCheckInCard from './StarCheckInCard';
 
 // Lazy so recharts (Progress section's only reason to exist) never ships
 // in the shared CandyGalaxyShell chunk a child playing Home/Play/Galaxy
@@ -46,34 +48,28 @@ export default function DashboardTab() {
         ))}
       </div>
 
-      {/* Placement Adventure (Prompt 8) + true-level fix (Prompt 9): a free
-          child's floor is already capped to min(measured, 5) before it's
-          ever written server-side — this is purely the upgrade hook
-          surfacing the TRUE measured level (never shown to the child, per
-          the mission — child-facing copy never mentions a paywall).
-          Reads measured_unit (the true value) with a fallback to the
-          older placement_unit so a placement completed before this
-          column existed doesn't render a broken banner (it'll just show
-          the already-floored number until the child retakes placement).
-          Takes priority over the mastered-words banner below when both
-          would apply, so a placed-above-5 child doesn't see two
+      {/* FEAT_PLACEMENT_CHECKIN_R1: formalizes the placement banner into a
+          real report card (mission item 1) — the true-level upgrade
+          banner now renders INSIDE PlacementReportCard, part of the
+          report rather than a floating element. This condition still
+          decides the FALLBACK (mastered-count) banner below, preserving
+          the original "only one upsell banner at a time" precedence from
+          Prompt 9 exactly — a placed-above-5 child still never sees two
           competing upgrade pitches. */}
+      {activeChild && <PlacementReportCard activeChild={activeChild} plan={plan} />}
+      {activeChild && <StarCheckInCard activeChild={activeChild} />}
+
       {activeChild && (
         <Suspense fallback={<div style={{ fontFamily: fonts.body, color: colors.mutedInk, padding: '12px 0' }}>Loading progress…</div>}>
           <ProgressCharts childId={activeChild.id} words={words} />
         </Suspense>
       )}
 
-      {plan !== 'family' && (activeChild?.measured_unit ?? activeChild?.placement_unit) > FREE_TIER_MAX_UNIT ? (
-        <UpgradeBanner
-          variant="prominent"
-          title="Nova found their level!"
-          message={`Your Star Learner measured at Unit ${activeChild.measured_unit ?? activeChild.placement_unit} — unlock Units 6-18 with the Family Plan.`}
-          surface="dashboard_true_level"
-        />
-      ) : plan !== 'family' && masteredCount >= UPGRADE_PROMPT_THRESHOLD ? (
-        <UpgradeBanner variant="prominent" surface="dashboard_mastered" />
-      ) : null}
+      {plan !== 'family' && (activeChild?.measured_unit ?? activeChild?.placement_unit) > FREE_TIER_MAX_UNIT ? null : (
+        plan !== 'family' && masteredCount >= UPGRADE_PROMPT_THRESHOLD ? (
+          <UpgradeBanner variant="prominent" surface="dashboard_mastered" />
+        ) : null
+      )}
 
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.1rem', color: colors.ink, marginBottom: 8 }}>
         AI Insight

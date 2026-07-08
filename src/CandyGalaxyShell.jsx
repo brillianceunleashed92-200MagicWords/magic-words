@@ -11,6 +11,7 @@ import GrownUpsScreen from './screens/GrownUpsScreen';
 import ChildOnboardingScreen from './screens/ChildOnboardingScreen';
 import PlacementChoiceScreen from './screens/PlacementChoiceScreen';
 import PlacementAdventureScreen from './screens/PlacementAdventureScreen';
+import CheckInScreen from './screens/CheckInScreen';
 import StoryScreen from './screens/StoryScreen';
 import UpgradeResultScreen from './screens/UpgradeResultScreen';
 import BottomNav from './components/candy/BottomNav';
@@ -86,6 +87,13 @@ function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, qu
   const placementChildId = useUIStore((s) => s.placementChildId);
   const startPlacementFlow = useUIStore((s) => s.startPlacementFlow);
   const clearPlacementFlow = useUIStore((s) => s.clearPlacementFlow);
+  // FEAT_PLACEMENT_CHECKIN_R1 — same pattern as placementFlow above:
+  // DashboardTab's Check-In card (nested under GrownUpsScreen) triggers
+  // this via the global store, and it takes over the whole screen
+  // regardless of navTab, same as the placement adventure does.
+  const checkinFlow = useUIStore((s) => s.checkinFlow);
+  const checkinChildId = useUIStore((s) => s.checkinChildId);
+  const clearCheckinFlow = useUIStore((s) => s.clearCheckinFlow);
 
   if (childrenQ.isLoading) {
     return <GalaxyLoader message="Loading your galaxy…" />;
@@ -127,6 +135,16 @@ function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, qu
         childId={placementChildId}
         onComplete={() => { clearPlacementFlow(); setNavTab('home'); }}
         onExit={() => { clearPlacementFlow(); setNavTab('home'); }}
+      />
+    );
+  }
+
+  if (checkinFlow) {
+    return (
+      <CheckInScreen
+        childId={checkinChildId}
+        onComplete={() => { clearCheckinFlow(); setNavTab('home'); }}
+        onExit={() => { clearCheckinFlow(); setNavTab('home'); }}
       />
     );
   }

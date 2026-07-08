@@ -27,9 +27,15 @@ const crypto = require('crypto');
 const RUNGS = [1, 3, 5, 7, 9, 12, 15, 18];
 const LADDER_MAX_AGE_MS = 15 * 60 * 1000; // generous ceiling well past the ~3-5min target
 
-function signingKey() {
+// FEAT_PLACEMENT_CHECKIN_R1: context is parameterized (default unchanged,
+// byte-identical to every existing placement call) so Star Check-In can
+// sign its bounded-ladder tokens under a DIFFERENT context string —
+// a check-in token and a placement token are then cryptographically
+// distinct and can never be replayed into each other's endpoint branch,
+// on top of the existing childId/expiry checks both already share.
+function signingKey(context = 'placement-ladder-v1') {
   return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY)
-    .update('placement-ladder-v1')
+    .update(context)
     .digest();
 }
 
@@ -37,10 +43,10 @@ function base64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function signLadderState(state) {
+function signLadderState(state, context) {
   const payload = JSON.stringify({ ...state, iat: Date.now() });
   const payloadB64 = base64url(Buffer.from(payload, 'utf8'));
-  const sig = base64url(crypto.createHmac('sha256', signingKey()).update(payloadB64).digest());
+  const sig = base64url(crypto.createHmac('sha256', signingKey(context)).update(payloadB64).digest());
   return `${payloadB64}.${sig}`;
 }
 
@@ -48,12 +54,12 @@ function signLadderState(state) {
 // tampered/childId-mismatched — every caller treats null as "start over
 // at rung 0," never as an error to surface, since a forged or stale token
 // should just look like a fresh ladder, not a way to short-circuit it.
-function verifyLadderState(token, expectedChildId) {
+function verifyLadderState(token, expectedChildId, context) {
   if (typeof token !== 'string' || !token.includes('.')) return null;
   const [payloadB64, sig] = token.split('.');
   if (!payloadB64 || !sig) return null;
 
-  const expectedSig = base64url(crypto.createHmac('sha256', signingKey()).update(payloadB64).digest());
+  const expectedSig = base64url(crypto.createHmac('sha256', signingKey(context)).update(payloadB64).digest());
   const sigBuf = Buffer.from(sig);
   const expectedBuf = Buffer.from(expectedSig);
   if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
