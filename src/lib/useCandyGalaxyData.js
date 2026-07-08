@@ -137,7 +137,7 @@ export function useCandyGalaxyData() {
     masteredCount,
     completedUnits,
     sparks: sparksQ.data ?? { balance: 0, lifetime_earned: 0 },
-    streak: streakQ.data ?? { current_streak: 0, longest_streak: 0 },
+    streak: streakQ.data ?? { current_streak: 0, longest_streak: 0, streak_freeze_count: 0, freeze_last_granted_at: null },
     stats: statsQ.data ?? { total_xp: 0, current_level: 1, avatar: '\u{1F680}' }, // unicode escape — see lib/avatars.js
     levelInfo,
   };

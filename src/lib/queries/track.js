@@ -12,14 +12,18 @@ async function authHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-async function track(eventType, payload) {
+// Exported (not module-private) — FEAT_QUICK_WINS_R1's streak-freeze
+// grant/use events need a childId in the body (api/track.js verifies
+// ownership server-side, same pattern as PlayScreen.jsx's inline
+// scaffold_down fetch), which paywall_viewed never needed.
+export async function track(eventType, payload, childId) {
   const auth = await authHeader();
   if (!auth) return;
   try {
     await fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ eventType, payload }),
+      body: JSON.stringify({ eventType, payload, ...(childId ? { childId } : {}) }),
     });
   } catch {
     // Fire-and-forget — a tracking failure is never surfaced to the parent.

@@ -66,6 +66,19 @@ export function IconSpark({ size = 20, color = 'currentColor' }) {
   );
 }
 
+// FEAT_QUICK_WINS_R1 — streak freeze-held indicator (never emoji).
+export function IconShield({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg {...base(size)}>
+      <path
+        d="M12 2.5l7 3v5.2c0 4.6-3 8.4-7 9.8-4-1.4-7-5.2-7-9.8V5.5l7-3z"
+        stroke={color} strokeWidth="2.4" strokeLinejoin="round" fill="none"
+      />
+      <path d="M9 12l2 2 4-4.5" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
 export function IconLock({ size = 20, color = 'currentColor' }) {
   return (
     <svg {...base(size)}>

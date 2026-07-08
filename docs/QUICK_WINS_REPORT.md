@@ -185,3 +185,88 @@ mid-implementation):
   implementation), else a small one-line toast: `"Your streak froze
   through {missed date} — freeze used!"` (exact wording finalized in
   STREAK FREEZE section once the render surface is confirmed live).
+
+## STREAK FREEZE
+
+**Migration written, STOP-and-present for approval before `supabase db
+push`** (per RULE 2 — a column is needed, as predicted):
+
+`supabase/migrations/0037_streak_freeze_grant_tracking.sql`:
+```sql
+alter table public.user_streaks
+  add column if not exists freeze_last_granted_at date;
+```
+
+One nullable column. No backfill, no data migration, no RLS change
+(existing `"Users manage own streak"` policy — `auth.uid() = user_id`,
+all commands — already covers it). Reasoning: consumption already exists
+(recon); accrual needs to know when a freeze was last granted so it
+fires at most once per ISO week, and no existing column can safely stand
+in for that (`updated_at` changes on every streak write, not just
+grants).
+
+**STOP: awaiting Sal's approval before `supabase db push`.** There is no
+separate dev/staging Supabase project (documented pre-existing gap,
+`magic-words/CLAUDE.md`'s own "Open item" section) — this migration can
+only be meaningfully tested once applied to the one real project, so
+Phase 2's client logic is written below but its live verification is
+blocked until approval lands. Continuing with the rest of Package E's
+independently shippable items (sleeping stars, display honesty, Settings
+clip, password reset) in the meantime, per the mission's own "each item
+is independently shippable" framing — not idling on this one approval.
+
+**Migration 0038 also approved and pushed** — `streak_freeze_granted`/
+`streak_freeze_used` added to `product_events_event_type_check`, plus
+the matching `api/track.js` `EVENT_SCHEMAS` entry (both client-posted,
+same commit per RULE 3 — this pair is NOT server-only like
+`checkin_started`/`checkin_completed`, since the decision point is
+entirely client-side, recon above).
+
+**Rule as shipped** (`src/lib/streakFreeze.js`, pure/zero-import —
+directly testable, same precedent as `masteryCalibration.js`/
+`starKeeper.js`):
+- `isEligibleForFreezeGrant({currentStreak, freezeCount,
+  freezeLastGrantedAt, today})` — true iff `currentStreak > 0 &&
+  freezeCount === 0 && (freezeLastGrantedAt is null OR
+  isoWeekStartString(freezeLastGrantedAt) !== isoWeekStartString(today))`.
+- Wired into `src/lib/queries/streaks.js`'s `useUpdateStreakMutation` —
+  the exact decision point recon identified — evaluated AFTER the
+  existing consumption math (using the POST-consumption
+  streak/freeze-count), so a freeze spent this same call can be
+  immediately replenished if it's already a new ISO week (this is what
+  makes "accrual restores one freeze the next ISO week" true even for a
+  child whose gap-day lands right at a week boundary).
+- Telemetry: fire-and-forget `track('streak_freeze_used', {}, childId)`
+  / `track('streak_freeze_granted', {}, childId)` (extended
+  `src/lib/queries/track.js`'s existing `track()` helper to accept an
+  optional `childId`, matching `PlayScreen.jsx`'s inline `scaffold_down`
+  call's shape) — never blocks the streak write itself.
+- UI indicator: `HomeScreen.jsx`, a small `--chunk-sm`-weight badge
+  ("Freeze ready" + new `IconShield`, `src/components/icons/index.jsx`)
+  under the existing streak/words/sparks pill row, shown only when
+  `streak_freeze_count > 0`. Non-interactive by design (locked rule: a
+  freeze auto-consumes, there's no manual "use freeze" action), so no
+  press-down/tap semantics — just the same visual weight class the
+  card's other chips use.
+
+**Real bug found and fixed by the pure-function tests, not live
+behavior** (`tests/streak-freeze.spec.js`): the first `isoWeekStartString`
+implementation used `new Date("2026-07-06")` + `.toISOString()`. A
+bare-date string constructor parses as **UTC midnight**, which shifts to
+the previous calendar day the instant the runtime's local timezone
+offset is negative (any US timezone) — `new Date("2026-07-06")` becomes
+"2026-07-05, 8pm" locally, a Sunday, not Monday, corrupting the whole
+week-boundary calculation (a real Monday input resolved to the *prior*
+week's Monday). Fixed by parsing/computing/formatting entirely in local
+calendar terms (split the string into y/m/d and construct
+`new Date(y, m-1, day)`, never round-trip through `toISOString()`) —
+matches `streaks.js`'s own existing local-calendar convention
+(`Intl.DateTimeFormat('en-CA', {timeZone: tz})` for
+`last_activity_date`). Caught by 2 of the 7 new pure-function tests
+failing on the first run, fixed, all 7 pass now.
+
+**Freeze-kept vs no-freeze-reset twins**: exercised live in Phase 7's
+fixture-driven Playwright spec (below), not simulated — the pure-function
+tests above cover eligibility exhaustively; the actual upsert/consumption
+path needs a real `user_streaks` row and a real session completion to
+prove end to end.

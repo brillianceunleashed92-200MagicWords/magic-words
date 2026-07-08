@@ -41,6 +41,12 @@ const EVENT_SCHEMAS = {
     word: (v) => /^[a-z']{1,40}$/i.test(v),
     activityId: (v) => /^[a-z_]{1,40}$/.test(v),
   },
+  // FEAT_QUICK_WINS_R1 — streak freeze grant/consume, both decided
+  // client-side (src/lib/queries/streaks.js). No payload keys needed:
+  // the row's own childId/userId/event_type/timestamp already carry
+  // everything worth knowing.
+  streak_freeze_granted: {},
+  streak_freeze_used: {},
 };
 
 module.exports = async function handler(req, res) {

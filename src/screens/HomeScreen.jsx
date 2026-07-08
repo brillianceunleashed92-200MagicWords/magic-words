@@ -13,7 +13,7 @@ import { useWordSpeak } from '../lib/useWordSpeak';
 import { useStoriesQuery, isNewStoryDue } from '../lib/queries/stories';
 import { isRealMastery } from '../lib/masteryCalibration';
 import WordArt from '../components/WordArt';
-import { IconSpark, IconGalaxy, IconBubble, IconTrophy, IconStar, IconPlay } from '../components/icons';
+import { IconSpark, IconGalaxy, IconBubble, IconTrophy, IconStar, IconPlay, IconShield } from '../components/icons';
 import { AvatarRocket } from '../components/icons/AvatarGlyphs';
 import { InterestCrown } from '../components/icons/InterestGlyphs';
 
@@ -104,6 +104,24 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
               <Pill value={masteredCount} label="Words" variant="star" speak={speak} />
               <Pill value={sparks.balance} label="Sparks" variant="gem" speak={speak} />
             </div>
+
+            {/* FEAT_QUICK_WINS_R1 — freeze-held indicator. Informational
+                only (a freeze auto-consumes on a missed day, no manual
+                "use freeze" action per the locked rule), so no tap
+                handler / press-down motion, just the same --chunk-sm
+                weight the rest of this card's chips use. */}
+            {streak.streak_freeze_count > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6, marginTop: 10,
+                background: 'rgba(42,33,96,.06)', borderRadius: 100, padding: '6px 12px',
+                width: 'fit-content',
+              }}>
+                <IconShield size={15} color={colors.ink} />
+                <span style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: '.72rem', color: colors.ink }}>
+                  Freeze ready
+                </span>
+              </div>
+            )}
           </CloudCard>
           <div style={{
             textAlign: 'center', marginTop: 22, fontFamily: fonts.display, fontWeight: 800,
