@@ -44,7 +44,7 @@ const STORIES = [
       'It likes to chase a ball.', 'The dog barks at a bird.', 'The bird flies away fast.',
       'The dog is tired now.', 'It lies down for a rest.',
     ],
-    comprehension_question: { question: 'Where did the dog run?', choices: ['in the park', 'in the pool', 'in the house'], correctIndex: 0 },
+    comprehension_question: { question: 'Where did the dog run?', choices: ['park', 'pool', 'house'], correctIndex: 0 },
   },
   {
     target_word: 'bird', tier: 3, title: 'The Little Bird',
@@ -62,7 +62,7 @@ const STORIES = [
       'The fish likes to swim fast.', 'It sees a green leaf.', 'The fish swims under the leaf.',
       'The fish is happy in the water.', 'It swims home to rest.',
     ],
-    comprehension_question: { question: 'Where does the fish live?', choices: ['in a pond', 'in a tree', 'in a box'], correctIndex: 0 },
+    comprehension_question: { question: 'Where does the fish live?', choices: ['pond', 'tree', 'box'], correctIndex: 0 },
   },
   {
     target_word: 'bear', tier: 3, title: 'The Sleepy Bear',
@@ -181,7 +181,7 @@ const STORIES = [
       'The pig finds a puddle of mud.', 'It rolls around in the mud.', 'The mud keeps the pig cool.',
       'The pig oinks a happy sound.', 'Then it naps in the warm sun.',
     ],
-    comprehension_question: { question: 'Where did the pig roll around?', choices: ['in the mud', 'in a pond', 'in a box'], correctIndex: 0 },
+    comprehension_question: { question: 'Where did the pig roll around?', choices: ['mud', 'pond', 'box'], correctIndex: 0 },
   },
   {
     target_word: 'rabbit', tier: 3, title: 'The Quick Rabbit',
@@ -208,7 +208,7 @@ const STORIES = [
       'The turtle moves toward the water.', 'It swims into the calm sea.', 'The turtle glides through the waves.',
       'It finds a cozy rock to rest.', 'The turtle naps in the warm sun.',
     ],
-    comprehension_question: { question: 'Where did the turtle walk?', choices: ['on the sand', 'in a house', 'on a road'], correctIndex: 0 },
+    comprehension_question: { question: 'Where did the turtle walk?', choices: ['sand', 'house', 'road'], correctIndex: 0 },
   },
 ];
 

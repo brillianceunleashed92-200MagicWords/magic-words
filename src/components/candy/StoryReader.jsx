@@ -7,6 +7,8 @@ import { useKaraokeNarration } from './useKaraokeNarration';
 import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 import { useSpeak } from '../../lib/useSpeak';
 import { IconSpeaker, IconClose } from '../icons';
+import { AnswerTile } from '../../games/lessonChrome';
+import WordArt from '../WordArt';
 
 // Shared full-screen storybook reader — one sentence per page, read aloud
 // with karaoke-style word highlighting, every word also individually
@@ -47,6 +49,15 @@ import { IconSpeaker, IconClose } from '../icons';
 export default function StoryReader({ story, onComplete, words, onExit, ownChrome = true }) {
   const [page, setPage] = useState(-1); // -1 = cover
   const [answered, setAnswered] = useState(false);
+  const [finalCorrect, setFinalCorrect] = useState(true);
+  // FEAT_BLANK_ENGINE_R1 — errorless scaffold for the comprehension check,
+  // same wiggle+soften -> hint-glow -> second-miss-completes pattern as
+  // WordMatch/WordHunt (src/games/GameEngine.jsx). Comprehension is a
+  // LEARNING activity (full scaffold applies), not the placement §5a
+  // measurement carve-out.
+  const [wrongTileIdx, setWrongTileIdx] = useState(null);
+  const [revealCorrect, setRevealCorrect] = useState(false);
+  const [missedOnce, setMissedOnce] = useState(false);
   const { speakWord: speakTrackedWord } = useWordSpeak(words);
   const { speak } = useSpeak();
   const reducedMotion = usePrefersReducedMotion();
@@ -93,12 +104,26 @@ export default function StoryReader({ story, onComplete, words, onExit, ownChrom
   }
 
   function handleChoiceTap(i) {
-    if (!narrationDone) {
-      speak("Let's read first!");
+    if (!narrationDone || answered) {
+      if (!narrationDone) speak("Let's read first!");
       return;
     }
+    const isCorrect = i === story.comprehensionQuestion.correctIndex;
+
+    if (!isCorrect && !missedOnce) {
+      setMissedOnce(true);
+      setWrongTileIdx(i);
+      setTimeout(() => {
+        setWrongTileIdx(null);
+        setRevealCorrect(true);
+      }, 450);
+      return;
+    }
+
     setAnswered(true);
-    setTimeout(() => onComplete(i === story.comprehensionQuestion.correctIndex), 900);
+    setFinalCorrect(isCorrect);
+    if (!isCorrect) setWrongTileIdx(i);
+    setTimeout(() => onComplete(isCorrect), 900);
   }
 
   const card = (
@@ -166,22 +191,31 @@ export default function StoryReader({ story, onComplete, words, onExit, ownChrom
             <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.15rem', color: colors.ink, marginBottom: '1.25rem' }}>
               {renderSentence(story.comprehensionQuestion.question)}
             </div>
-            {/* Errorless — choices are never hard-disabled (no punishment
-                state), just not-yet-active: tapping early gives a gentle
-                Nova nudge instead of answering (handleChoiceTap). */}
-            <div style={{ display: 'grid', gap: 10, opacity: narrationDone ? 1 : 0.55 }}>
-              {story.comprehensionQuestion.choices.map((choice, i) => (
-                <button
-                  key={choice}
-                  onClick={() => handleChoiceTap(i)}
-                  style={{
-                    background: 'rgba(0,0,0,.05)', border: 'none', borderRadius: 16, padding: '0.85rem',
-                    fontFamily: fonts.body, fontSize: '1rem', color: colors.ink, cursor: 'pointer',
-                  }}
-                >
-                  {choice}
-                </button>
-              ))}
+            {/* Errorless picture-choice tiles — reuses the same AnswerTile +
+                WordArt primitives every other activity's scaffold uses
+                (src/games/lessonChrome.jsx, src/components/WordArt.jsx).
+                Choices are never hard-disabled before narration finishes
+                (no punishment state), just not-yet-active: tapping early
+                gives a gentle Nova nudge instead of answering
+                (handleChoiceTap). A first wrong tap wiggles+softens that
+                tile then hint-glows the correct one for an immediate
+                retry; only a second miss lets the error complete — same
+                "physical hand support prevents the error" rule as
+                WordMatch's scaffold, applied here because comprehension is
+                a LEARNING activity, not a measurement carve-out. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 14, opacity: narrationDone ? 1 : 0.55 }}>
+              {story.comprehensionQuestion.choices.map((choice, i) => {
+                const isCorrectTile = i === story.comprehensionQuestion.correctIndex;
+                let tileState;
+                if (i === wrongTileIdx) tileState = 'wiggle-soften';
+                else if (revealCorrect && isCorrectTile) tileState = 'hint-glow';
+                return (
+                  <AnswerTile key={choice} index={i} onTap={() => handleChoiceTap(i)} disabled={!narrationDone} state={tileState} minHeight={130}>
+                    <WordArt word={choice.replace(/^(a|an|the)\s+/i, '')} size={72} />
+                    <div style={{ fontFamily: fonts.body, fontWeight: 700, color: colors.ink, fontSize: '.9rem' }}>{choice}</div>
+                  </AnswerTile>
+                );
+              })}
             </div>
             {!narrationDone && (
               <div style={{ fontFamily: fonts.body, fontSize: '.8rem', color: colors.mutedInk, marginTop: 10 }}>
@@ -192,8 +226,8 @@ export default function StoryReader({ story, onComplete, words, onExit, ownChrom
         )}
 
         {answered && (
-          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.2rem', color: colors.mintDeep }}>
-            Great reading!
+          <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '1.2rem', color: finalCorrect ? colors.mintDeep : colors.ink }}>
+            {finalCorrect ? 'Great reading!' : `That's okay — great story either way!`}
           </div>
         )}
       </div>
