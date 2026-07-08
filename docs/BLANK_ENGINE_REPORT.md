@@ -148,13 +148,90 @@ exports its top-level `handler`. Consequence for this run's test strategy:
   `/api`) — genuinely testable locally via Playwright against local dev.
 
 ## CENSUS — the selection-weighting table
-IN PROGRESS — see Phase 1 below.
+
+Every point in `api/session-generator.js` where word selection reads
+unit-gating or mastery, before any code changed:
+
+| Location | Current weighting | Intended weighting (this run) | Child-visible effect |
+|---|---|---|---|
+| `selectCandidateWords` line 294, `effectiveFloor = placementFloor ? min(placementFloor, maxUnit) : null` | Gates ALL words (content + function) below the floor out of new-session selection | Unchanged for content words. Function words get a separate, additive exemption path (see next row) | Content-word placement behavior byte-identical to before |
+| `selectCandidateWords` line 327-328, `units = [...].filter(u => !effectiveFloor \|\| u >= effectiveFloor)` → drives `currentUnit` | Determines where NEW vocabulary starts; below-floor units (content or function) never become `currentUnit` | Unchanged — this is a content-progression axis, not touched | A high-placement child's *new* vocabulary still starts at their measured level |
+| `selectCandidateWords` line 366, `currentUnitWords = withProgress.filter(unit===currentUnit && !isRealMastery)` | Only the (at-or-above-floor) current unit's unmastered words | Unchanged | No change |
+| `selectCandidateWords` line 367, `dueForReview = withProgress.filter(dueForReview && unit!==currentUnit)` | Any previously-played word due for spaced review, **not floor-filtered today** (already reaches below-floor words, but only ones with prior play history) | Unchanged (architecture note (a): spaced review stays as-is) | No change |
+| `selectCandidateWords` line 368, `masteredSample = shuffled(withProgress.filter(isRealMastery)).slice(0,2)` | Up to 2 random mastered words (content or function), **full rate**, not floor-filtered, not damped | **NEW**: filtered through `applyMasteredContentDamping` — function words always eligible (weight 1.0), content words pass at `MASTERED_CONTENT_INCLUSION_WEIGHT` (0.35) before the sample is drawn | A genuinely-mastered content word appears in the confidence sample roughly 35% as often as an equally-mastered function word or as it did before this run |
+| `selectCandidateWords` (new, after line 368) | Below-floor function words (unmastered) have **no path** into the pool — never appear until the child's floor drops to their unit, which never happens | **NEW**: `eligibleBelowFloorFunctionWords` (function-type, `unit < effectiveFloor`, not mastered) sampled to `BELOW_FLOOR_FUNCTION_SAMPLE_SIZE` (1) and merged into the pool | A high-placement child now sees ~1 low-unit function word per session, always via the cloze/sentence quiz path (never picture-matching — confirmed no below-floor function word is ever `pictureEligible`) |
+| `selectCandidateWords` line 286, `maxUnit = plan==='family' ? 18 : FREE_TIER_MAX_UNIT (5)` → gates the `allWords` query itself (`.lte('unit', maxUnit)`) | Free-tier accounts never load any word above unit 5 | Unchanged — confirmed this pre-existing gate is what makes premium-content leakage through the new exemption structurally impossible (nothing above `maxUnit` is ever in `withProgress` to begin with) | Free-tier accounts see no behavior change from this run (function words all live in units 11-18, already outside their reach — see STEP 0 finding 3) |
+| `reviewOnly` branch, lines 336-364 (Quiz Boss) | Distinct pool: `attempt_count > 0` words only, due/lowest-mastery first | **Unchanged** — confirmed by code inspection: this run's new logic lives entirely after the `if (reviewOnly) { ... return ... }` early return | No change to Quiz Boss |
+| `handleCheckin`/`handlePlacement` (lines 406-630) | Never call `selectCandidateWords` — independent rung/ladder logic over `allWords` directly | **Unchanged** — confirmed by construction (separate functions, no shared pool-building code) | No change to Placement Adventure or Star Check-In |
 
 ## FUNCTION-WORD UNIVERSALITY
-IN PROGRESS.
+
+**Exemption mechanic** (`api/session-generator.js`, `selectCandidateWords`):
+after the existing `masteredSample` construction, a new
+`belowFloorFunctionEligible` filter draws from `withProgress` (already
+plan-capped to `maxUnit` at the query level) for `word_type === 'function'
+&& unit < effectiveFloor && !isRealMastery(...)`, then samples down to
+`BELOW_FLOOR_FUNCTION_SAMPLE_SIZE` (1) via the existing `shuffled()`
+helper. Merged into the pool alongside `currentUnitWords`/`dueForReview`/
+`masteredSample`, subject to the same `seen`-based de-dup. Constants
+mirrored from the canonical `src/lib/blankEngineWeighting.js`, sync-checked
+by `scripts/check-blank-engine-weighting-sync.mjs` (wired into `npm run
+build`; passes — see VERIFICATION).
+
+**Free-tier-content-leak proof**: `belowFloorFunctionEligible` only ever
+reads from `withProgress`, which is built from `allWords`
+(`api/session-generator.js` line ~298: `.lte('unit', maxUnit)`) — the plan
+cap is applied at the query itself, *before* any floor/exemption logic
+runs. There is no code path by which the exemption can add a word whose
+`unit > maxUnit`. Confirmed live via STEP 0 recon: for a free-tier account
+(`maxUnit = 5`), all 45 function words (units 11-18) are excluded from
+`allWords` entirely regardless of this run's changes — the exemption is a
+real, live behavior change only for family-plan accounts, whose `maxUnit`
+(18) actually reaches the units where a placement floor could otherwise
+skip function words. This is a genuine pre-existing free-tier gap
+(function words are structurally unreachable below unit 11, entirely
+outside this run's scope — see NOTES FOR WEEKLY_INSIGHTS), not a leak
+introduced or left unaddressed by this change.
+
+**Content-word gating unchanged**: `effectiveFloor`, the `units` filter
+that derives `currentUnit`, `currentUnitWords`, and `dueForReview` are all
+byte-identical to before this run — the exemption is purely additive (one
+new filter + one new pool member), confirmed by diff.
 
 ## MASTERED-CONTENT DAMPING
-IN PROGRESS.
+
+**Verbatim weighting rule** (`src/lib/blankEngineWeighting.js`,
+`applyMasteredContentDamping`, mirrored in
+`api/session-generator.js`):
+
+```
+MASTERED_CONTENT_INCLUSION_WEIGHT = 0.35
+
+masteredWords.filter(w =>
+  w.word_type === 'function' || Math.random() < MASTERED_CONTENT_INCLUSION_WEIGHT
+)
+```
+
+Applied to the existing `masteredSample` pool (the "1-2 mastered words for
+confidence" mechanism) before its `shuffled().slice(0, 2)` draw. A mastered
+FUNCTION word always passes (weight 1.0 — function words never recede,
+consistent with gap 1's universality principle). A mastered CONTENT word
+passes ~35% of the time per session it's considered — never excluded
+outright (spaced review via `dueForReview` is untouched, so a mastered
+content word due for review still appears on schedule regardless of this
+filter), just damped in the "confidence sample" slot specifically. This is
+a probabilistic, per-session filter (not a hard N-out-of-M cap), so it's
+naturally verified statistically (across many sessions) rather than on any
+single session — see VERIFICATION for the live before/after methodology.
+
+**Placement-floor reintroduction check**: `masteredWords` is built from
+`withProgress` (not floor-filtered — confirmed unchanged from before this
+run), so a mastered CONTENT word from *below* the placement floor was
+already reachable via `masteredSample` prior to this run, at full rate.
+The damping filter above is applied uniformly to `masteredWords` regardless
+of unit, so a below-floor mastered content word now receives the exact same
+35% inclusion rate as an above-floor one — confirming the floor does not
+reintroduce mastered content at full rate.
 
 ## STORY COMPREHENSION
 IN PROGRESS.

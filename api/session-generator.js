@@ -46,6 +46,17 @@ function isRealMastery(mastery, attemptCount) {
   return mastery >= MASTERED_THRESHOLD && (attemptCount ?? 0) >= MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION;
 }
 
+// FEAT_BLANK_ENGINE_R1 — mirrors src/lib/blankEngineWeighting.js exactly
+// (same threshold-mirroring convention as MASTERED_THRESHOLD/isRealMastery
+// above, extended rather than forked per
+// docs/PEDAGOGY_CALIBRATION_REPORT.md's NOTES FOR PACKAGE C). Not a
+// require() of that ES module for the same CommonJS/unverified-Vercel-
+// Node-version reason as isRealMastery's own mirror comment.
+// scripts/check-blank-engine-weighting-sync.mjs asserts these stay
+// numerically identical to the canonical client-side constants.
+const BELOW_FLOOR_FUNCTION_SAMPLE_SIZE = 1;
+const MASTERED_CONTENT_INCLUSION_WEIGHT = 0.35;
+
 // Mirrors src/lib/queries/subscription.js's FREE_TIER_MAX_UNIT /
 // isUnitLocked — server-side copy because this endpoint must enforce the
 // gate itself, not trust whatever the client claims its plan is.
@@ -365,10 +376,40 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
 
   const currentUnitWords = withProgress.filter((w) => w.unit === currentUnit && !isRealMastery(w.mastery, w.attemptCount));
   const dueForReview = withProgress.filter((w) => w.dueForReview && w.unit !== currentUnit);
-  const masteredSample = shuffled(withProgress.filter((w) => isRealMastery(w.mastery, w.attemptCount))).slice(0, 2);
+
+  // FEAT_BLANK_ENGINE_R1 gap 2 — mastered CONTENT words recede in the
+  // normal mix (Blank: mastery is the reward, not maximum repetition).
+  // Function words are exempt (see gap 1 below — they're universal, never
+  // recede). Applied as a pre-shuffle filter on the mastered pool itself,
+  // so this also directly covers "the placement floor doesn't reintroduce
+  // already-mastered content words at full rate" — masteredWords draws
+  // from all of withProgress (not floor-filtered), same as before this
+  // run, so a below-floor mastered content word gets the identical damping
+  // treatment as an above-floor one.
+  const masteredWords = withProgress.filter((w) => isRealMastery(w.mastery, w.attemptCount));
+  const dampedMasteredWords = masteredWords.filter((w) => w.word_type === 'function' || Math.random() < MASTERED_CONTENT_INCLUSION_WEIGHT);
+  const masteredSample = shuffled(dampedMasteredWords).slice(0, 2);
+
+  // FEAT_BLANK_ENGINE_R1 gap 1 — function words are universal (Blank:
+  // struggling readers break on function words, so they're never skipped
+  // by unit placement). The placement floor above still gates CONTENT
+  // words; this is the one function-word exception — a below-floor
+  // function word (unmastered; mastered ones already surface via
+  // masteredSample above) gets a small, low-frequency chance to surface in
+  // context/cloze activities. Never picture-matching: function words have
+  // no has_art entries (confirmed live, STEP 0 recon), so buildQuiz's
+  // pictureEligible check already hard-routes every one of these to the
+  // sentence/cloze path. Bounded to `maxUnit` by construction — withProgress
+  // is built from allWords, itself already `.lte('unit', maxUnit)`
+  // (line ~298), so this can never surface a word above the account's plan
+  // cap regardless of floor.
+  const belowFloorFunctionEligible = effectiveFloor
+    ? withProgress.filter((w) => w.word_type === 'function' && w.unit < effectiveFloor && !isRealMastery(w.mastery, w.attemptCount))
+    : [];
+  const belowFloorFunctionSample = shuffled(belowFloorFunctionEligible).slice(0, BELOW_FLOOR_FUNCTION_SAMPLE_SIZE);
 
   const seen = new Set();
-  const pool = [...currentUnitWords, ...dueForReview, ...masteredSample].filter((w) => {
+  const pool = [...currentUnitWords, ...dueForReview, ...masteredSample, ...belowFloorFunctionSample].filter((w) => {
     if (seen.has(w.word)) return false;
     seen.add(w.word);
     return true;
