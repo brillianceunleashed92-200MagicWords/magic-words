@@ -46,6 +46,16 @@ export const useUIStore = create(
       startPlacementFlow: (childId, flow = 'choice') => set({ placementFlow: flow, placementChildId: childId }),
       clearPlacementFlow: () => set({ placementFlow: null, placementChildId: null }),
 
+      // FEAT_PLACEMENT_CHECKIN_R1: Star Check-In, same reasoning as
+      // placementFlow above — DashboardTab's Check-In card triggers this,
+      // CandyGalaxyShell renders CheckInScreen full-screen regardless of
+      // navTab. Not persisted: an in-progress check-in never resumes,
+      // same as placement.
+      checkinFlow: null, // boolean-ish: true while active, else null
+      checkinChildId: null,
+      startCheckinFlow: (childId) => set({ checkinFlow: true, checkinChildId: childId }),
+      clearCheckinFlow: () => set({ checkinFlow: null, checkinChildId: null }),
+
       // Celebration queue — the 5 ranked moments are pushed here and drained
       // one at a time so two celebrations never overlap (e.g. a word
       // mastered mid-quest that also happens to complete the quest).

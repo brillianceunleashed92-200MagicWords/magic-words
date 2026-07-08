@@ -237,7 +237,7 @@ function getDifficultyLevel(progress) {
 async function fetchChildContext(admin, childId, userId) {
   const { data: childRow, error: childErr } = await admin
     .from('child_profiles')
-    .select('id, parent_id, placement_unit, placement_completed_at')
+    .select('id, parent_id, placement_unit, placement_completed_at, measured_unit')
     .eq('id', childId)
     .maybeSingle();
   if (childErr || !childRow || childRow.parent_id !== userId) return null;
@@ -259,6 +259,7 @@ async function fetchChildContext(admin, childId, userId) {
     progress: progress ?? [],
     placementUnit: childRow.placement_unit ?? null,
     placementCompletedAt: childRow.placement_completed_at ?? null,
+    measuredUnit: childRow.measured_unit ?? null,
   };
 }
 
@@ -504,6 +505,158 @@ async function handlePlacement(req, res, admin, verifiedUser, childId, plan, pla
   return issueRung(rungIndex, lastPassedRungIndex, true, state.shownWords ?? []);
 }
 
+const CHECKIN_LADDER_CONTEXT = 'checkin-ladder-v1';
+// FEAT_PLACEMENT_CHECKIN_R1: how many rungs on either side of the child's
+// current neighborhood a Star Check-In is allowed to explore — a re-probe
+// isn't a fresh placement, so it never walks the full 8-rung ladder.
+const CHECKIN_RUNG_SPAN = 2;
+
+// Highest RUNGS index whose unit is <= level, defaulting to rung 0 for an
+// unmeasured child (shouldn't normally reach a check-in — the portal only
+// offers it once a real measurement exists — but never let this throw).
+function rungIndexForLevel(level) {
+  let idx = 0;
+  for (let i = 0; i < RUNGS.length; i++) {
+    if (RUNGS[i] <= level) idx = i;
+  }
+  return idx;
+}
+
+// Star Check-In (Package C): reuses the exact same signed-stateless-token
+// ladder machinery and 2-word/tiebreak pass rules as Placement Adventure
+// (api/_lib/placementLadder.js) — see PLACEMENT_CHECKIN_REPORT.md DESIGN
+// LOCK for why no delta was justified — bounded to the child's current
+// neighborhood (measured_unit ?? placement_unit ?? 1, +/-2 rungs) instead
+// of the full ladder, and signed under a DIFFERENT context string so a
+// check-in token and a placement token are never interchangeable.
+async function handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit) {
+  const { data: allWords } = await admin
+    .from('words')
+    .select('word, unit, sort_order, word_type, has_art')
+    .order('sort_order');
+  const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
+  const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
+  const wordsByType = new Map();
+  for (const w of (allWords ?? [])) {
+    if (!wordsByType.has(w.word_type)) wordsByType.set(w.word_type, []);
+    wordsByType.get(w.word_type).push(w.word);
+  }
+
+  const currentLevel = measuredUnit ?? placementUnit ?? 1;
+  const centerRung = rungIndexForLevel(currentLevel);
+  const bounds = [Math.max(0, centerRung - CHECKIN_RUNG_SPAN), Math.min(RUNGS.length - 1, centerRung + CHECKIN_RUNG_SPAN)];
+
+  async function finalize(rungIndex) {
+    // rungIndex can be bounds[0]-1 here (failed even the lowest rung in
+    // the tested neighborhood) -- that value is OUTSIDE the tested range,
+    // so RUNGS[rungIndex] would report a unit never actually verified in
+    // this check-in. Floor the raw reading at the tested range's own
+    // bottom instead of extrapolating below it.
+    const rawMeasured = rungIndex >= bounds[0] ? RUNGS[rungIndex] : RUNGS[bounds[0]];
+    // Never-regress rule (DESIGN LOCK item 4): a check-in can only RAISE
+    // the stored/enforced value — a bad day never lowers the floor or the
+    // child's session-generator experience. The raw reading (which CAN be
+    // lower) is still logged in full below, for the parent's growth line —
+    // informational, never enforced.
+    const priorMeasuredUnit = measuredUnit ?? placementUnit ?? 1;
+    const appliedMeasured = Math.max(rawMeasured, priorMeasuredUnit);
+    const placementUnitOut = plan === 'family' ? appliedMeasured : Math.min(appliedMeasured, FREE_TIER_MAX_UNIT);
+    const { error } = await admin.from('child_profiles').update({
+      placement_unit: placementUnitOut,
+      measured_unit: appliedMeasured,
+      // A check-in IS a fresh measurement event regardless of outcome —
+      // this timestamp drives the 30-day eligibility clock either way.
+      placement_completed_at: new Date().toISOString(),
+    }).eq('id', childId);
+    if (error) console.error('[checkin] finalize write failed:', error.message);
+    logProductEvent(admin, 'checkin_completed', {
+      userId: verifiedUser.id, childId, payload: { rawMeasured, appliedMeasured, priorMeasuredUnit },
+    });
+    return res.status(200).json({ checkin: { done: true, rawMeasured, appliedMeasured } });
+  }
+
+  function issueRung(rungIndex, lastPassedRungIndex, tiebreak, excludeWords) {
+    const unit = RUNGS[rungIndex];
+    const count = tiebreak ? 1 : 2;
+    const rungWords = pickRungWords(unit, count, excludeWords, allWords ?? [], artWords, wordMetaByWord, wordsByType);
+    const state = { childId, rungIndex, lastPassedRungIndex, tiebreak, shownWords: rungWords.map((w) => w.word), bounds };
+    return res.status(200).json({
+      checkin: { done: false, rung: rungIndex + 1, rungUnit: unit, words: rungWords, ladderState: signLadderState(state, CHECKIN_LADDER_CONTEXT) },
+    });
+  }
+
+  if (req.body?.skip === true) {
+    // No product event for this branch — a parent simply not starting a
+    // check-in from its portal card isn't an "abandon" signal worth
+    // logging (unlike placement, there's no forced choice screen here).
+    return res.status(200).json({ ok: true });
+  }
+
+  const ladderStateRaw = typeof req.body?.ladderState === 'string' ? req.body.ladderState : null;
+  const rawAnswers = req.body?.answers;
+  const answers = Array.isArray(rawAnswers) ? rawAnswers.filter((a) => typeof a === 'boolean') : null;
+
+  if (!ladderStateRaw) {
+    logProductEvent(admin, 'checkin_started', { userId: verifiedUser.id, childId, payload: { startRung: centerRung + 1 } });
+    return issueRung(bounds[0], bounds[0] - 1, false, []);
+  }
+
+  const state = verifyLadderState(ladderStateRaw, childId, CHECKIN_LADDER_CONTEXT);
+  if (!state || !Array.isArray(state.bounds)) {
+    // Bad/forged/expired/wrong-context token (including a placement token
+    // replayed here — different signing context, so it never verifies) —
+    // treated as a fresh start, never a way to short-circuit the walk.
+    logSecurityEvent('checkin_ladder_invalid_token', { userId: verifiedUser.id, endpoint: 'session-generator:checkin' });
+    logProductEvent(admin, 'checkin_started', { userId: verifiedUser.id, childId, payload: { startRung: centerRung + 1 } });
+    return issueRung(bounds[0], bounds[0] - 1, false, []);
+  }
+  const expectedAnswerCount = state.tiebreak ? 1 : 2;
+  if (!answers || answers.length !== expectedAnswerCount) {
+    return res.status(400).json({ error: `answers must have length ${expectedAnswerCount} for this rung` });
+  }
+
+  const { rungIndex, lastPassedRungIndex, tiebreak } = state;
+  const [, boundMax] = state.bounds;
+  const correctCount = answers.filter(Boolean).length;
+  const isLastRung = rungIndex >= boundMax;
+
+  if (tiebreak) {
+    if (correctCount >= 1) return isLastRung ? finalize(rungIndex) : issueRung(rungIndex + 1, rungIndex, false, []);
+    return finalize(lastPassedRungIndex);
+  }
+  if (correctCount === 2) return isLastRung ? finalize(rungIndex) : issueRung(rungIndex + 1, rungIndex, false, []);
+  if (correctCount === 0) return finalize(lastPassedRungIndex);
+  return issueRung(rungIndex, lastPassedRungIndex, true, state.shownWords ?? []);
+}
+
+// FEAT_PLACEMENT_CHECKIN_R1: growth-line history for the Parent Portal.
+// product_events stays service-role-only/no-client-RLS (unchanged
+// invariant — see PLACEMENT_ADVENTURE_REPORT.md's "events-home verdict"),
+// so this is the one ownership-verified read path that projects out only
+// what the chart needs — never raw rows, never other event types.
+async function handleHistory(req, res, admin, childId) {
+  const { data, error } = await admin
+    .from('product_events')
+    .select('event_type, payload, created_at')
+    .eq('child_id', childId)
+    .in('event_type', ['placement_completed', 'placement_retaken', 'checkin_completed'])
+    .order('created_at', { ascending: true });
+  if (error) return res.status(500).json({ error: 'Failed to load history' });
+
+  const points = (data ?? []).map((row) => {
+    const measuredUnit = row.event_type === 'checkin_completed'
+      ? row.payload?.rawMeasured
+      : row.payload?.trueMeasuredUnit;
+    return {
+      date: row.created_at.slice(0, 10),
+      measuredUnit: typeof measuredUnit === 'number' ? measuredUnit : null,
+      source: row.event_type === 'checkin_completed' ? 'checkin' : 'placement',
+    };
+  }).filter((p) => p.measuredUnit !== null);
+
+  return res.status(200).json({ history: points });
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -521,6 +674,8 @@ module.exports = async function handler(req, res) {
   const focusWord = typeof rawFocusWord === 'string' && /^[a-z']{1,40}$/i.test(rawFocusWord) ? rawFocusWord : null;
   const reviewOnly = req.body?.reviewOnly === true;
   const placementMode = req.body?.placementMode === true;
+  const checkinMode = req.body?.checkinMode === true;
+  const historyMode = req.body?.historyMode === true;
 
   if (!childId) return res.status(400).json({ error: 'childId is required' });
 
@@ -528,9 +683,11 @@ module.exports = async function handler(req, res) {
   const context = await fetchChildContext(admin, childId, verifiedUser.id);
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
-  const { plan, progress, placementUnit, placementCompletedAt } = context;
+  const { plan, progress, placementUnit, placementCompletedAt, measuredUnit } = context;
 
   if (placementMode) return handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
+  if (checkinMode) return handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit);
+  if (historyMode) return handleHistory(req, res, admin, childId);
 
   const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly, placementUnit);
   const difficultyLevel = getDifficultyLevel(progress);

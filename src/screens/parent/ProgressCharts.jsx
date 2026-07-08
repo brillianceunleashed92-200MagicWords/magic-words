@@ -12,6 +12,7 @@ import {
 import { colors, fonts, shadows } from '../../theme/tokens';
 import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 import { useParentMetricsHistoryQuery } from '../../lib/queries/parentMetrics';
+import { useMeasuredLevelHistoryQuery } from '../../lib/queries/checkinHistory';
 import {
   computeWeeklyMasteryCrossings,
   computeHeatmapData,
@@ -209,6 +210,36 @@ function UnitProgressChart({ words }) {
   );
 }
 
+// FEAT_PLACEMENT_CHECKIN_R1 — mission item 3: "the before/after retention
+// surface" joining Package A's chart set, per the mission's own framing.
+// Plots the RAW measured level at each placement/check-in event (never
+// the free-tier-floored value) — see DESIGN LOCK item 6 for why that's a
+// data-shape decision, not a display nuance.
+function GrowthChart({ childId, animate }) {
+  const historyQ = useMeasuredLevelHistoryQuery(childId);
+  const data = (historyQ.data ?? []).map((p) => ({ ...p, label: shortDateLabel(p.date) }));
+  const isEmpty = data.length === 0;
+  if (historyQ.isLoading) return null;
+  return (
+    <ChartCard
+      title="Growth over time"
+      caption="Measured level at placement and each Star Check-In."
+      isEmpty={isEmpty}
+      emptyMessage="No placement measurement on file yet for this Star Learner."
+    >
+      <ResponsiveContainer width="100%" height={160}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontFamily: fonts.body, fontSize: 11, fill: colors.mutedInk }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} domain={[1, 18]} tick={{ fontFamily: fonts.body, fontSize: 11, fill: colors.mutedInk }} axisLine={false} tickLine={false} width={24} />
+          <Tooltip contentStyle={{ fontFamily: fonts.body, borderRadius: 12, border: 'none', boxShadow: shadows.chunkSm }} formatter={(v, n, p) => [`Unit ${v}`, p.payload.source === 'checkin' ? 'Check-In' : 'Placement']} />
+          <Line type="monotone" dataKey="measuredUnit" name="Measured level" stroke={colors.mint} strokeWidth={3} dot={{ r: 4, fill: colors.mint }} connectNulls isAnimationActive={animate} />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
 export default function ProgressCharts({ childId, words }) {
   const reducedMotion = usePrefersReducedMotion();
   const animate = !reducedMotion;
@@ -225,6 +256,7 @@ export default function ProgressCharts({ childId, words }) {
         <div style={{ fontFamily: fonts.body, color: colors.mutedInk, padding: '12px 0' }}>Loading progress…</div>
       ) : (
         <>
+          <GrowthChart childId={childId} animate={animate} />
           <WeeklyMasteryChart rows={rows} words={words} now={now} animate={animate} />
           <PracticeHeatmap rows={rows} now={now} />
           <AccuracyByActivityChart rows={rows} now={now} />
