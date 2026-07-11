@@ -556,36 +556,76 @@ changed: whether the AI call starts before or at the tap.
   coming back at a typical ~7.1s. Live third-party API latency has real
   tail variance; report the spread, not just one sample.
 
-## STATUS — diagnosis + safe optimizations complete, stopping at the approval gate
-All of Phases 0-4's diagnosis, measurement, implementation, and
-verification work is done and green on `perf/activity-load`
-(`71b8118` + this report's finalization commit):
-- Before/after waterfalls measured against SHA-matched targets, 3 runs
-  each, methodology committed and reproducible
-  (`scripts/measure-activity-load-waterfall.mjs`).
-- Bottleneck identified and ranked with evidence (the blocking Anthropic
-  call, ~93% of cold-tap latency).
-- 3 selection-neutral optimizations applied and proven safe (unit tests +
-  code-construction argument + live network evidence).
-- Gates green: `build`, `check:no-emoji`, `check:wordart-sync`, `eslint`
-  (no new issues), `idor-proof` (PASS), full Playwright suite (91/93,
-  both failures investigated and confirmed pre-existing/non-deterministic
-  on production-locked specs, not regressions from this diff).
-- Live walk against the SHA-matched preview deployment confirms the
-  activity still loads and plays correctly (real DB XP read, 0 → 20).
-- The single biggest further lever (the Anthropic call itself) was
-  deliberately left untouched and is documented as a STOP item requiring
-  Sal's approval, since the only way to cut it further touches
-  `sessionLength` (selection-adjacent).
+## STATUS — merged, deployed, verified live on production
 
-**Per the run's binding approval stops, this is where it stops.** Not
-merged, not pushed, `main` and production untouched. Branch
-`perf/activity-load` is pushed to origin (not `main`) with a live preview
-deployment for review. Awaiting Sal's go/no-go on:
-1. Merging `perf/activity-load` → `main` (`--no-ff`).
-2. `git push origin main`.
-3. Post-push deployment check + a true production walk.
-4. Optionally: greenlighting a follow-up on the Anthropic-call latency
-   itself (either the sessionLength-affecting options logged above, or the
-   selection-neutral "regenerate in background after session end"
-   follow-up) as a separate, explicitly-scoped piece of work.
+**2026-07-11, approved by Sal.** Merged `perf/activity-load` → `main`
+(`--no-ff`, merge commit `93bf99c`) after a clean merge (no conflicts)
+and a final green gate check (`build`, `check:no-emoji`,
+`check:wordart-sync` all PASS on the merged tree). Pushed to
+`origin main` (`4b2dfd0..93bf99c`).
+
+**Deployment confirmed**:
+- GitHub commit status for `93bf99c`: Vercel context `success`
+  (`target_url` → deployment `dpl_3xVVh4nHX2zDwd4paX5DC3Tr5t5Z`).
+- `vercel list`: `dpl_3xVVh4nHX2zDwd4paX5DC3Tr5t5Z` — Production, Ready,
+  created within ~1 minute of the push.
+- `vercel inspect`: same deployment ID, aliased to
+  `https://200magicwordsapp.com` (and `www.drmarionsformula.com`) —
+  confirms the live production domain is now serving this merge.
+
+**Real production walk** (fresh admin-provisioned test account,
+`https://200magicwordsapp.com`, cleaned up after):
+1. **Prefetch fires on Home mount, confirmed via network log**: ran
+   `scripts/measure-activity-load-waterfall.mjs --dwell=8000
+   --base-url=https://200magicwordsapp.com` against production
+   post-deploy. Result: `sessionGeneratorCalls: 1`, and that one call's
+   `finishedOffsetMs` was negative relative to the tap (i.e., it started
+   and finished *during* the 8s Home dwell, not at the tap) —
+   `wordTapToPlayableMs` came back at 5766ms, in the same ~5.3s range as
+   the preview measurements, not the ~7-15s cold-tap range. This is the
+   exact behavior this report set out to ship, now confirmed live on
+   production, not just on the preview deployment.
+2. **The activity loads and plays correctly**: signed in → Home
+   rendered → tapped "Let's go!" → QuestPath rendered → tapped "Tap &
+   Hear" → question rendered correctly ("Tap the picture of cat") →
+   tapped the correct tile → answered correctly → exited to bank
+   progress → back on Home, no blank screen. Zero browser console
+   errors/pageerrors during the entire walk.
+3. **Progress genuinely banked**: `user_stats.total_xp` read directly
+   from the database (not inferred from the UI) — **0 → 20** after the
+   single correct answer.
+4. Test account deleted after the walk (admin API), no residue left in
+   production.
+
+**Gates, final state**: `build` PASS, `check:no-emoji` PASS,
+`check:wordart-sync` PASS (all re-run on the merged `main` tree before
+push), `idor-proof` PASS (run pre-merge on the branch), full Playwright
+suite 91/93 pre-merge (both failures investigated and confirmed
+pre-existing/non-deterministic on production-locked specs — see
+VERIFICATION — not regressions from this diff, and both specs test
+production directly so their result is unaffected by this merge/deploy
+step itself). idor-proof and the full suite were not re-run a second
+time post-merge since neither `fetchChildContext`'s ownership logic nor
+the gated suite's own code changed between the branch and the merge
+commit (a clean fast-forward-equivalent merge, no conflict resolution
+edits).
+
+**Anthropic-call latency (~93% of cold-tap time) was deliberately left
+untouched, per Sal's explicit instruction this run** — logged in LOGGED
+FOR LATER as a separate, future decision (either a `sessionLength`
+change or a selection-neutral post-session background-regenerate
+follow-up), not started here.
+
+## FINAL STATUS
+`perf/activity-load` merged to `main` (`--no-ff`, `93bf99c`), pushed to
+`origin main`, deployed to production (`dpl_3xVVh4nHX2zDwd4paX5DC3Tr5t5Z`,
+confirmed via GitHub commit-status + `vercel list`/`vercel inspect`,
+aliased to `200magicwordsapp.com`). Live production walk confirms the
+activity loads correctly, plays correctly, banks real progress (XP 0→20
+via direct DB read), and — the actual point of this run — the
+Home-mount prefetch now measurably avoids the repeat `session-generator`
+AI round trip on production itself (`sessionGeneratorCalls: 1`, fired
+and finished during an 8s Home dwell, before the tap). All gates were
+green at merge time. This report (`docs/ACTIVITY_LOAD_PERF_REPORT.md`)
+is being pushed to `main` as the final act of this run, self-certifying
+this docs push. Run complete.
