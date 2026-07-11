@@ -39,6 +39,32 @@ export function planCacheKey(childId) {
   return `${PLAN_CACHE_KEY_PREFIX}:${childId}`;
 }
 
+// PERF_ACTIVITY_LOAD_R1 — mirrors api/session-generator.js's own
+// focusWord reorder (splice the tapped word out, unshift it to the
+// front) so reusing a cached plan client-side produces the exact same
+// shape a fresh server call would for a word the cache already covers.
+// wordSequence and quizzes are parallel arrays (same index order, see
+// session-generator.js's `chosenWords.map(...)`) so both get the same
+// splice/unshift. A no-op (returns plan as-is) if the word isn't found
+// or is already first.
+export function reorderPlanForFocusWord(plan, focusWord) {
+  if (!focusWord || !plan?.quizzes?.length) return plan;
+  const idx = plan.quizzes.findIndex((q) => q.word === focusWord);
+  if (idx <= 0) return plan;
+  const quizzes = [...plan.quizzes];
+  const [q] = quizzes.splice(idx, 1);
+  quizzes.unshift(q);
+  const wordSequence = Array.isArray(plan.wordSequence) && plan.wordSequence.length === plan.quizzes.length
+    ? (() => {
+        const seq = [...plan.wordSequence];
+        const [w] = seq.splice(idx, 1);
+        seq.unshift(w);
+        return seq;
+      })()
+    : plan.wordSequence;
+  return { ...plan, quizzes, wordSequence };
+}
+
 // One-time cleanup: the old unscoped key could still be sitting in a
 // returning user's sessionStorage from before this fix shipped. Removing
 // it (rather than just ignoring it) means no code path can ever read it
@@ -77,7 +103,44 @@ export function cachePlan(childId, plan) {
   }
 }
 
-export function useSessionPlan(user, childId, plan = 'free', placementUnit = null) {
+// PERF_ACTIVITY_LOAD_R1 — restores this file's own documented intent
+// ("generates the full session plan ONCE at login") which had drifted:
+// useSessionPlan only lives inside PlayScreen, which doesn't mount until
+// *after* the word tap that starts a session, so the very first tap of a
+// visit always paid for a full, uncached /api/session-generator round
+// trip (network + the AI copy-generation call) with the loader visible.
+// Calling this once from Home (while the user is still looking at the
+// word/quest picker, not yet blocked on anything) warms the exact same
+// sessionStorage cache useSessionPlan's own mount effect already checks —
+// same fetch, same cache key, same selection, just started earlier so
+// it very often finishes before the user taps anything at all. Pure
+// fire-and-forget: on any failure this silently no-ops and the later
+// real PlayScreen mount falls back to its own fetch exactly as before —
+// this function never surfaces an error or blocks Home's render.
+export async function prefetchSessionPlan(user, childId) {
+  if (!user || !childId) return;
+  if (getCachedPlan(childId)) return; // already warm
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const response = await fetch('/api/session-generator', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ childId }),
+    });
+    if (!response.ok) return;
+    const { plan: newPlan } = await response.json();
+    cachePlan(childId, newPlan);
+  } catch {
+    // silent no-op -- PlayScreen's own mount effect is the real fallback
+  }
+}
+
+export function useSessionPlan(user, childId, plan = 'free', placementUnit = null, focusWord = null) {
   const [sessionPlan, setSessionPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError]     = useState(null);
@@ -97,6 +160,25 @@ export function useSessionPlan(user, childId, plan = 'free', placementUnit = nul
       const cached = getCachedPlan(childId);
       if (cached) {
         setSessionPlan(cached);
+        return;
+      }
+    } else if (focusWord) {
+      // PERF_ACTIVITY_LOAD_R1 — a word tapped directly on Home/Galaxy used
+      // to always force a brand-new /api/session-generator round trip
+      // (network + the AI copy-generation call), even when a still-valid
+      // cached plan already covers that exact word — the cache was
+      // fetched, checked (below, via getCachedPlan), and then thrown away.
+      // If the tapped word is already in a fresh cached plan, reorder it
+      // to the front locally (byte-identical to what the server's own
+      // splice/unshift would produce for the same word, since nothing
+      // about the underlying selection has changed) instead of paying for
+      // a redundant fetch. Only words outside the cached plan (e.g.
+      // tapped from the wider Word Galaxy map, off the adaptive path)
+      // still fall through to a real fetch below — unchanged from before.
+      const cached = getCachedPlan(childId);
+      const alreadyPresent = cached?.quizzes?.some((q) => q.word === focusWord);
+      if (alreadyPresent) {
+        setSessionPlan(reorderPlanForFocusWord(cached, focusWord));
         return;
       }
     }
@@ -132,10 +214,21 @@ export function useSessionPlan(user, childId, plan = 'free', placementUnit = nul
     }
   }, [user, childId, plan, placementUnit]);
 
+  // PERF_ACTIVITY_LOAD_R1 — consolidated from two separate effects (one
+  // here firing an unforced generatePlan() on mount, one in PlayScreen.jsx
+  // firing a forced generatePlanForWord() whenever focusWord was set) that
+  // used to run concurrently on the same mount whenever a word was tapped
+  // directly, racing each other: the unforced call would set a cached
+  // plan, then the forced call's network response would overwrite it a
+  // moment later — always paying for a fetch neither result actually
+  // needed once a valid cache existed. A single effect with one branch per
+  // case removes the duplicate work entirely.
   useEffect(() => {
-    if (user && childId) generatePlan();
+    if (!user || !childId) return;
+    if (focusWord) generatePlan(true, focusWord);
+    else generatePlan();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, childId]);
+  }, [user?.id, childId, focusWord]);
 
   // No sessionStorage cache here (unlike the main plan) — a review battle
   // must reflect the child's *current* mastery/due-dates every time Quiz

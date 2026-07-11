@@ -45,3 +45,55 @@ test("legacy unscoped key is removed and never read", async ({ page }) => {
   expect(result.legacyStillPresent).toBe(false);
   expect(result.cForC).toBeNull();
 });
+
+// PERF_ACTIVITY_LOAD_R1 -- reorderPlanForFocusWord is the pure function
+// that lets a word tap reuse an already-cached plan instead of forcing a
+// brand-new /api/session-generator round trip (see useSessionPlan.js's
+// header comment). The selection-neutrality guarantee for that whole perf
+// change rests entirely on this function only ever REORDERING the
+// existing quizzes/wordSequence arrays -- never adding, dropping, or
+// substituting a word. These cases are the parity proof: same multiset
+// of words in, same multiset out, only the focus word's position changes.
+const SAMPLE_PLAN = {
+  sessionGoal: "Let's practice!",
+  quizzes: [
+    { word: "dog", correctIndex: 0, options: [{ word: "dog" }] },
+    { word: "cat", correctIndex: 0, options: [{ word: "cat" }] },
+    { word: "bird", correctIndex: 0, options: [{ word: "bird" }] },
+  ],
+  wordSequence: [{ word: "dog" }, { word: "cat" }, { word: "bird" }],
+};
+
+test("reorderPlanForFocusWord: focus word not at front is moved to front, nothing else changes", async ({ page }) => {
+  await page.goto("/");
+  const result = await page.evaluate(async (plan) => {
+    const mod = await import("/src/hooks/useSessionPlan.js");
+    return mod.reorderPlanForFocusWord(plan, "bird");
+  }, SAMPLE_PLAN);
+
+  expect(result.quizzes.map((q) => q.word)).toEqual(["bird", "dog", "cat"]);
+  expect(result.wordSequence.map((w) => w.word)).toEqual(["bird", "dog", "cat"]);
+  // Same 3 words, same per-word data -- a pure reorder, not a reselection.
+  expect(result.quizzes.map((q) => q.word).sort()).toEqual(SAMPLE_PLAN.quizzes.map((q) => q.word).sort());
+  expect(result.quizzes.find((q) => q.word === "bird")).toEqual(SAMPLE_PLAN.quizzes[2]);
+});
+
+test("reorderPlanForFocusWord: focus word already first is a no-op", async ({ page }) => {
+  await page.goto("/");
+  const result = await page.evaluate(async (plan) => {
+    const mod = await import("/src/hooks/useSessionPlan.js");
+    return mod.reorderPlanForFocusWord(plan, "dog");
+  }, SAMPLE_PLAN);
+
+  expect(result.quizzes.map((q) => q.word)).toEqual(["dog", "cat", "bird"]);
+});
+
+test("reorderPlanForFocusWord: focus word absent from the plan returns it unchanged", async ({ page }) => {
+  await page.goto("/");
+  const result = await page.evaluate(async (plan) => {
+    const mod = await import("/src/hooks/useSessionPlan.js");
+    return mod.reorderPlanForFocusWord(plan, "fish");
+  }, SAMPLE_PLAN);
+
+  expect(result.quizzes.map((q) => q.word)).toEqual(["dog", "cat", "bird"]);
+});
