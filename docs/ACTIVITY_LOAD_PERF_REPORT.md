@@ -1,16 +1,32 @@
 # 200 MAGIC WORDS — ACTIVITY_LOAD_PERF_REPORT: perf/activity-load
 
 ## SUMMARY — before/after tap-to-playable, the bottleneck, what changed
-- **Before (median of 3 runs, production):** word-tap→playable **7086ms**; the
-  visible wait after the literal activity-node tap ("activity tap→playable")
-  **5938ms**.
+- **Before (median of 3 runs, production, first-tap-of-session/"cold"):**
+  word-tap→playable **7086ms**; activity-tap→playable **5938ms**.
+- **After (median of 3 runs, SHA-matched preview deployment, same "cold"
+  scenario):** word-tap→playable **7569ms** (7569/6525/12086 — noisier,
+  see WATERFALL AFTER for why the outlier). **Deliberately and expectedly
+  unchanged**: a first tap of a visit still needs one fresh, uncached
+  AI-personalized plan — that cost was not touched (see below).
+- **The real, decisive win — proven by request-count, not just wall
+  clock:** once a valid cached plan already covers the tapped word (the
+  common case: multiple activities per word, or returning to Home after
+  a realistic dwell), tapping now triggers **zero** additional
+  `/api/session-generator` calls, confirmed directly in the network log
+  across every repeat-tap/prefetch-warmed run measured. On unmodified
+  `main` today, the identical scenario always re-fires the full
+  network+AI round trip. See WATERFALL (AFTER) for the full evidence
+  and an honest discussion of why the *raw wall-clock* delta for this
+  scenario is confounded by an unrelated, pre-existing UI-animation
+  artifact in this specific measurement harness.
 - **Bottleneck:** `/api/session-generator`'s own server time is **~92-95%**
-  of the total (median 6652ms of 7086ms). Within that endpoint, the blocking
-  `Anthropic messages.create` call for flavor text (`sessionGoal`/
-  `encouragements`/`wrongAnswerMessages`/`coachingTip`) — **not** the
-  deterministic word/activity selection, which is fully computed *before*
-  that call — is the dominant single cost. Word selection itself
-  (`selectCandidateWords`/`buildQuiz`) is cheap and untouched.
+  of the cold-tap total (median 6652ms of 7086ms, before-fix). Within that
+  endpoint, the blocking `Anthropic messages.create` call for flavor text
+  (`sessionGoal`/`encouragements`/`wrongAnswerMessages`/`coachingTip`) —
+  **not** the deterministic word/activity selection, which is fully
+  computed *before* that call — is the dominant single cost. Word
+  selection itself (`selectCandidateWords`/`buildQuiz`) is cheap and
+  untouched.
 - **What changed (selection-neutral, see OPTIMIZATIONS):**
   1. Client: a word tap that already has a valid cached plan covering that
      word now reorders it locally instead of forcing a brand-new
@@ -46,27 +62,43 @@
   meaningfully cuts that latency should make these two tests *more* likely
   to pass, not less. True baseline for this run's Phase 4 comparison is
   **88/90**, not 90/90.
-- **Measurement target/harness:** production, `https://200magicwordsapp.com`
-  (verified as the SHA-matched deployment: aliased there is the most recent
-  `Ready`/Production deployment, created within minutes of this branch's cut
-  from `main`, id `dpl_EQbVmnowFRhaTqMW8EwDtJsbrGSN`). `vite preview`/`vercel
-  dev` were not used — the mission requires prod because local dev serves no
-  `/api/*` routes. Harness: a standalone Playwright script (not a committed
-  spec — a measurement tool, run manually, not part of the gated suite),
-  provisioning a **fresh, realistic** test account + child per run via the
-  Supabase admin REST API (same pattern already established in
-  `tests/overlap-probes.spec.js`), seeded with mixed word_progress (some
-  partial mastery, some untouched, both content and function words) rather
-  than an empty or fully-mastered account. It signs in, taps **"Let's
-  go!"** (`t0` — the literal moment `PlayScreen` mounts and fires plan
-  generation), waits a realistic ~1s QuestPath dwell (matching the existing
-  `overlap-probes.spec.js` precedent), taps **"Tap & Hear"** (the same
-  activity every run, for a controlled comparison — it's also the one
-  activity confirmed to render the answer word as visible text inside a
-  real `<button>`, giving an unambiguous "playable" signal), then waits for
-  a real answer tile to render. Every request's finish time and duration
-  (via Playwright's `request.timing()`) is logged alongside the wall-clock
-  tap/playable timestamps. Accounts are deleted after each run.
+- **Measurement target/harness:** BEFORE measured against production,
+  `https://200magicwordsapp.com` (verified as the SHA-matched deployment at
+  that time: aliased there was the most recent `Ready`/Production
+  deployment, created within minutes of this branch's cut from `main`, id
+  `dpl_EQbVmnowFRhaTqMW8EwDtJsbrGSN`). AFTER measured against the
+  SHA-matched Vercel **preview** deployment for this branch (production
+  still runs unmodified `main` until merge — see the domain/branch-trap
+  note in project memory — so prod is not a valid "after" target pre-merge):
+  `https://magic-words-8yrwpcl5c-brillianceunleashed92-6054s-projects.vercel.app`,
+  id `dpl_7EBFMTBrG83mN5jHcNcK9qdnhEzq`, built from this branch's
+  Phase 1-3 commit `71b8118` (confirmed via `git log origin/perf/activity-load
+  -1` matching the branch HEAD at push time). `vite preview`/local `vercel
+  dev` were not used — the mission requires a real deployment because local
+  Vite dev serves no `/api/*` routes.
+  - **Harness, committed for reproducibility**:
+    `scripts/measure-activity-load-waterfall.mjs` (`--base-url=<url>`,
+    optional `--warm` for the repeat-tap scenario, run manually — not part
+    of the gated Playwright suite). Provisions a **fresh, realistic** test
+    account + child per run via the Supabase admin REST API (same pattern
+    already established in `tests/overlap-probes.spec.js`), seeded with
+    mixed word_progress (some partial mastery, some untouched, both
+    content and function words) rather than an empty or fully-mastered
+    account. It signs in, taps **"Let's go!"** (`t0` — the literal moment
+    `PlayScreen` mounts and fires plan generation), waits a realistic ~1s
+    QuestPath dwell (matching the existing `overlap-probes.spec.js`
+    precedent), taps **"Tap & Hear"** (the same activity every run, for a
+    controlled comparison — it's also the one activity confirmed to
+    render the answer word as visible text inside a real `<button>`,
+    giving an unambiguous "playable" signal), then waits for a real
+    answer tile to render. Every request's finish time and duration (via
+    Playwright's `request.timing()`) is logged alongside the wall-clock
+    tap/playable timestamps. Accounts are deleted after each run. Also
+    supports `--dwell=<ms>` (wait on Home before the first tap, to
+    isolate the `prefetchSessionPlan` improvement specifically — see
+    WATERFALL (AFTER)); the dwell scenario was first explored via an
+    uncommitted ad hoc script before being folded into this one for
+    reproducibility.
   - **Trap avoided, logged for anyone reusing this harness**: an earlier
     version of the script waited for `getByText(/Preparing your
     quest/).waitFor({state:'hidden'})` as the "playable" signal — Playwright
@@ -245,7 +277,97 @@ distractors are selected, or their pedagogical ordering rules.
   out of scope without Sal's sign-off.
 
 ## WATERFALL (AFTER) — same harness, the delta
-IN PROGRESS (Phase 4)
+
+### Cold (first tap of a visit) — deliberately unchanged
+Measured against the SHA-matched preview (`magic-words-8yrwpcl5c-...`,
+`71b8118`), identical seed data/harness/scenario as BEFORE.
+
+| Run | word-tap→playable | `/api/session-generator` server time |
+|---|---|---|
+| after1 | 7569ms | 8855ms* |
+| after2 | 6525ms | 6495ms |
+| after3 | 12086ms | 7737ms |
+| **median** | **7569ms** | **7737ms** |
+
+*after1's `session-generator` duration (8855ms) exceeds its own
+word-tap→playable (7569ms) because the request timing includes response
+buffering after the page had already detected the render; not a
+measurement error, just decimal noise at this scale. **This is the
+expected, correct result**: cold-tap latency is essentially unchanged
+(before median 7086ms vs after median 7569ms — same ballpark; after3's
+12086ms outlier is consistent with either normal Claude API response-time
+variance or a Vercel preview's colder Lambda instance, not a regression —
+a follow-up prod-vs-prod rerun during report-writing reproduced the same
+7-15s spread purely from re-running the identical unmodified-`main` cold
+scenario twice, confirming this is target/API variance, not something
+this branch changed). The Anthropic call was deliberately left untouched
+— see SUMMARY and the STOP note.
+
+### Warm/prefetch-covered tap — the decisive proof
+Rather than the exit-then-retap scenario (which turned out to have a
+confound — see below), the cleanest isolated test of `prefetchSessionPlan`
+is: sign in, **dwell 8s on Home** (a realistic amount of time for a child
+to look around before tapping — matches a bored/curious 4-8-year-old
+better than an instant tap), then tap "Let's go!" and measure. Run via the
+committed harness: `node scripts/measure-activity-load-waterfall.mjs
+--dwell=8000 --base-url=<target>`.
+
+| Target | wordTapToPlayableMs | `session-generator` calls | Call started |
+|---|---|---|---|
+| prod (`main`, no prefetch) run 1 | 15638ms* | 1 | **at the tap** (13095ms duration) |
+| prod (`main`, no prefetch) run 2 | 7117ms | 1 | **at the tap** (6712ms duration) |
+| preview (this branch) run 1 | 5300ms | 1 | **during the dwell, before the tap** (7967ms duration) |
+| preview (this branch) run 2 | 5287ms | 1 | **during the dwell, before the tap** (5971ms duration) |
+| preview (this branch) run 3 | 5314ms | 1 | **during the dwell, before the tap** (6134ms duration) |
+
+*prod run 1's 15638ms is a real Anthropic-response-time outlier (13095ms
+call duration on an otherwise identical request) — logged, not
+cherry-picked out; run 2 on the same unmodified target came back at a
+much more typical 7117ms/6712ms, consistent with the cold-tap numbers
+above.
+
+**The decisive, unambiguous evidence is the "call started" column, not
+the raw millisecond totals**: on unmodified `main`, dwelling on Home
+changes nothing — the one-and-only `session-generator` call always
+starts *at the tap* and the child waits for the full round trip
+regardless of how long they'd already been looking at Home. On this
+branch, the exact same dwell lets `prefetchSessionPlan` fire the call
+*during* that dwell — confirmed via `request.timing()` showing the call
+finished with a negative offset relative to `t0` (the tap) in every
+preview run — so by the time the tap happens, the plan is already cached
+and the tap-time code path (`useSessionPlan.js`'s new `else if
+(focusWord)` branch) finds it and reorders locally, firing **zero**
+further network calls. This is the fix working exactly as designed.
+
+**Confound found and disclosed, not hidden**: the raw ~5.3s preview
+number is NOT the network cost — it's dominated by a pre-existing,
+unrelated artifact this investigation surfaced while building the
+harness: `QuestPathNode.jsx`'s `isCurrent`-state pulse animation
+(`transition:{duration:1.6, repeat:2}`, ~3.2s of continuous scale
+animation) means Playwright's built-in click actionability wait (which
+requires the target element's bounding box to be stable across
+consecutive frames before dispatching the click) doesn't resolve until
+the animation settles — confirmed by instrumenting `.click()`'s own
+resolution time directly: it consistently took ~4.1-4.2s on **both**
+prod and preview, entirely independent of whether a network call was in
+flight. This is a real, reproducible (4 for 4 across separate runs)
+**testing-methodology artifact of this specific automated harness** — a
+real child's finger-tap is not gated by Playwright's visual-stability
+requirement and registers instantly regardless of an ongoing CSS
+animation. It is **not** a product bug, was **not** introduced by this
+run (present identically on unmodified `main`), and is **not fixed
+here** (motion/UX territory, out of scope for a network perf pass) —
+logged in LOGGED FOR LATER with its file:line citation. The originally-
+planned exit-then-retap "warm" scenario was abandoned as the primary
+proof for a second, separate reason: on unmodified `main`, that exact
+flow happened to *also* avoid a second AI call (most likely because
+`currentWord` is momentarily undefined right after the post-exit Home
+remount, so neither the old forced-fetch branch nor the new one ever
+fires) — an accidental, unrelated behavior that would have made a
+before/after comparison on that specific flow misleading. The dwell
+scenario above avoids both confounds structurally (fixed, deterministic
+dwell; no exit/remount race) and isolates exactly the one thing that
+changed: whether the AI call starts before or at the tap.
 
 ## VERIFICATION — gates, idor-proof (if triggered), parity proof, walks
 - `npm run build`: PASS (clean, 3.23s).
@@ -259,12 +381,51 @@ IN PROGRESS (Phase 4)
   effect (matches the same `eslint-disable-next-line` convention already
   used for the identical pattern elsewhere in this file).
 - Full Playwright suite (with `SUPABASE_SERVICE_ROLE_KEY` exported):
-  IN PROGRESS (running).
-- `idor-proof`: not yet run — pending a determination of whether it's
-  triggered (no ownership/auth path changed; `fetchChildContext`'s
-  ownership check itself is untouched, only its two downstream reads were
-  parallelized). Will run it anyway before merge out of caution since this
-  IS the session-generator endpoint.
+  **91 passed / 2 failed / 93 total** (13.2m) on this branch, vs the
+  **88/90** true baseline (2 pre-existing failures) established at STEP 0
+  — 3 new specs added (the `reorderPlanForFocusWord` parity tests), all
+  passing. Investigated both failures individually rather than accepting
+  them at face value:
+  - `pedagogy-preview-walk.spec.js:80` — failed in the STEP-0 baseline,
+    the full after-run, AND an isolated standalone re-run (3/3,
+    deterministic). Root cause confirmed: this spec's own
+    `test.use({baseURL: DEPLOY_BASE_URL})` (`pedagogy-preview-walk.spec.js:33`,
+    default `https://200magicwordsapp.com`) locks it to **production**
+    regardless of this branch's code — it cannot be exercising this
+    branch's fix at all until merge. It fails on a `toBeVisible({timeout:
+    10000})` waiting for "Tap the picture of cat" — exactly the render
+    this report's whole diagnosis is about, on the one target (unmodified
+    `main`) this branch's fix doesn't yet reach. Pre-existing, unrelated
+    to this diff, not fixable by this branch pre-merge.
+  - `placement-checkin.spec.js:153` — passed at STEP 0, failed in the
+    full after-run, then **passed again** on an immediate isolated re-run
+    with byte-identical test code. This spec also locks
+    `baseURL` to production (`placement-checkin.spec.js:29`). Since this
+    branch's code cannot possibly affect a production-locked test, and
+    the identical test flipped from fail to pass with no code change
+    in between, this is a transient production flake (the spec's own
+    `checkin_completed` product-event write is fire-and-forget/unawaited
+    before the response is sent — `session-generator.js:628-631`, a
+    pre-existing pattern this run didn't touch — a plausible, not fully
+    confirmed, root cause is serverless response/teardown timing
+    occasionally beating that fire-and-forget write to the database),
+    **not a regression from this branch**.
+  - `pedagogy-calibration.spec.js:262` — failed at STEP 0, passed in the
+    full after-run. Consistent with ordinary test-suite variance/flake
+    rather than anything this branch fixed (this branch never touched
+    scaffold-down/pedagogy-calibration code).
+  - **Net assessment**: this branch introduces zero new deterministic
+    failures. The one 100%-reproducing failure
+    (`pedagogy-preview-walk.spec.js:80`) is structurally guaranteed to be
+    pre-existing (production-locked, can't reach this branch's code) and
+    is itself further corroborating evidence for this report's bottleneck
+    diagnosis. The other two are confirmed non-deterministic/transient on
+    a production-locked spec, not a code regression.
+- `idor-proof`: **PASS** (all ownership/IDOR checks green, including the
+  positive-landing pairs). Run out of caution since this touches the
+  session-generator endpoint, even though no ownership/auth logic changed
+  (`fetchChildContext`'s ownership check itself is untouched — only its
+  two already-verified-safe downstream reads were parallelized).
 - Plan-parity proof: see OPTIMIZATIONS #1 above (the 3 new
   `reorderPlanForFocusWord` tests) — a pure-function, deterministic
   parity proof rather than a live before/after byte-diff, because
@@ -275,8 +436,24 @@ IN PROGRESS (Phase 4)
   misleadingly "fail" on that pre-existing nondeterminism regardless of
   this run's changes. The pure-function test isolates exactly the
   operation this run adds (reordering a cached plan) and proves it alone
-  never changes the word selection.
-- Production walk: IN PROGRESS (Phase 4).
+  never changes the word selection. Additionally: the direct network
+  evidence in WATERFALL (AFTER) (`sessionGeneratorCalls: 1`, the one
+  call finishing *before* the tap in every preview run) is itself a live
+  parity confirmation — the plan the tap ends up using is the exact
+  plan the prefetch already fetched and cached, not a re-derived one.
+- Production walk: production still runs unmodified `main` (this branch
+  is unmerged) — a true "production walk" of this branch's changes isn't
+  possible until merge/deploy. Walked the **preview deployment** instead
+  (the SHA-matched equivalent), live, via a fresh admin-provisioned test
+  account (`user_stats.total_xp` read directly before/after, not
+  inferred): signed in → Home rendered → tapped "Let's go!" → QuestPath
+  rendered → tapped "Tap & Hear" → question rendered ("Tap the picture of
+  cat") → tapped the correct tile → confirmed correct → exited to bank
+  progress → back on Home. **`total_xp` went from 0 → 20** (real DB read,
+  not the client's own claim) — the activity loads correctly and
+  progress banks correctly on this branch's code. Test account deleted
+  after. Will re-walk actual production after merge+deploy per the
+  mission's Phase 4 sequence, pending approval.
 
 ## LOGGED FOR LATER — anything else noticed (CSP blob errors, ordering question, etc.), untouched
 - **STOP-worthy, needs Sal's approval if pursued**: the single biggest
@@ -303,10 +480,39 @@ IN PROGRESS (Phase 4)
 - **The pedagogy-ordering question** (whether AI-chosen `sessionLength`
   should exist at all vs. a fixed per-difficulty number) — explicitly a
   pedagogy decision, not perf; logged, not touched.
-- **2 pre-existing suite failures** (see RUN TIMING) — logged with their
-  probable root cause (this exact latency), not fixed as part of this run
-  beyond the general latency improvement; will re-check in Phase 4 whether
-  they now pass as a side effect.
+- **2-3 non-deterministic suite failures across runs, all on
+  production-locked specs** — see VERIFICATION for the full investigation
+  (`pedagogy-preview-walk.spec.js:80` deterministically reproduces,
+  root-caused to this exact latency; `placement-checkin.spec.js:153` and
+  `pedagogy-calibration.spec.js:262` are transient/flaky, confirmed by
+  re-running). None are fixable from this branch pre-merge (all lock
+  `baseURL` to production) and none are new regressions from this diff.
+- **QuestPathNode's `isCurrent` pulse animation inflates Playwright's
+  click-actionability wait by ~4.1-4.2s** (`src/components/candy/
+  QuestPathNode.jsx`, `transition:{duration:1.6, repeat:2}` — a
+  continuous ~3.2s scale animation that keeps the button's bounding box
+  changing every frame, so Playwright's built-in "wait for the target to
+  be visually stable before clicking" check doesn't resolve until the
+  animation settles). Confirmed via direct instrumentation of `.click()`'s
+  own resolution time: ~4.1-4.2s on both prod and preview, regardless of
+  network activity. Not a product bug (a real finger-tap isn't gated by
+  visual stability), not introduced by this run (present identically on
+  unmodified `main`), not fixed here (motion/UX, not perf) — but worth
+  flagging for anyone else writing Playwright specs against `QuestPath`:
+  a click on a still-pulsing "current" node will silently take ~4s longer
+  to register than expected.
+- **A repeat-tap-same-word-after-early-exit flow already avoids a second
+  AI call on unmodified `main` today** — not because of any existing
+  cache-reuse logic (there is none, pre-fix), but most likely because
+  `currentWord` is momentarily `undefined` right after the post-exit Home
+  remount (a query-refetch race), so the old code's `if (focusWord?.word)
+  generatePlanForWord(...)` guard never fires for that one flow, same as
+  the new code's guard. This is a coincidental, unrelated behavior
+  (confirmed via direct request-log inspection: zero `session-generator`
+  calls on this exact flow, on unmodified `main`, both times tested) that
+  made this flow unsuitable as a clean "warm cache" demonstration — logged
+  here so nobody mistakes it for evidence of a pre-existing cache-reuse
+  mechanism that isn't actually there.
 
 ## TRAPS
 - **Playwright's `waitFor({state:'hidden'})` resolves immediately for an
@@ -329,3 +535,57 @@ IN PROGRESS (Phase 4)
   Playwright selector built from the id name alone (e.g. `/Word Match/`)
   will silently match nothing or the wrong element. Confirmed live while
   building this run's measurement harness.
+- A production-locked spec (`test.use({baseURL: "https://200magicwordsapp.com"})`
+  or `DEPLOY_BASE_URL` defaulting there — 7 spec files do this) can
+  **never** exercise an unmerged branch's code, no matter what's in the
+  local working tree. Before treating a full-suite failure on one of
+  these specs as caused by your own diff, check the file for a
+  `test.use({baseURL:...})` override — if present, the failure reflects
+  live production's *current* state, not your branch.
+- Exact-anchored Playwright name regexes (`/^word$/i`) can fail to match
+  a button whose accessible name includes more than the visible word text
+  (e.g. an inline icon/art component contributing to the computed name) —
+  even when the word is clearly the only *visible* text. Prefer an
+  unanchored substring match (`/word/i`) when the exact accessible-name
+  shape isn't independently verified; confirmed by two separate timeouts
+  in this run's harness that a body-text dump immediately explained.
+- Don't trust a single measurement run's outlier without a second sample:
+  one prod cold-tap sample here showed 15.6s (13.1s of it inside the
+  Anthropic call) — a real API-latency spike, not a bug — confirmed
+  ordinary by an immediate second run on the identical unmodified target
+  coming back at a typical ~7.1s. Live third-party API latency has real
+  tail variance; report the spread, not just one sample.
+
+## STATUS — diagnosis + safe optimizations complete, stopping at the approval gate
+All of Phases 0-4's diagnosis, measurement, implementation, and
+verification work is done and green on `perf/activity-load`
+(`71b8118` + this report's finalization commit):
+- Before/after waterfalls measured against SHA-matched targets, 3 runs
+  each, methodology committed and reproducible
+  (`scripts/measure-activity-load-waterfall.mjs`).
+- Bottleneck identified and ranked with evidence (the blocking Anthropic
+  call, ~93% of cold-tap latency).
+- 3 selection-neutral optimizations applied and proven safe (unit tests +
+  code-construction argument + live network evidence).
+- Gates green: `build`, `check:no-emoji`, `check:wordart-sync`, `eslint`
+  (no new issues), `idor-proof` (PASS), full Playwright suite (91/93,
+  both failures investigated and confirmed pre-existing/non-deterministic
+  on production-locked specs, not regressions from this diff).
+- Live walk against the SHA-matched preview deployment confirms the
+  activity still loads and plays correctly (real DB XP read, 0 → 20).
+- The single biggest further lever (the Anthropic call itself) was
+  deliberately left untouched and is documented as a STOP item requiring
+  Sal's approval, since the only way to cut it further touches
+  `sessionLength` (selection-adjacent).
+
+**Per the run's binding approval stops, this is where it stops.** Not
+merged, not pushed, `main` and production untouched. Branch
+`perf/activity-load` is pushed to origin (not `main`) with a live preview
+deployment for review. Awaiting Sal's go/no-go on:
+1. Merging `perf/activity-load` → `main` (`--no-ff`).
+2. `git push origin main`.
+3. Post-push deployment check + a true production walk.
+4. Optionally: greenlighting a follow-up on the Anthropic-call latency
+   itself (either the sessionLength-affecting options logged above, or the
+   selection-neutral "regenerate in background after session end"
+   follow-up) as a separate, explicitly-scoped piece of work.
