@@ -37,7 +37,29 @@ IN PROGRESS
 - `audio_url: null` is consistent too: `useGenerateStoryMutation`'s insert (`stories.js:52-61`) never sets `audio_url` — no TTS step exists in this path at all, fallback or not.
 
 ## REPRODUCTION
-IN PROGRESS
+Fresh disposable account (`nextgenprecisiondrones+storyqual1783814137984@gmail.com`, auth user `877ecd5a-d0c0-425d-ac38-1e8cebddbee9`, created via `scripts/admin-user.mjs create storyqual`) walked on **production** (`https://200magicwordsapp.com/app`, live `main`) exactly as a real new user would: signed in fresh (an existing Claude-Chrome session was logged in as **Aliya** — Sal's manual test account named in the guardrails; cleared local/session storage only, a purely client-side action, to sign out without touching any Aliya server data, then signed in as the new test account), created child "StoryQualTest" (interest: Animals), chose "Brand-new reader — start at the beginning" at the placement-mode prompt. Landed on Home exactly matching the incident: Unit 1, target word "cat", **"New Story Friday!" card already showing** on the very first Home render (child `158e6175-bae7-4b6b-934f-9fbf063430a0`, zero `word_progress` rows).
+
+Clicked the card. Captured via `read_network_requests` + a live Vercel log pull (`vercel logs 200magicwordsapp.com --since 5m --json`) for the exact request:
+- `POST https://200magicwordsapp.com/api/story-engine` → `200`.
+- **Server-side attempt log (ground truth for what the AI call actually did):**
+  ```
+  [story-engine] attempt 1/3 — passed=false rejected=see,the,sees,a
+  [story-engine] attempt 2/3 — passed=true
+  ```
+- Resulting `stories` row (`id 6df8fec1-a2da-4f06-a4a1-622bd48363d1`, queried directly from `public.stories`):
+  ```
+  title: "StoryQualTest and cats"
+  body: ["StoryQualTest cats.", "cats cats cats.", "StoryQualTest cat.", "cat cat.",
+         "cats StoryQualTest.", "StoryQualTest cats cats.", "cat cats StoryQualTest.",
+         "StoryQualTest cat cats."]
+  target_word: "cat"
+  vocabulary_used: ["cat"]
+  audio_url: null
+  ```
+
+**Reproduces cleanly** — same shape as the original incident (bare permutations, out-of-list "cats", `vocabulary_used` pool of 1, `audio_url: null`), if anything more degenerate ("cats cats cats.").
+
+**What the logs prove, plainly**: the AI call did **not** fail and did **not** silently fall back. Attempt 1 tried to write ordinary sentences ("I see the cat", "The cat sees...") using common function words ("see", "the", "sees", "a") that are outside the 1-word allowed set `{"cat"}` and got rejected by `validateStory`. Attempt 2, now told (via `retryNote`, `api/story-engine.js:131-133`) exactly which words were rejected, produced a story using *only* "cat"/"cats"/the child's name — which **passed validation legitimately under the current rules** (the `stripsToAllowed` inflection allowance lets "cats" count as valid). This is not a failure path at all; it's the success path, operating correctly against an artificially starved 1-word pool. Test account and child cleaned up after evidence capture (see VERIFICATION).
 
 ## ROOT CAUSE + ROUTING VERDICT
 IN PROGRESS
