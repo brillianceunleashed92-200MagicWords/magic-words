@@ -33,10 +33,17 @@ const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 // as a genuine bonus, not "the same reward, slightly bigger."
 const PATH_COMPLETE_SPARKS_BONUS = 25;
 
-export default function PlayScreen({ focusWord, onExit }) {
+// `initialGameType` (FEAT_QUICK_WINS_R1 — sleeping stars): when set,
+// skips QuestPath's game picker and launches directly into that
+// activity, same as if the child had tapped it themselves. Currently
+// only ever passed as `'flash_cards'` (Quiz Boss's internal id, i.e. the
+// real `reviewOnly` session path) from a sleeping-star tap — reuses the
+// EXACT existing review mechanism (isQuizBoss below), no new endpoint,
+// no forked review flow.
+export default function PlayScreen({ focusWord, initialGameType = null, onExit }) {
   const { user } = useAuth();
   const { words, currentWord, unitsById, childId, activeChild, plan, masteredCount } = useCandyGalaxyData();
-  const [gameType, setGameType] = useState(null);
+  const [gameType, setGameType] = useState(initialGameType);
   const [sessionResult, setSessionResult] = useState(null);
   // FEAT_PEDAGOGY_CALIBRATION_R1 Phase 5 — scaffold-down v1: session-local,
   // per-word tracking. { [word]: { consecutiveWrong, pinnedActivityId } }.

@@ -35,9 +35,17 @@ export default function GalaxyScreen({ onOpenWord }) {
       // so "touched but not mastered" is visually and functionally
       // distinct from "never reached."
       const inProgress = !done && !isCurrent && w.mastery > 0;
+      // FEAT_QUICK_WINS_R1 — sleeping stars. `w.sleepy` is already
+      // computed by useCandyGalaxyData (isStarSleepy against
+      // next_review_at, Star Keeper's own ladder — untouched by this
+      // run). Only a genuinely-mastered word can be "asleep" (a word
+      // that's merely `inProgress` was never on the review ladder to
+      // begin with); checked ahead of `done` so a due-for-review word
+      // doesn't render as an indistinguishable plain gold `done` star.
+      const sleepy = done && w.sleepy;
       return {
         ...w,
-        status: w.premiumLocked ? 'premium' : done ? 'done' : isCurrent ? 'current' : inProgress ? 'inProgress' : 'locked',
+        status: w.premiumLocked ? 'premium' : sleepy ? 'sleepy' : done ? 'done' : isCurrent ? 'current' : inProgress ? 'inProgress' : 'locked',
         percent: w.mastery,
       };
     });

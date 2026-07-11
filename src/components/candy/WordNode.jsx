@@ -4,7 +4,18 @@ import { IconStar, IconPlay, IconLock, IconSpark } from '../icons';
 
 // A single word-star node on the scroll-driven Word Galaxy path
 // (mockup D `.node`). status: 'done' | 'current' | 'inProgress' |
-// 'locked' | 'premium'. 'inProgress' (Prompt 7, Part 1) is real,
+// 'locked' | 'premium' | 'sleepy'. 'sleepy' (FEAT_QUICK_WINS_R1) is a
+// genuinely-mastered word whose Star Keeper review is due
+// (src/lib/starKeeper.js's isStarSleepy) — same gold `done` star, dimmed
+// via the same saturate(.55) convention lessonChrome.jsx's AnswerTile
+// already uses for its "soften" scaffold state (never a new color, per
+// DESIGN_BRIEF §8). Tapping one wakes it into a real spaced-repetition
+// review (the existing `reviewOnly` session path), not a normal
+// focus-word session — see GalaxyScreen.jsx's status derivation and
+// CandyGalaxyShell.jsx's tap routing. Deliberately no extra animation
+// added for this state (a "sleepy" tile should read as still, not
+// busier) — nothing here needs a prefers-reduced-motion gate as a
+// result. 'inProgress' (Prompt 7, Part 1) is real,
 // attempted-but-sub-mastery progress on a word that isn't this moment's
 // single adaptive `currentWord` — tappable and shows its real percent,
 // distinct from a genuinely never-touched `locked` word (see
@@ -64,7 +75,16 @@ export default function WordNode({ word, status, percent, x, y, show, onTap, spe
       color: colors.starText,
       border: '3px solid rgba(255,255,255,.6)',
     },
+    // No `opacity` here — that would fight `base`'s show/hide entrance
+    // opacity (0 while off-screen, 1 once shown). The dim is applied as
+    // a separate multiplier below, after `show` is already accounted for.
+    sleepy: {
+      background: colors.sun,
+      color: colors.starText,
+      filter: 'saturate(.55)',
+    },
   };
+  const sleepyDim = status === 'sleepy' ? 0.6 : 1;
 
   const nonInteractive = status === 'locked' || status === 'premium';
 
@@ -90,7 +110,11 @@ export default function WordNode({ word, status, percent, x, y, show, onTap, spe
         : status === 'premium' ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut', repeatType: 'mirror' }
         : {}
       }
-      style={{ ...base, ...styleByStatus[status], cursor: nonInteractive ? 'default' : 'pointer' }}
+      style={{
+        ...base, ...styleByStatus[status],
+        opacity: base.opacity * sleepyDim,
+        cursor: nonInteractive ? 'default' : 'pointer',
+      }}
     >
       <div style={{ fontSize: '1.15rem', lineHeight: 1 }}>{word}</div>
       <div style={{ fontSize: '.58rem', fontWeight: 800, opacity: .8, marginTop: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -99,8 +123,11 @@ export default function WordNode({ word, status, percent, x, y, show, onTap, spe
         {status === 'done' && <><IconStar size={11} color={colors.starText} /> 100%</>}
         {status === 'current' && <><IconPlay size={9} color="#fff" /> {percent}%</>}
         {status === 'inProgress' && <><IconPlay size={9} color={colors.mintDeep} /> {percent}%</>}
+        {/* No emoji, no "zzz" glyph — the dim + saturate treatment IS the
+            sleepy cue (DESIGN_BRIEF §8); the label just names the action. */}
+        {status === 'sleepy' && <><IconStar size={11} color={colors.starText} /> Review</>}
       </div>
-      {status === 'done' && (
+      {(status === 'done' || status === 'sleepy') && (
         <div style={{ position: 'absolute', top: -10, right: -4, filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.2))' }}>
           <IconStar size={22} color={colors.sun} />
         </div>

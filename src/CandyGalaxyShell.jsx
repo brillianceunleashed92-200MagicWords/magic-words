@@ -32,6 +32,12 @@ export default function CandyGalaxyShell() {
   const activeChildId = useUIStore((s) => s.activeChildId);
   const { speak } = useSpeak();
   const [questWord, setQuestWord] = useState(null);
+  // FEAT_QUICK_WINS_R1 — sleeping stars. Set alongside questWord only
+  // when the tapped node is asleep (due for review); PlayScreen reads it
+  // as `initialGameType` to skip the game picker and launch straight
+  // into the existing `flash_cards`/reviewOnly path. null for every
+  // normal tap, so ordinary quest-starting is byte-identical to before.
+  const [questGameType, setQuestGameType] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showStory, setShowStory] = useState(false);
 
@@ -62,6 +68,8 @@ export default function CandyGalaxyShell() {
           speak={speak}
           questWord={questWord}
           setQuestWord={setQuestWord}
+          questGameType={questGameType}
+          setQuestGameType={setQuestGameType}
           showAddChild={showAddChild}
           setShowAddChild={setShowAddChild}
           showStory={showStory}
@@ -76,7 +84,7 @@ export default function CandyGalaxyShell() {
 // exists — avoids conditionally calling useChildProfilesQuery with a
 // null id across renders in a way that would trip the rules-of-hooks
 // linter for a component this size.
-function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, questWord, setQuestWord, showAddChild, setShowAddChild, showStory, setShowStory }) {
+function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, questWord, setQuestWord, questGameType, setQuestGameType, showAddChild, setShowAddChild, showStory, setShowStory }) {
   const location = useLocation();
   const navigate = useNavigate();
   // Placement Adventure (Prompt 8) — global store, not local state, so
@@ -153,20 +161,32 @@ function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, qu
     return <StoryScreen onDone={() => setShowStory(false)} />;
   }
 
+  // FEAT_QUICK_WINS_R1 — sleeping stars. A single shared tap handler so
+  // Home's sleepy-word nudge card and the Galaxy grid's word nodes route
+  // identically: an asleep (review-due) word launches the existing
+  // reviewOnly session (`initialGameType: 'flash_cards'`, the same id
+  // Quiz Boss already uses), any other word starts a normal focus-word
+  // session exactly as before this run.
+  function startQuestFor(word) {
+    setQuestWord(word);
+    setQuestGameType(word?.sleepy ? 'flash_cards' : null);
+    setNavTab('play');
+  }
+
   return (
     <>
       {navTab === 'home' && (
         <HomeScreen
-          onStartQuest={(word) => { setQuestWord(word); setNavTab('play'); }}
-          onOpenWord={(word) => { setQuestWord(word); setNavTab('play'); }}
+          onStartQuest={startQuestFor}
+          onOpenWord={startQuestFor}
           onAddChild={() => setShowAddChild(true)}
           onOpenStory={() => setShowStory(true)}
         />
       )}
       {navTab === 'play' && (
-        <PlayScreen focusWord={questWord} onExit={() => setNavTab('home')} />
+        <PlayScreen focusWord={questWord} initialGameType={questGameType} onExit={() => { setQuestGameType(null); setNavTab('home'); }} />
       )}
-      {navTab === 'galaxy' && <GalaxyScreen onOpenWord={(word) => { setQuestWord(word); setNavTab('play'); }} />}
+      {navTab === 'galaxy' && <GalaxyScreen onOpenWord={startQuestFor} />}
       {navTab === 'grownups' && <GrownUpsScreen />}
 
       {navTab !== 'play' && <BottomNav active={navTab} onSelect={setNavTab} speak={speak} childInitial={activeChild?.name?.trim()?.[0]?.toUpperCase()} />}
