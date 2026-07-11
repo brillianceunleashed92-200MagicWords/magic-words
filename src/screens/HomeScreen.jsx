@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { prefetchSessionPlan } from '../hooks/useSessionPlan';
 import { colors, fonts, skyGradient } from '../theme/tokens';
 import CloudCard from '../components/candy/CloudCard';
 import ChunkyButton from '../components/candy/ChunkyButton';
@@ -37,6 +38,16 @@ export default function HomeScreen({ onStartQuest, onOpenWord, onAddChild, onOpe
   } = useCandyGalaxyData();
   const { speak, speakWord } = useWordSpeak(words);
   const sleepyWord = sleepyStars[0];
+
+  // PERF_ACTIVITY_LOAD_R1 — warm useSessionPlan's cache while the child is
+  // still looking at Home, before they've tapped anything, so the first
+  // "Let's go!"/word tap of a visit is far more likely to find a cache hit
+  // (see prefetchSessionPlan's header comment). Fire-and-forget; Home's
+  // own render never depends on this.
+  useEffect(() => {
+    prefetchSessionPlan(user, activeChild?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeChild?.id]);
   const storiesQ = useStoriesQuery(activeChild?.id);
   const storyDue = !storiesQ.isLoading && isNewStoryDue(storiesQ.data);
 

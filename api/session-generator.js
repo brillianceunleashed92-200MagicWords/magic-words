@@ -253,17 +253,17 @@ async function fetchChildContext(admin, childId, userId) {
     .maybeSingle();
   if (childErr || !childRow || childRow.parent_id !== userId) return null;
 
-  const { data: sub } = await admin
-    .from('subscriptions')
-    .select('plan, status')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // PERF_ACTIVITY_LOAD_R1 — subscriptions and word_progress are both
+  // independent of each other (one keyed by userId, one by childId) and
+  // neither depends on the other's result, only on the ownership check
+  // above having already passed. Previously two sequential awaits; now
+  // one round trip's worth of latency instead of two. Identical data,
+  // identical return shape -- only the fetch is concurrent instead of serial.
+  const [{ data: sub }, { data: progress }] = await Promise.all([
+    admin.from('subscriptions').select('plan, status').eq('user_id', userId).maybeSingle(),
+    admin.from('word_progress').select('word, mastery, attempt_count, correct_count, last_seen, next_review_at').eq('child_id', childId),
+  ]);
   const plan = sub?.plan === 'family' && sub?.status === 'active' ? 'family' : 'free';
-
-  const { data: progress } = await admin
-    .from('word_progress')
-    .select('word, mastery, attempt_count, correct_count, last_seen, next_review_at')
-    .eq('child_id', childId);
 
   return {
     plan,
