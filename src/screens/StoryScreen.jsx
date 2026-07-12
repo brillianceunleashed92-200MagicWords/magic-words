@@ -13,16 +13,22 @@ import { supabase } from '../supabaseClient';
 
 const STORY_COMPLETE_SPARKS = 15;
 
-// FIX_STORY_QUALITY_R1 -- last-resort fallback when story_catalog has no
-// row for the target word at any tier (rare: catalog covers 20 early
-// words today). Deliberately NOT src/lib/localStory.js's buildLocalStory
-// (Story Time's own fallback, left untouched) -- that template's fixed
-// words ("I", "fun", "likes", "makes") were checked directly against the
-// production `words` table and NONE of the four exist in the 200-word
-// curriculum, which would undercut this fix's "never out-of-list
-// vocabulary" guarantee. Every word below except targetWord/childName was
-// confirmed present in `words` the same way: a, and, big, good, happy,
-// is, me, my, play, see, the, we, with.
+// FIX_STORY_QUALITY_R1 (fallback shape) / FIX_STORY_FOLLOWUP_R1 (when it's
+// used) -- last-resort fallback when story_catalog has no row for the
+// target word at any tier (rare: catalog covers 20 early words today).
+// Only reached when NO catalog story exists -- FIX_STORY_FOLLOWUP_R1
+// removed the vocabulary gate that used to also route here when a found
+// catalog story "failed" a strict 200-word check (Sal's call: curated
+// content using richer read-aloud vocabulary with the target word
+// highlighted is the methodology, not a violation -- that gate was only
+// ever correct for AI-generated text, which still validates exactly in
+// api/story-engine.js, untouched). Deliberately NOT src/lib/localStory.js's
+// buildLocalStory (Story Time's own fallback, left untouched) -- that
+// template's fixed words ("I", "fun", "likes", "makes") were checked
+// directly against the production `words` table and NONE of the four
+// exist in the 200-word curriculum. Every word below except
+// targetWord/childName was confirmed present in `words` the same way: a,
+// and, big, good, happy, is, me, my, play, see, the, we, with.
 function buildVocabSafeFallback(targetWord, childName) {
   return {
     title: `The ${targetWord}`,
@@ -35,25 +41,6 @@ function buildVocabSafeFallback(targetWord, childName) {
       `My ${targetWord} is happy.`,
     ],
   };
-}
-
-// FIX_STORY_QUALITY_R1 -- a Playwright spec (tests/story-quality.spec.js)
-// checking a real catalog story's sentences word-by-word against the
-// production `words` table found that story_catalog content itself is
-// NOT guaranteed to stay inside the 200-word list -- "The Curious Cat"
-// (the exact story from the original incident) uses "likes/jumps/runs/
-// yard/sees/rolls/its/paw/tired/takes/nap", none of which are literal
-// 200-word entries. Editing catalog content is out of scope for this fix
-// (guardrail), so instead of trusting any catalog row blindly, gate it
-// here: only serve a catalog story if every word it actually uses is a
-// real curriculum word (or the target word / child's name) -- otherwise
-// fall through to the guaranteed-safe template above. Logged in full in
-// STORY_QUALITY_REPORT.md; catalog content itself is unedited.
-function catalogStoryIsVocabSafe(catalogStory, wordSet, targetWord, childName) {
-  const nameLower = childName.toLowerCase();
-  const targetLower = targetWord.toLowerCase();
-  const tokens = catalogStory.sentences.join(' ').toLowerCase().match(/[a-z']+/g) || [];
-  return tokens.every((t) => t === nameLower || t === targetLower || wordSet.has(t));
 }
 
 // The Story Engine's reader entry point (blueprint Part 3.1 — "the
@@ -89,11 +76,11 @@ export default function StoryScreen({ existingStory, onDone }) {
     if (masteredWords.length < MIN_MASTERED_WORDS_FOR_GENERATION) {
       if (catalogQ.isLoading) return;
       const tier = getStoryTier(levelInfo?.level ?? 1);
-      const wordSet = new Set(words.map((w) => w.word.toLowerCase()));
-      const rawCatalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
-      const catalogStory = rawCatalogStory && catalogStoryIsVocabSafe(rawCatalogStory, wordSet, targetWord, activeChild.name)
-        ? rawCatalogStory
-        : null;
+      // FIX_STORY_FOLLOWUP_R1 -- serve a found catalog story directly, no
+      // vocabulary gate (Sal's call, see the buildVocabSafeFallback
+      // comment above). buildVocabSafeFallback is now reached only when
+      // no catalog row exists for this word at any tier.
+      const catalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
       const source = catalogStory ?? buildVocabSafeFallback(targetWord, activeChild.name);
       serveCatalogStory.mutateAsync({
         title: source.title,

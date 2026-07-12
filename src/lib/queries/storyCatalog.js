@@ -15,7 +15,13 @@ export function useStoryCatalogQuery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('story_catalog')
-        .select('target_word, tier, title, sentences, comprehension_question, art_asset_url');
+        // FIX_STORY_FOLLOWUP_R1 -- vocabulary_used was missing from this
+        // select entirely, so findCatalogStory's vocabularyUsed field
+        // always defaulted to [] regardless of the row's real value.
+        // Latent since FIX_STORY_QUALITY_R1 (that fix's vocab gate meant
+        // a served catalog story's vocabulary_used was never actually
+        // read), surfaced now that catalog stories are served verbatim.
+        .select('target_word, tier, title, sentences, comprehension_question, art_asset_url, vocabulary_used');
       if (error) throw error;
       return data ?? [];
     },
