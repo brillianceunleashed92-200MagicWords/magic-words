@@ -3,6 +3,53 @@ import { supabase } from '../../supabaseClient';
 
 const STORY_STALE_DAYS = 6; // "New Story Friday" — surface a new story card once the newest is >6 days old
 
+// FIX_STORY_QUALITY_R1 -- below this many real-mastered words, the
+// freeform Story Engine has too little vocabulary to personalize from (a
+// brand-new child's pool is [] -> a 1-word allowed set once the target
+// word is added) and must not call the AI at all -- see StoryScreen.jsx's
+// mount effect, which serves story_catalog / the local deterministic
+// template instead below this floor.
+export const MIN_MASTERED_WORDS_FOR_GENERATION = 4;
+
+async function insertStoryRow(childId, { title, sentences, targetWord, vocabularyUsed }) {
+  const { data, error } = await supabase
+    .from('stories')
+    .insert({
+      child_id: childId,
+      title,
+      body: sentences,
+      target_word: targetWord,
+      vocabulary_used: vocabularyUsed ?? [],
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// Fire-and-forget scaffold-down telemetry, same event type + endpoint
+// PlayScreen.jsx already uses for a different degraded-experience trigger
+// (api/track.js's EVENT_SCHEMAS.scaffold_down accepts {word, activityId},
+// no schema change needed) -- reused here rather than adding a new
+// product_events type, per the 0035/0036 lesson that an unlisted type
+// bounces silently off the CHECK constraint behind a 200.
+async function reportStoryFallback(word) {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    await fetch('/api/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({ eventType: 'scaffold_down', payload: { word, activityId: 'story_engine' } }),
+    });
+  } catch (err) {
+    console.error('[story-engine fallback telemetry]', err.message);
+  }
+}
+
 export function useStoriesQuery(childId) {
   return useQuery({
     queryKey: ['stories', childId],
@@ -49,21 +96,34 @@ export function useGenerateStoryMutation(childId) {
       if (!response.ok) throw new Error(`story-engine returned ${response.status}`);
       const { story, validation } = await response.json();
 
-      const { data, error } = await supabase
-        .from('stories')
-        .insert({
-          child_id: childId,
-          title: story.title,
-          body: story.sentences,
-          target_word: story.targetWord,
-          vocabulary_used: story.vocabularyUsed,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      if (story.isFallback) reportStoryFallback(story.targetWord);
+
+      const data = await insertStoryRow(childId, {
+        title: story.title,
+        sentences: story.sentences,
+        targetWord: story.targetWord,
+        vocabularyUsed: story.vocabularyUsed,
+      });
 
       return { row: data, validation, isFallback: !!story.isFallback };
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories', childId] });
+    },
+  });
+}
+
+// FIX_STORY_QUALITY_R1 -- serves pre-authored story_catalog (or the
+// deterministic local template) content through the same `stories` row
+// shape, with NO api/story-engine call at all -- used when the child's
+// mastered-word pool is below MIN_MASTERED_WORDS_FOR_GENERATION. Not a
+// "failure" path (no reportStoryFallback call): this is the intended
+// route for a sparse-vocabulary child, not a degraded outcome.
+export function useServeCatalogStoryMutation(childId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ title, sentences, targetWord, vocabularyUsed }) =>
+      insertStoryRow(childId, { title, sentences, targetWord, vocabularyUsed }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories', childId] });
     },
