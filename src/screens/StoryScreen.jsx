@@ -37,6 +37,25 @@ function buildVocabSafeFallback(targetWord, childName) {
   };
 }
 
+// FIX_STORY_QUALITY_R1 -- a Playwright spec (tests/story-quality.spec.js)
+// checking a real catalog story's sentences word-by-word against the
+// production `words` table found that story_catalog content itself is
+// NOT guaranteed to stay inside the 200-word list -- "The Curious Cat"
+// (the exact story from the original incident) uses "likes/jumps/runs/
+// yard/sees/rolls/its/paw/tired/takes/nap", none of which are literal
+// 200-word entries. Editing catalog content is out of scope for this fix
+// (guardrail), so instead of trusting any catalog row blindly, gate it
+// here: only serve a catalog story if every word it actually uses is a
+// real curriculum word (or the target word / child's name) -- otherwise
+// fall through to the guaranteed-safe template above. Logged in full in
+// STORY_QUALITY_REPORT.md; catalog content itself is unedited.
+function catalogStoryIsVocabSafe(catalogStory, wordSet, targetWord, childName) {
+  const nameLower = childName.toLowerCase();
+  const targetLower = targetWord.toLowerCase();
+  const tokens = catalogStory.sentences.join(' ').toLowerCase().match(/[a-z']+/g) || [];
+  return tokens.every((t) => t === nameLower || t === targetLower || wordSet.has(t));
+}
+
 // The Story Engine's reader entry point (blueprint Part 3.1 — "the
 // flagship"). Generates on demand (no cron): fetch mastered words + target
 // word + name + interests, call api/story-engine.js, persist the
@@ -70,7 +89,11 @@ export default function StoryScreen({ existingStory, onDone }) {
     if (masteredWords.length < MIN_MASTERED_WORDS_FOR_GENERATION) {
       if (catalogQ.isLoading) return;
       const tier = getStoryTier(levelInfo?.level ?? 1);
-      const catalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
+      const wordSet = new Set(words.map((w) => w.word.toLowerCase()));
+      const rawCatalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
+      const catalogStory = rawCatalogStory && catalogStoryIsVocabSafe(rawCatalogStory, wordSet, targetWord, activeChild.name)
+        ? rawCatalogStory
+        : null;
       const source = catalogStory ?? buildVocabSafeFallback(targetWord, activeChild.name);
       serveCatalogStory.mutateAsync({
         title: source.title,
