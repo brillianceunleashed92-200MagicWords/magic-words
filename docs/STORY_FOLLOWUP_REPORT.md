@@ -8,7 +8,8 @@ IN PROGRESS
 - Branch: `fix/story-followup`, off `origin/main` @ `5bb1116` (docs(story-quality): FINAL STATUS)
 - First commit on branch: `6d4f852` docs(story-followup): add prompt doc
 - Isolated in a git worktree (`.claude/worktrees/fix-story-followup`)
-- Full-suite baseline: IN PROGRESS
+- **Baseline run contaminated, discarded**: a full-suite run was started in the background right after `npm install`, intended as a pre-change baseline — but both changes were then applied and committed *while it was still running* (19.3m total), so it tested a mix of pre- and post-change source across its run, not a clean snapshot of either state. Discarded; see the clean post-fix run below instead. **Trap logged** so this mistake isn't repeated: never edit source files while a background full-suite run against the same working tree is still in flight, even across a `git commit` — the dev server serves live file contents, not the git-committed state.
+- Clean full-suite run (all changes committed, working tree untouched during the run): IN PROGRESS
 
 ## CHANGE SITES
 
@@ -38,7 +39,13 @@ IN PROGRESS
 - `npm run check:no-emoji` — clean.
 - `npm run check:wordart-sync` — clean (77 words).
 - `node scripts/idor-proof.mjs` — **not run, per the prompt doc's own determination ("idor-proof not expected — no ownership path")**: neither change touches RLS, ownership checks, or adds a new fetch-by-id endpoint. Change 1 removes a client-side content check (no server/DB access at all). Change 2 removes a network call entirely (console.warn only) — strictly less surface area than before, not more.
-- Full Playwright suite: IN PROGRESS (running in background)
+
+**Full Playwright suite** (`--workers=1`, `SUPABASE_SERVICE_ROLE_KEY` set, all changes committed and the working tree untouched for the run's full 13.7m): **94 passed / 1 failed**.
+- The one failure, `password-reset.spec.js` ("verifyOtp establishes recovery session..."), is unrelated to this fix (auth/password-reset flow, no story code involved) and was already confirmed to fail identically against **unmodified `main`** during the prior FIX_STORY_QUALITY_R1 run's isolation checks (`STORY_QUALITY_REPORT.md` VERIFICATION section) — not re-verified again here since it's the same test, same failure mode, same unrelated code path.
+- `tests/story-quality.spec.js`'s two updated cases both passed (3.7s, 3.2s) — catalog-served-verbatim and no-catalog-vocab-safe-template.
+- `tests/story-time-chrome.spec.js` passed (14.9s) — confirms no regression to Story Time's exit/chrome behavior.
+- `tests/blank-engine-comprehension.spec.js` and `tests/fill-the-story.spec.js` are both included in the 94 passed (not named in the single-item failure list) — no regression to Story Time's catalog comprehension flow.
+- **Net verdict: no regression attributable to this fix.** Cleanest result of this entire two-task run (94/95, one known pre-existing failure) — a direct benefit of both changes *removing* code/network calls (a client-side check, an HTTP POST) rather than adding new surface area.
 
 ## LOGGED FOR LATER
 IN PROGRESS
