@@ -5,13 +5,37 @@ import StoryReader from '../components/candy/StoryReader';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
 import { useGenerateStoryMutation, useServeCatalogStoryMutation, useMarkStoryReadMutation, MIN_MASTERED_WORDS_FOR_GENERATION } from '../lib/queries/stories';
 import { useStoryCatalogQuery, findCatalogStoryForWord } from '../lib/queries/storyCatalog';
-import { buildLocalStory, getStoryTier } from '../lib/localStory';
+import { getStoryTier } from '../lib/localStory';
 import { useEarnSparksMutation } from '../lib/queries/sparks';
 import { isRealMastery } from '../lib/masteryCalibration';
 import { useUIStore } from '../stores/useUIStore';
 import { supabase } from '../supabaseClient';
 
 const STORY_COMPLETE_SPARKS = 15;
+
+// FIX_STORY_QUALITY_R1 -- last-resort fallback when story_catalog has no
+// row for the target word at any tier (rare: catalog covers 20 early
+// words today). Deliberately NOT src/lib/localStory.js's buildLocalStory
+// (Story Time's own fallback, left untouched) -- that template's fixed
+// words ("I", "fun", "likes", "makes") were checked directly against the
+// production `words` table and NONE of the four exist in the 200-word
+// curriculum, which would undercut this fix's "never out-of-list
+// vocabulary" guarantee. Every word below except targetWord/childName was
+// confirmed present in `words` the same way: a, and, big, good, happy,
+// is, me, my, play, see, the, we, with.
+function buildVocabSafeFallback(targetWord, childName) {
+  return {
+    title: `The ${targetWord}`,
+    sentences: [
+      `See the ${targetWord}.`,
+      `The ${targetWord} is big.`,
+      `The ${targetWord} is good.`,
+      `We play with the ${targetWord}.`,
+      `${childName} and the ${targetWord}.`,
+      `My ${targetWord} is happy.`,
+    ],
+  };
+}
 
 // The Story Engine's reader entry point (blueprint Part 3.1 — "the
 // flagship"). Generates on demand (no cron): fetch mastered words + target
@@ -47,7 +71,7 @@ export default function StoryScreen({ existingStory, onDone }) {
       if (catalogQ.isLoading) return;
       const tier = getStoryTier(levelInfo?.level ?? 1);
       const catalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
-      const source = catalogStory ?? buildLocalStory({ word: targetWord }, levelInfo?.level ?? 1);
+      const source = catalogStory ?? buildVocabSafeFallback(targetWord, activeChild.name);
       serveCatalogStory.mutateAsync({
         title: source.title,
         sentences: source.sentences,
