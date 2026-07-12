@@ -27,27 +27,15 @@ async function insertStoryRow(childId, { title, sentences, targetWord, vocabular
   return data;
 }
 
-// Fire-and-forget scaffold-down telemetry, same event type + endpoint
-// PlayScreen.jsx already uses for a different degraded-experience trigger
-// (api/track.js's EVENT_SCHEMAS.scaffold_down accepts {word, activityId},
-// no schema change needed) -- reused here rather than adding a new
-// product_events type, per the 0035/0036 lesson that an unlisted type
-// bounces silently off the CHECK constraint behind a 200.
-async function reportStoryFallback(word) {
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
-    await fetch('/api/track', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({ eventType: 'scaffold_down', payload: { word, activityId: 'story_engine' } }),
-    });
-  } catch (err) {
-    console.error('[story-engine fallback telemetry]', err.message);
-  }
+// FIX_STORY_FOLLOWUP_R1 -- was a scaffold_down product_events write
+// reusing PlayScreen.jsx's event type; removed (Sal's call) because it
+// polluted a pedagogically meaningful signal WEEKLY_INSIGHTS clusters on
+// with an unrelated story-generation-degraded signal. Console-only for
+// now, carrying the same context (which path, pool size, target word).
+// TODO(migration 0037): add 'story_fallback' to product_events' CHECK
+// constraint, then log this properly via logProductEvent instead of console.
+function reportStoryFallback(word, poolSize) {
+  console.warn(`[story-engine] AI generation fell back to the local template -- word="${word}" poolSize=${poolSize}`);
 }
 
 export function useStoriesQuery(childId) {
@@ -96,7 +84,7 @@ export function useGenerateStoryMutation(childId) {
       if (!response.ok) throw new Error(`story-engine returned ${response.status}`);
       const { story, validation } = await response.json();
 
-      if (story.isFallback) reportStoryFallback(story.targetWord);
+      if (story.isFallback) reportStoryFallback(story.targetWord, masteredWords.length);
 
       const data = await insertStoryRow(childId, {
         title: story.title,
