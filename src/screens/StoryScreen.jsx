@@ -3,7 +3,9 @@ import { colors, fonts, skyGradient } from '../theme/tokens';
 import NovaPortrait from '../components/candy/NovaPortrait';
 import StoryReader from '../components/candy/StoryReader';
 import { useCandyGalaxyData } from '../lib/useCandyGalaxyData';
-import { useGenerateStoryMutation, useMarkStoryReadMutation } from '../lib/queries/stories';
+import { useGenerateStoryMutation, useServeCatalogStoryMutation, useMarkStoryReadMutation, MIN_MASTERED_WORDS_FOR_GENERATION } from '../lib/queries/stories';
+import { useStoryCatalogQuery, findCatalogStoryForWord } from '../lib/queries/storyCatalog';
+import { buildLocalStory, getStoryTier } from '../lib/localStory';
 import { useEarnSparksMutation } from '../lib/queries/sparks';
 import { isRealMastery } from '../lib/masteryCalibration';
 import { useUIStore } from '../stores/useUIStore';
@@ -18,27 +20,55 @@ const STORY_COMPLETE_SPARKS = 15;
 // "Story Time" MLC activity — no comprehension question here (that's
 // Story Time's requirement, not the Story Engine's).
 export default function StoryScreen({ existingStory, onDone }) {
-  const { activeChild, currentWord, words } = useCandyGalaxyData();
+  const { activeChild, currentWord, words, levelInfo } = useCandyGalaxyData();
   const generateStory = useGenerateStoryMutation(activeChild?.id);
+  const serveCatalogStory = useServeCatalogStoryMutation(activeChild?.id);
   const markRead = useMarkStoryReadMutation(activeChild?.id);
   const earnSparks = useEarnSparksMutation(activeChild?.id);
   const queueCelebration = useUIStore((s) => s.queueCelebration);
+  const catalogQ = useStoryCatalogQuery();
   const [story, setStory] = useState(existingStory ?? null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (existingStory || !activeChild) return;
     const masteredWords = words.filter((w) => isRealMastery(w.mastery, w.attemptCount)).map((w) => w.word);
+    const targetWord = currentWord?.word ?? 'star';
+
+    // FIX_STORY_QUALITY_R1 -- quality floor: below this many real-mastered
+    // words, the AI has too little vocabulary to write real, varied
+    // language from (a brand-new child's pool is always [] here, per
+    // STORY_QUALITY_REPORT.md's root cause) -- serve pre-authored/
+    // deterministic content instead of ever calling the AI. Waits for the
+    // catalog query (cheap, 1hr-cached, shared across the app) before
+    // deciding; catalogQ.isLoading is in the dep array so this re-runs
+    // once it resolves rather than only on activeChild changing.
+    if (masteredWords.length < MIN_MASTERED_WORDS_FOR_GENERATION) {
+      if (catalogQ.isLoading) return;
+      const tier = getStoryTier(levelInfo?.level ?? 1);
+      const catalogStory = findCatalogStoryForWord(catalogQ.data, targetWord, tier);
+      const source = catalogStory ?? buildLocalStory({ word: targetWord }, levelInfo?.level ?? 1);
+      serveCatalogStory.mutateAsync({
+        title: source.title,
+        sentences: source.sentences,
+        targetWord,
+        vocabularyUsed: catalogStory ? catalogStory.vocabularyUsed : [targetWord],
+      })
+        .then((row) => setStory(row))
+        .catch(() => setError('Nova had trouble finding today’s story — try again in a bit!'));
+      return;
+    }
+
     generateStory.mutateAsync({
       childName: activeChild.name,
       interests: activeChild.interests ?? [],
       masteredWords,
-      targetWord: currentWord?.word ?? 'star',
+      targetWord,
     })
       .then(({ row }) => setStory(row))
       .catch(() => setError('Nova had trouble writing today — try again in a bit!'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChild?.id]);
+  }, [activeChild?.id, catalogQ.isLoading]);
 
   async function handleComplete() {
     if (story) {

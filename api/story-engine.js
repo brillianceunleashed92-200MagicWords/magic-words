@@ -73,21 +73,6 @@ function safeWordList(input) {
     .slice(0, 200);
 }
 
-// Simple inflection check — a token counts as valid if it IS an allowed
-// base word, or is that base word plus a common suffix (s/es/ed/ing/'s).
-// This is the "allowed inflections of mastered words count as valid"
-// rule from the master prompt.
-function stripsToAllowed(token, allowedSet) {
-  if (allowedSet.has(token)) return true;
-  const suffixes = ['ing', 'es', 'ed', "'s", 's', 'd'];
-  for (const suf of suffixes) {
-    if (token.endsWith(suf) && allowedSet.has(token.slice(0, -suf.length))) return true;
-    // handle drop-e before -ing/-ed (e.g. "like" -> "liking"/"liked")
-    if ((suf === 'ing' || suf === 'ed') && allowedSet.has(token.slice(0, -suf.length) + 'e')) return true;
-  }
-  return false;
-}
-
 function tokenize(text) {
   return (text.match(/[a-zA-Z']+/g) || []).map((t) => t.toLowerCase());
 }
@@ -109,6 +94,12 @@ function hasDisallowedContent(text) {
 // Validates every sentence against the allow-list. Returns
 // { passed, rejectedWords }. childName is matched case-insensitively as
 // its own always-valid token (a proper name, not a vocabulary word).
+// FIX_STORY_QUALITY_R1 -- exact-match only, no inflection allowance. The
+// prior "s/es/ed/ing/'s counts as valid" rule let e.g. "cats" pass
+// validation from an allow-list containing only "cat" -- a word outside
+// the literal 200-word curriculum, which is a whole-word-only methodology
+// violation (Dr. Blank's method never introduces untaught forms), not
+// just a quality nit. See STORY_QUALITY_REPORT.md's root cause.
 function validateStory(sentences, allowedSet, childName) {
   const nameLower = childName.toLowerCase();
   const rejected = new Set();
@@ -119,7 +110,7 @@ function validateStory(sentences, allowedSet, childName) {
     }
     for (const token of tokenize(sentence)) {
       if (token === nameLower) continue;
-      if (stripsToAllowed(token, allowedSet)) continue;
+      if (allowedSet.has(token)) continue;
       rejected.add(token);
     }
   }
@@ -129,12 +120,12 @@ function validateStory(sentences, allowedSet, childName) {
 function buildPrompt(childName, theme, targetWord, allowedWords, rejectedFromLastAttempt) {
   const wordListStr = allowedWords.join(', ');
   const retryNote = rejectedFromLastAttempt?.length
-    ? `\n\nYour last attempt used words NOT in the list: ${rejectedFromLastAttempt.join(', ')}. Do not use those — every single word (except "${childName}") must come from the allowed list above, or be a simple form of one of those words (adding s/es/ed/ing).`
+    ? `\n\nYour last attempt used words NOT in the list: ${rejectedFromLastAttempt.join(', ')}. Do not use those — every single word (except "${childName}") must come exactly from the allowed list above.`
     : '';
 
   return `You are writing a 100%-decodable early-reader story for a child named ${childName} (age 4-8), themed around ${theme}.
 
-STRICT VOCABULARY RULE: every word in the story (except the child's name "${childName}") must be one of these words, or a simple form of one of these words (add s/es/ed/ing): ${wordListStr}
+STRICT VOCABULARY RULE: every word in the story (except the child's name "${childName}") must be exactly one of these words, unchanged: ${wordListStr}
 
 The target word for this story is "${targetWord}" — use it at least twice.
 
@@ -242,6 +233,6 @@ module.exports = async function handler(req, res) {
   const fallback = localFallbackStory(targetWord, childName);
   return res.status(200).json({
     story: { ...fallback, targetWord, vocabularyUsed: allowedWords, isFallback: true },
-    validation: { attempts: MAX_ATTEMPTS, passed: false, rejectedWords: lastRejected },
+    validation: { attempts: MAX_ATTEMPTS, passed: false, rejectedWords: lastRejected, reason: 'VALIDATION_FAILED' },
   });
 };
