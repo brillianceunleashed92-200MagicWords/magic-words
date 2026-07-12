@@ -32,7 +32,13 @@ IN PROGRESS
 **Found and fixed in passing, not part of the two approved changes but necessary for Change 1 to actually work**: `useStoryCatalogQuery`'s `select()` never included `vocabulary_used` at all — so `findCatalogStory`'s `vocabularyUsed` field always defaulted to `[]` regardless of the row's real value. This was latent since FIX_STORY_QUALITY_R1 (the vocab gate meant a served catalog story's `vocabularyUsed` was computed but never actually read/trusted, since the fallback path always set `[targetWord]` instead), and only surfaced once the new spec asserted `story.vocabulary_used` matches the catalog row's real value. Caught by the spec, not assumed — first test run failed with `vocabulary_used: []` vs. the catalog's real 28-word array. Fixed by adding `vocabulary_used` to the select list (`src/lib/queries/storyCatalog.js`). One-line, no schema/migration, squarely part of making "served verbatim" actually verbatim.
 
 ## VERIFICATION
-IN PROGRESS
+
+**Gates:**
+- `npm run build` — clean.
+- `npm run check:no-emoji` — clean.
+- `npm run check:wordart-sync` — clean (77 words).
+- `node scripts/idor-proof.mjs` — **not run, per the prompt doc's own determination ("idor-proof not expected — no ownership path")**: neither change touches RLS, ownership checks, or adds a new fetch-by-id endpoint. Change 1 removes a client-side content check (no server/DB access at all). Change 2 removes a network call entirely (console.warn only) — strictly less surface area than before, not more.
+- Full Playwright suite: IN PROGRESS (running in background)
 
 ## LOGGED FOR LATER
 IN PROGRESS
