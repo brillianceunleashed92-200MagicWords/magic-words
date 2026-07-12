@@ -93,6 +93,8 @@ Attempt 1 tried ordinary sentence structure and got rejected for using common wo
 
 **Everything else stayed untouched, on purpose**: `isRealMastery`/`MASTERED_THRESHOLD`/`MIN_ATTEMPTS_FOR_MASTERY_CELEBRATION` ("known word" definition), `story_catalog` content, `api/session-generator.js` selection logic, and comprehension-question logic were not touched — no STOP was needed because the smallest fix set (floor + routing + exact-vocabulary + fallback visibility) fully closes the reported bug without reaching into any of those.
 
+**Correction found and fixed before shipping, not after**: the first version of the below-floor fallback reused `src/lib/localStory.js`'s existing `buildLocalStory` (Story Time's own deterministic fallback) for the "catalog has no row for this word" last-resort case. Checked its fixed template words directly against production `words` rather than assuming — "I", "fun", "likes", "makes" (all four) are **not** in the 200-word curriculum. Reusing it would have quietly reintroduced the exact class of bug this fix exists to close, just from a different source. Replaced with a small new `buildVocabSafeFallback` (`StoryScreen.jsx`) using only words individually confirmed present in `words` (a, and, big, good, happy, is, me, my, play, see, the, we, with) plus the target word and child's name. `localStory.js` itself is untouched — Story Time's existing (pre-existing, unrelated) behavior is unaffected; that file's own vocabulary gap is logged for later, not fixed here (out of scope — it's a different surface, not implicated in the reported incident).
+
 Before/after live story output for an identical fresh account is captured in VERIFICATION below.
 
 ## VERIFICATION
