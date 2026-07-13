@@ -54,9 +54,16 @@ async function cleanup(userId) {
 }
 
 async function main() {
-  console.log('Provisioning test-user-A and test-user-B...');
+  console.log('Provisioning test-user-A, test-user-B, and test-user-C...');
   const a = await provisionUser('A');
   const b = await provisionUser('B');
+  // STAR_CHECK_R1: a THIRD identity, fresh 10/min session-generator
+  // budget of its own -- by the time the star-check checks run below, A
+  // has already spent 7 calls on the placement/checkin forgery checks and
+  // B has spent several more driving a real check-in to completion (see
+  // B's own provisioning comment). Reusing either would risk starving the
+  // new checks partway through (the exact trap the master doc flags).
+  const c = await provisionUser('C');
 
   const clientA = createClient(SUPABASE_URL, ANON_KEY);
   const { data: signInA, error: signInErrA } = await clientA.auth.signInWithPassword({ email: a.email, password: PASSWORD });
@@ -73,6 +80,11 @@ async function main() {
   const { data: signInB, error: signInErrB } = await clientB.auth.signInWithPassword({ email: b.email, password: PASSWORD });
   if (signInErrB) throw signInErrB;
   const tokenB = signInB.session.access_token;
+
+  const clientC = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: signInC, error: signInErrC } = await clientC.auth.signInWithPassword({ email: c.email, password: PASSWORD });
+  if (signInErrC) throw signInErrC;
+  const tokenC = signInC.session.access_token;
 
   console.log('\nAttempting cross-user access as A, targeting B\'s data:\n');
 
@@ -278,6 +290,121 @@ async function main() {
       ownHistoryRes.status === 200 && Array.isArray(ownHistoryBody.history) && ownHistoryBody.history.some((p) => p.source === 'checkin')
     );
 
+    // 9g-9k. STAR_CHECK_R1: The Star Check, signed under its OWN
+    //        'star-check-v1' context (api/_lib/starCheckLadder.js) — run
+    //        entirely on C's fresh identity/budget (see provisioning
+    //        comment above), never A's or B's.
+    const starCheckStartRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenC}` },
+      body: JSON.stringify({ childId: c.childId, starCheckMode: true }),
+    });
+    const starCheckStartBody = await starCheckStartRes.json().catch(() => ({}));
+    check(
+      'session-generator: C\'s own Star Check issues a real first probe (positive twin)',
+      starCheckStartRes.status === 200 && starCheckStartBody.starCheck?.done === false && starCheckStartBody.starCheck?.level === 1 && starCheckStartBody.starCheck?.wordNumber === 1
+    );
+    const realStarCheckToken = starCheckStartBody.starCheck?.ladderState;
+
+    // 9g. A forged star-check ladder state (claiming Level 5, word 5
+    //     already reached) must restart at Level 1, word 1 — never finalize
+    //     at an unearned level.
+    const forgedStarCheckState = Buffer.from(JSON.stringify({
+      childId: c.childId, levelIndex: 4, wordIndex: 4, phase: 'B', iat: Date.now(),
+    })).toString('base64url') + '.forged-signature';
+    const forgedStarCheckRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenC}` },
+      body: JSON.stringify({ childId: c.childId, starCheckMode: true, ladderState: forgedStarCheckState, answer: true }),
+    });
+    const forgedStarCheckBody = await forgedStarCheckRes.json().catch(() => ({}));
+    check(
+      'session-generator: a forged star-check ladder state cannot finalize at an unearned level',
+      forgedStarCheckRes.status === 200 && forgedStarCheckBody.starCheck?.done === false && forgedStarCheckBody.starCheck?.level === 1 && forgedStarCheckBody.starCheck?.wordNumber === 1
+    );
+
+    // 9h. session-generator: C cannot start/advance a Star Check for B's child.
+    const starCheckCrossChildRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenC}` },
+      body: JSON.stringify({ childId: b.childId, starCheckMode: true }),
+    });
+    check('session-generator: C cannot start a Star Check for B\'s child (403)', starCheckCrossChildRes.status === 403);
+
+    // 9i. A genuine STAR-CHECK token replayed into placementMode must be
+    //     rejected (restarts placement's own ladder at rung 1), not honored.
+    const starCheckIntoPlacementRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenC}` },
+      body: JSON.stringify({ childId: c.childId, placementMode: true, ladderState: realStarCheckToken, answers: [true, true] }),
+    });
+    const starCheckIntoPlacementBody = await starCheckIntoPlacementRes.json().catch(() => ({}));
+    check(
+      'session-generator: a genuine STAR-CHECK token replayed into placementMode is rejected, not honored',
+      starCheckIntoPlacementRes.status === 200 && starCheckIntoPlacementBody.placement?.done === false && starCheckIntoPlacementBody.placement?.rung === 1
+    );
+
+    // 9j. The reverse direction: a genuine PLACEMENT token (A's, already
+    //     fetched above) replayed into starCheckMode must be rejected —
+    //     restarts at Level 1, word 1, never honors A's placement progress.
+    const placementIntoStarCheckRes = await fetch(`${deployBase}/api/session-generator`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ childId: a.childId, starCheckMode: true, ladderState: realPlacementToken, answer: true }),
+    });
+    const placementIntoStarCheckBody = await placementIntoStarCheckRes.json().catch(() => ({}));
+    check(
+      'session-generator: a genuine PLACEMENT token replayed into starCheckMode is rejected, not honored',
+      placementIntoStarCheckRes.status === 200 && placementIntoStarCheckBody.starCheck?.done === false && placementIntoStarCheckBody.starCheck?.level === 1 && placementIntoStarCheckBody.starCheck?.wordNumber === 1
+    );
+
+    // 9k. Positive twin: drive C's OWN Star Check to a real two-miss floor
+    //     at Level 1 using the untouched real token from the start call
+    //     above (claimed-incorrect answers throughout -- both probes of
+    //     "kid" then both probes of "girl" -- floors at Level 1 exactly
+    //     like the client would after two real misses), and confirm the
+    //     finalize write + product_events row actually land with the
+    //     expected shape (item-16 lesson: never a vacuous empty-result pass).
+    let starCheckState = starCheckStartBody.starCheck;
+    let starCheckFinal = null;
+    for (let i = 0; i < 6 && starCheckState && !starCheckState.done; i++) {
+      const stepRes = await fetch(`${deployBase}/api/session-generator`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenC}` },
+        body: JSON.stringify({ childId: c.childId, starCheckMode: true, ladderState: starCheckState.ladderState, answer: false }),
+      });
+      const stepBody = await stepRes.json().catch(() => ({}));
+      starCheckState = stepBody.starCheck;
+      if (starCheckState?.done) starCheckFinal = starCheckState;
+    }
+    check(
+      'session-generator: driving the Star Check to a real two-miss floor with claimed-incorrect answers finalizes at Level 1 (positive twin)',
+      !!starCheckFinal && starCheckFinal.floorLevel === 1 && starCheckFinal.trueMeasuredUnit === 1
+    );
+
+    let starCheckEventRows = [];
+    for (let i = 0; i < 6 && starCheckEventRows.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const { data } = await admin
+        .from('product_events')
+        .select('event_type, payload')
+        .eq('child_id', c.childId)
+        .eq('event_type', 'placement_completed');
+      starCheckEventRows = data ?? [];
+    }
+    check(
+      'product_events: C\'s own Star Check completion lands a placement_completed row with mode:star_check_v1 and per_word detail (positive twin, not vacuous)',
+      (starCheckEventRows?.length ?? 0) >= 1
+        && starCheckEventRows[0].payload?.mode === 'star_check_v1'
+        && starCheckEventRows[0].payload?.floor_level === 1
+        && Array.isArray(starCheckEventRows[0].payload?.per_word)
+        && starCheckEventRows[0].payload.per_word.length > 0
+    );
+
+    const { data: starCheckChildRow } = await admin
+      .from('child_profiles')
+      .select('measured_unit, placement_unit')
+      .eq('id', c.childId)
+      .single();
+    check(
+      'child_profiles: C\'s Star Check floor wrote measured_unit=1 (LEVEL_UNIT_MAP[1])',
+      starCheckChildRow?.measured_unit === 1
+    );
+
     // 10. /api/track (Prompt 9 launch analytics): a strict server-side
     //     allowlist of event names/payload keys, and identity comes only
     //     from the verified JWT — a client cannot claim a different
@@ -352,6 +479,7 @@ async function main() {
   console.log('\nCleaning up test users...');
   await cleanup(a.userId);
   await cleanup(b.userId);
+  await cleanup(c.userId);
 
   console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`);
   process.exit(failures === 0 ? 0 : 1);

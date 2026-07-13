@@ -76,24 +76,30 @@ export default function StarCheckProbe({ probe, onAnswer }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, maxWidth: 560, margin: '0 auto' }}>
         {probe.options.map((option, idx) => (
-          <AnswerTile
-            key={idx}
-            index={idx}
-            onTap={() => handleTap(idx, option)}
-            disabled={answered}
-            state={idx === tappedIdx ? 'correct-flash' : undefined}
-            minHeight={isMeaning ? 130 : 90}
-          >
-            {isMeaning && STAR_CHECK_PICS[option] ? (
-              // Static, build-generated SVG markup (scripts/extract-star-check-icons.mjs),
-              // never user input — safe to inject directly.
-              <div style={{ width: 80, height: 80, margin: '0 auto' }} dangerouslySetInnerHTML={{ __html: STAR_CHECK_PICS[option] }} />
-            ) : (
-              <div style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.ink, fontSize: '1.4rem' }}>
-                {option}
-              </div>
-            )}
-          </AnswerTile>
+          // data-word is a DOM attribute, not rendered/visible text -- it
+          // exists only so tests/star-check.spec.js can deterministically
+          // drive a clean-sweep or forced-floor scenario (same convention
+          // the mockup itself uses: `d.setAttribute('data-word', o)`).
+          // display:contents keeps it layout-invisible.
+          <div key={idx} data-word={option} style={{ display: 'contents' }}>
+            <AnswerTile
+              index={idx}
+              onTap={() => handleTap(idx, option)}
+              disabled={answered}
+              state={idx === tappedIdx ? 'correct-flash' : undefined}
+              minHeight={isMeaning ? 130 : 90}
+            >
+              {isMeaning && STAR_CHECK_PICS[option] ? (
+                // Static, build-generated SVG markup (scripts/extract-star-check-icons.mjs),
+                // never user input — safe to inject directly.
+                <div style={{ width: 80, height: 80, margin: '0 auto' }} dangerouslySetInnerHTML={{ __html: STAR_CHECK_PICS[option] }} />
+              ) : (
+                <div style={{ fontFamily: fonts.display, fontWeight: 800, color: colors.ink, fontSize: '1.4rem' }}>
+                  {option}
+                </div>
+              )}
+            </AnswerTile>
+          </div>
         ))}
       </div>
     </div>
