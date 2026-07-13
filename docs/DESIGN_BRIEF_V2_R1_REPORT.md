@@ -118,7 +118,20 @@ Status: IN PROGRESS
 
 ## PHASE 6 — Master doc changelog
 
-Status: IN PROGRESS
+Status: DONE.
+
+1. `git ls-files docs | grep -i -E "Master_Project"` returned THREE files:
+   `docs/200MW_Master_Project_Doc_v3.md`, `_v4.md`, `_v5.md`. Used `_v5.md`
+   (the highest-numbered / current one) per the prompt's expected target.
+2. Census: read the changelog list in `_v5.md`, confirmed highest item = 23
+   (`FIX_MIGRATION_DRIFT_R1`), matching the expected value exactly — no
+   renumbering needed.
+3. Appended item 24 verbatim (text below) directly after item 23, before
+   the `## FRESH CENSUS` section.
+
+Changelog entry text:
+
+> 24. DESIGN_BRIEF_V2_R1 (2026-07-13, docs-only): Blank-overhaul design canon locked. Mockups F-M committed as canon (N reference-only) at docs/design/mockups/; BLANK_METHOD_SOURCES.md committed as pedagogical source-of-record; DESIGN_BRIEF_V2.md written (ladder, session economy, pretest, guided completion, mastery redefinition, unit gate, placement v2, celebration economy, component contracts, motion and sound spec); DESIGN_BRIEF v1 and mockups D/E2 superseded. No app code changed.
 
 ## PHASE 7 — Gates
 
