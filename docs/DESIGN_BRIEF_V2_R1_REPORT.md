@@ -135,7 +135,56 @@ Changelog entry text:
 
 ## PHASE 7 — Gates
 
-Status: IN PROGRESS
+Status: DONE. All 5 gates pass.
+
+**1. Path gate (positive).** `git diff --name-only origin/main...HEAD`, 16
+lines, every line starts with `docs/`:
+
+```
+docs/200MW_Master_Project_Doc_v5.md
+docs/BLANK_METHOD_SOURCES.md
+docs/DESIGN_BRIEF.md
+docs/DESIGN_BRIEF_V2.md
+docs/DESIGN_BRIEF_V2_R1.md
+docs/DESIGN_BRIEF_V2_R1_REPORT.md
+docs/design/mockups/README.md
+docs/design/mockups/mockup-F-word-journey.html
+docs/design/mockups/mockup-G-home-loop.html
+docs/design/mockups/mockup-H-grownups.html
+docs/design/mockups/mockup-I-placement.html
+docs/design/mockups/mockup-J-unit-gate.html
+docs/design/mockups/mockup-K-story-reader.html
+docs/design/mockups/mockup-L-galaxy-map.html
+docs/design/mockups/mockup-M-first-flight.html
+docs/design/mockups/mockup-N-full-experience.html
+```
+`wc -l` = 16. PASS.
+
+**2. Byte-identity gate.** Re-ran `sha256sum` on the 9 committed mockups vs.
+the drop-folder originals via `diff` of the two hash lists — empty diff,
+9/9 match. PASS.
+
+**3. No-emoji gate.** `npm run check:no-emoji` → "No emoji characters found
+in scoped UI source. OK." (this script scans `src/`+`api/` only, docs are
+out of its scope by design). Belt-and-braces: ran the script's own
+`EMOJI_PATTERN` regex (`/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2B00}-\u{2BFF}]/gu`
+— deliberately excludes the Arrows block per that script's own documented
+reasoning, plain typographic `→`/`←` are not emoji) against all 16 changed
+docs files. Files scanned: 16 (positive twin — not vacuous). One hit: `⚠`
+(U+26A0) in `docs/BLANK_METHOD_SOURCES.md` line 87 — a NON-MOCKUP doc, so
+per the gate's own branch ("non-mockup doc matches: remove the character,
+note it") the character was stripped and committed
+(`69dc379`, "strip warning-sign character from BLANK_METHOD_SOURCES.md").
+Re-ran after the fix: 0 hits across all 16 files. No mockup ever matched —
+the byte-identity lock on the 9 mockups was never at risk. PASS.
+
+**4. Build sanity.** `npm run build` — 6 sync checks + vite build, exit
+clean, `✓ built in 3.98s`. No dependency install needed. Docs-only change
+had no effect on the build, as expected — this gate exists only to catch
+accidents, and it caught none. PASS.
+
+**5. Playwright / IDOR: intentionally NOT run.** Zero app code changed,
+enforced by gate 1.
 
 ## PHASE 8 — Local merge + APPROVAL STOP
 
