@@ -112,10 +112,6 @@ Status: DONE.
    mockups, not deleted, left in place) plus the newly committed
    `docs/design/mockups/mockup-{F..N}-*.html` and its `README.md`.
 
-## PHASE 5 — Supersede prior canon
-
-Status: IN PROGRESS
-
 ## PHASE 6 — Master doc changelog
 
 Status: DONE.
