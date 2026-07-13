@@ -51,13 +51,50 @@ Reproduced live against **production** (`https://200magicwordsapp.com`) on a **f
   This is the AI-generated (not the hardcoded-fallback) branch of `api/parent-digest.js` — confirming the bug isn't just the fallback string, it's that the Claude prompt itself (`api/parent-digest.js:51-60`) is never given the placement/story facts, so the model has no way to know they happened. Minutes-ago activity (placement to Unit 3, a full story read) is completely invisible to this paragraph — exact reproduction of the incident described in the prompt doc.
 
 ## FIX
-IN PROGRESS
+
+Read-side only, per GUARDRAILS: no child-side write path touched, no `product_events` types/columns/migrations, `api/session-generator.js` untouched, no schema change.
+
+**DECISION 1 (AI Insight aware of placement/check-in + story reads)**:
+- `src/lib/queries/weeklyStats.js`: added one additive `useQuery` (`storiesReadWeek`) selecting `stories.id` where `child_id` matches and `read_at` is non-null within the same 7-day window `learning_events` already uses. Returns `storiesReadThisWeek` count alongside the existing fields — nothing existing removed or renamed.
+- `src/screens/parent/DashboardTab.jsx`: computed `placementCompletedThisWeek` (boolean, `activeChild.placement_completed_at` within 7 days — data already fetched by `useCandyGalaxyData`, zero new round-trip) and passed it plus `placementUnit` and `storiesReadThisWeek` into the existing `summary` object sent to `useParentDigest`/`/api/parent-digest`. **Placement vs. check-in is not distinguished** — both write the identical `child_profiles.placement_completed_at` column (confirmed in recon, `api/session-generator.js:625`), so from the client's data this is honestly "a measurement event happened," described generically in copy ("got measured," "completed a level check") rather than asserting which one it was.
+- `api/parent-digest.js`: `fallback()` now takes an `activity` object (`storiesReadThisWeek`, `placementCompletedThisWeek`, `placementUnit`) and only returns the "hasn't started" copy when word practice, placement/check-in, AND story reads are ALL zero — otherwise it truthfully names whichever activity did happen (`joinNaturally()` helper for 1-2 item natural-language joins), never fabricating a word-practice number that isn't there. The real-Claude-call prompt gets the same two new data lines plus an explicit instruction: only say "hasn't started" if all three signals are empty, and never invent word-practice numbers. **Tone/safety envelope unchanged** — the system prompt and "warm, growth-framed, never alarming" instruction are untouched; this is the two new true facts, not a scope change to what the AI is allowed to say, exactly as GUARDRAILS specifies. `fallback` attached as `module.exports.fallback` (property on the handler function, same pattern as `api/stripe-webhook.js`'s `module.exports.config`) so it's testable without changing the Vercel default-export contract.
+
+**DECISION 2 (minutes card + story-read time)**: resolved to **keep minutes as-is, carry the story activity in the insight instead**. Recon: `stories` has only `created_at`/`read_at` timestamps, no session-start/session-duration signal — the gap between them isn't a reading-duration proxy (a story can be created, then read hours/days later), and deriving one honestly would need a new column (forbidden by GUARDRAILS: "Do NOT add product_events types, columns, or migrations"). `minutesThisWeek` in `weeklyStats.js` is untouched.
+
+**DECISION 3 (words-this-week unchanged)**: verified, not touched. `wordsThisWeek` stays 100% `learning_events`-derived + real-mastery-gated (`weeklyStats.js`, pre-existing logic). Confirmed placement/check-in and story reads never write `learning_events` (only `PlayScreen.jsx:143`, real gameplay, does).
+
+**DECISION 4 (streak unchanged)**: verified, not touched. `useUpdateStreakMutation` is only called from `PlayScreen.jsx:78` (real gameplay) — a placement-only or story-only day does not advance `current_streak` today. Documented here per the decision's instruction to leave semantics as-is (changing this is explicitly Package E territory).
+
+**Files changed**: `src/lib/queries/weeklyStats.js`, `src/screens/parent/DashboardTab.jsx`, `api/parent-digest.js`. New test: `tests/parent-digest-fallback.spec.js`.
 
 ## VERIFICATION
+
+**New/updated specs** (`tests/parent-digest-fallback.spec.js`, 6 plain-Node tests against the exported `fallback()`, no browser/page needed — same pattern as `session-plan-fallback.spec.js`):
+1. Zero activity across the board → still says "hasn't started" (regression guard on the untouched branch).
+2. **The reported incident** (placement Unit 3 + 1 story read, 0 words practiced) → does NOT say "hasn't started" or "waiting for their first session," names Unit 3 and the story truthfully. (a) satisfied.
+3. Placement only → truthful, no story mention fabricated.
+4. Story read only → truthful ("2 stories"), no placement mention fabricated.
+5. Real word practice present → unchanged precedence, original "practiced N words" copy, activity facts don't override it.
+6. `dinnerCards` always present/non-empty regardless of activity shape.
+
+(b) words-this-week stays 0 and (c) minutes stays 0 for a placement+story-only account — both are integration-level facts (real DB state), verified via the production walk below rather than a unit test, per DECISIONS 2/3 (unchanged code paths).
+
+**Gates**, all clean on `fix/parent-surface`:
+- `npm run build` — clean.
+- `npm run check:no-emoji` — "No emoji characters found in scoped UI source. OK."
+- `npm run check:wordart-sync` — "WordArt REGISTRY and wordArtManifest.json agree (77 words). OK."
+- `npx playwright test` (workers:1) — **56 passed, 45 skipped (need `DEPLOY_BASE_URL`), 0 failed**, 101 total (95 baseline + 6 new). No regressions vs. the Phase 0 baseline (50/45/0/95).
+- `node --env-file=.env.local scripts/idor-proof.mjs` — **ALL CHECKS PASSED** (6 checks + 1 skip needing `DEPLOY_BASE_URL`, same as baseline). **Ownership/scope determination (explicit, per GUARDRAILS)**: the one new client-side query (`stories` read in `weeklyStats.js`) uses the exact same RLS policy (`supabase/migrations/0008...sql:20-26`, `parent_id = auth.uid()`) already governing every other `stories`-table consumer (`useStoriesQuery`, child-side) and every other Dashboard query (`learning_events`, `word_progress`, `child_profiles`) — no new table, no new RLS policy, no service-role bypass, no new server endpoint. This is a new *usage* of an already-scoped table, not a scope *change*, so no new idor-proof checks were added; the existing suite was run as a regression check and passed clean.
+
+## PRODUCTION WALK (after fix)
 IN PROGRESS
 
 ## LOGGED FOR LATER
-IN PROGRESS
+- Migration 0037/0038 drift (known, pre-existing, unrelated to this fix — noted per GUARDRAILS' log-don't-fix list, not investigated).
+- `getChildName()` display-name overflow for unusually long synthetic-email local-parts (pre-existing, unrelated, noted in `CLAUDE.md` already).
+- No dedicated dev/staging Supabase project — this run's verification, like every prior run, executed against live production with disposable accounts cleaned up after (pre-existing, standing gap, already tracked in `CLAUDE.md`).
+- Placement vs. check-in are not distinguishable from the client's current data shape (`child_profiles.placement_completed_at` is shared by both) — the insight describes either generically ("got measured," "a level check") rather than fabricating which one occurred. If a future feature needs to tell them apart client-side, that's a `product_events`/schema question out of this run's GUARDRAILS-forbidden scope.
 
 ## TRAPS
-IN PROGRESS
+- Signed into the browser and found an already-logged-in **real "Aliya" account** from a prior session before creating the test account — caught before any interaction beyond one read-only screenshot; signed out via `localStorage.clear()`/`sessionStorage.clear()` rather than navigating into Aliya's own Grown-Ups/parent surface (which is exactly the kind of surface this task must never touch). Always check `tabs_context_mcp` / take a screenshot before assuming a fresh session.
+- Claude-in-Chrome's `computer` tool cannot sustain the Grown-Ups screen's real ~1.8s `pointerdown`→`pointerup` hold gate (`src/screens/GrownUpsScreen.jsx`'s `Date.now()`-based `HOLD_MS`) — confirmed via the existing spec convention (`page.mouse.down()` / `waitForTimeout(2000)` / `page.mouse.up()`) instead, via a throwaway Playwright script, matching the memory note that this gate needs a real Playwright hold, not synthetic browser-extension events.

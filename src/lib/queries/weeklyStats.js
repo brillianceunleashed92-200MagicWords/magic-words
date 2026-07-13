@@ -39,6 +39,32 @@ export function useWeeklyStatsQuery(childId, words) {
     },
   });
 
+  // FIX_PARENT_SURFACE_R1 -- the AI Insight was blind to story reads (only
+  // ever saw learning_events), so a placement+story-read-only week still
+  // said "hasn't started yet." Minimal additive read: story rows marked
+  // read in the last 7 days, same window as the learning_events query
+  // above. Does not change minutesThisWeek/wordsThisWeek (DECISIONS 2/3 --
+  // no honest per-story duration signal exists in `stories` without a
+  // schema change, and story reads never counted toward word mastery).
+  const storiesQ = useQuery({
+    queryKey: ['storiesReadWeek', childId],
+    enabled: !!childId,
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 6);
+      since.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from('stories')
+        .select('id')
+        .eq('child_id', childId)
+        .not('read_at', 'is', null)
+        .gte('read_at', since.toISOString());
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const events = eventsQ.data ?? [];
   const minutesThisWeek = Math.round((events.length * SECONDS_PER_EVENT) / 60);
 
@@ -72,5 +98,6 @@ export function useWeeklyStatsQuery(childId, words) {
     minutesThisWeek,
     wordsThisWeek,
     weakWords,
+    storiesReadThisWeek: (storiesQ.data ?? []).length,
   };
 }
