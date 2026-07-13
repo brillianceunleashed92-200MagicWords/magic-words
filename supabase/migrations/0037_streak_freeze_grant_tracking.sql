@@ -1,0 +1,21 @@
+-- FEAT_QUICK_WINS_R1 Package E, item 1 -- streak freeze token.
+--
+-- user_streaks.streak_freeze_count already exists (int NOT NULL DEFAULT
+-- 1) and the CONSUMPTION side of the locked rule is already implemented
+-- client-side (src/lib/queries/streaks.js's useUpdateStreakMutation --
+-- daysDiff===2 && freezes>0 decrements the count and preserves the
+-- streak). What's missing is the GRANT/accrual side: "grant 1 at the
+-- start of each ISO week if the child has an active streak and holds 0."
+-- That rule needs to know WHEN a freeze was last granted so it fires at
+-- most once per ISO week -- `updated_at` changes on every streak write
+-- (not specifically grants), so it can't be reused for this without
+-- risking a grant on every single session. This column is that single
+-- piece of new state.
+--
+-- Nullable, no backfill needed: a null value simply means "never
+-- granted yet" -- the client-side grant check (isNewIsoWeek(lastGranted,
+-- now)) already treats null as eligible, so every existing account with
+-- its column-default 1 freeze is left exactly as-is until it next
+-- qualifies for a real grant under the new rule.
+alter table public.user_streaks
+  add column if not exists freeze_last_granted_at date;
