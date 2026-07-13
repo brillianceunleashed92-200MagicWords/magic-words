@@ -9,6 +9,7 @@
 | L galaxy-map | 18 constellations, unit detail sheet, Nova's Playground; region names ILLUSTRATIVE | CANON |
 | M first-flight | Hold-to-continue grown-up gate, COPPA-lean setup, Star Seeds gentle start | CANON |
 | N full-experience | Single-shot integration + live motion/sound reference; UNTESTED | REFERENCE ONLY |
+| O blank-assessment | The Star Check: Dr. Marion Blank's 25-word graded placement screener (implementation source for STAR_CHECK_R1); pending her ratification; supersedes I's probe content for initial placement | REFERENCE ONLY |
 | D, E2, all earlier | Prior generation | SUPERSEDED |
 
 Files are committed byte-identical from the 2026-07-13 design session. Do not edit mockups in place; superseding designs get new letters.

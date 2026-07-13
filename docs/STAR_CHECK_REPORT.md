@@ -129,6 +129,15 @@ STATUS: DONE
 
 STATUS: IN PROGRESS
 
+1. `npm run build` — clean (6 sync checks + vite build), re-verified after all Phase 5 changes.
+2. `npm run check:no-emoji` — clean, re-verified after all Phase 5 changes.
+3. Full Playwright suite (`set -a; source .env.local; set +a; npx playwright test --workers=1`), run in the background (22.9 min, 128 tests): **120 passed, 8 failed** on the first pass.
+   - **4 of the 8 failures are `star-check.spec.js` live tests** ("skip mid-check", "full clean sweep", "forced two-miss floor", "product_events positive twin") — expected at this point in the run: `DEPLOY_BASE_URL` isn't set yet, so these default to production, which doesn't have this branch's `starCheckMode`/`StarCheckScreen` deployed (confirmed by the actual error: "full clean sweep" times out waiting for "Find your starting star" because production still serves v1's `PlacementAdventureScreen`, which has no such intro screen). Per this run's own Phase 6 ordering, the branch preview doesn't exist until step 4, below — resolved there.
+   - **The other 4 failures are unrelated to this branch** (`pedagogy-preview-walk.spec.js`, `reduced-motion.spec.js` ×2, `say-it-race.spec.js` — WordMatch/FindTheWord/SayIt/session-plan content, nothing this branch touches) — verified, not assumed, same rigor as prior reports in this repo:
+     - `pedagogy-preview-walk.spec.js`'s failure reproduces **identically on unmodified `origin/main`** (ran the same test from `.claude/worktrees/fix-story-quality`, at `origin/main`'s exact SHA `632d63d`) — a pre-existing flaky/content-selection issue, not caused by this branch.
+     - The other 3 (`reduced-motion.spec.js` ×2, `say-it-race.spec.js`) **passed cleanly on an isolated rerun, from this worktree specifically** (`3 passed (50.9s)` — a first rerun attempt was accidentally executed from the main worktree due to a leftover `cd` from the baseline-comparison step above; caught and redone correctly before trusting the result) — transient timing flakiness during the 22.9-minute serialized full-run (real production/TTS/AI-latency variance under load), not a regression; this branch's diff never touches WordMatch, FindTheWord, or Say It.
+   - **Net verdict**: zero regressions attributable to this branch among the pre-existing suite; the only real failures are the 4 new live specs correctly failing because the code they test isn't deployed yet. Continuing to step 4 (deploy) to resolve those.
+
 ## Phase 7 — Preview walk
 
 STATUS: IN PROGRESS
