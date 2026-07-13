@@ -2,7 +2,27 @@
 **Run doc:** `docs/FIX_MIGRATION_DRIFT_R1.md` · **Branch:** `fix/migration-drift` (off `main` @ `3994c7c`)
 
 ## SUMMARY
-IN PROGRESS
+
+Production has migrations `0037`/`0038` applied (streak-freeze token
+support) that existed only on the parked, unmerged `feat/quick-wins`
+branch -- `main`'s `supabase/migrations/` stopped at `0036`, so the repo's
+migration history didn't match reality. A separate workstream
+(`FIX_STORY_FOLLOWUP_R1`) had independently claimed migration number
+`0037` for a future `story_fallback` product_events type, creating a
+collision with migrations that were already live.
+
+This run (`fix/migration-drift`, off `main`): verified production's
+applied state matches `feat/quick-wins`'s `0037`/`0038` files exactly (no
+disagreement, no wider drift found), copied those two files onto `main`
+byte-identical, moved the colliding TODO to `0039+`, and added
+`supabase/migrations/MIGRATIONS.md` documenting the provenance and a
+numbering rule to prevent recurrence. **No database writes of any kind
+were made** -- every query was read-only, matching the guardrail. Full
+gate suite run twice (baseline + post-change verification); both showed
+the codebase's already-documented flakiness in AI-adjacent/production-
+latency-bound specs with zero overlapping failures between runs, not a
+regression from this run's file-only changes. Ready for merge pending
+approval.
 
 ## RUN TIMING
 - **Start:** 2026-07-13 09:40 EDT
@@ -10,7 +30,40 @@ IN PROGRESS
 - `feat/quick-wins` had uncommitted work (modified `docs/FEAT_QUICK_WINS_R1.md` + several untracked docs, including this run's own prompt doc). Stashed with `git stash push -u` before branching so `feat/quick-wins`'s working tree stays exactly as found; the prompt doc was restored onto this branch from the stash's untracked-files commit (`stash@{0}^3`), byte-identical (diffed, confirmed match). The stash will be popped back onto `feat/quick-wins` at the end of this run to fully restore that branch's state.
 
 ## BASELINE
-IN PROGRESS
+
+All with `set -a; source .env.local; set +a` prefix, on `fix/migration-drift`
+immediately after the Phase 0 commit (prompt doc + report skeleton only --
+no migration/code changes yet):
+
+- `npm run build` -- clean, no errors.
+- `npm run check:no-emoji` -- "No emoji characters found in scoped UI source. OK."
+- `npm run check:wordart-sync` -- "WordArt REGISTRY and wordArtManifest.json agree (77 words). OK."
+- `npx playwright test --workers=1` (config default, also explicit) -- **99 passed / 2 failed / 101 total, 15.8m.**
+
+**The 2 failures, both pre-existing and not caused by this run:**
+- `tests/celebration-timing.spec.js:79` ("crossing at attempt 3 fires exactly
+  one ignition...") -- a UI click-retry/element-not-stable timing flake in a
+  spec that runs against local dev, not production. This branch has not
+  touched celebration-timing code, mastery/XP logic, or anything this spec
+  exercises -- only two new, currently-unreferenced `.sql` files existed on
+  disk at the time this baseline ran (the Phase 2 file copy and Phase 3
+  comment edit landed *while this background run was already executing* --
+  see TRAPS; a `.sql` migration file with no code path referencing it and a
+  one-line code *comment* change cannot affect this test's behavior).
+- `tests/placement-checkin.spec.js:203` ("Check-In: never-regress -- failing
+  every rung does not lower the stored/enforced level") -- one of the 5
+  production-baseURL-locked specs. `docs/200MW_Master_Project_Doc_v5.md`
+  (this cycle's fresh census, line 78) already documents this exact file as
+  flaky across multiple runs with *different specific assertions failing
+  each time* ("other runs have caught a different specific test in the same
+  file, e.g. 'never-regress...'") -- this run's failure is a named instance
+  of that already-documented pattern, not a new regression.
+
+**True baseline for this run: 99/101, with these 2 named pre-existing flakes.**
+Per the run doc's own framing, copying already-applied migration files and
+editing a comment changes no runtime behavior -- the suite here is a
+no-regression formality, not a gate that must hit 101/101 (a bar this
+codebase's suite has not hit in any recent cross-referenced run either).
 
 ## INVENTORY
 
@@ -69,10 +122,119 @@ onto `fix/migration-drift` via `git checkout feat/quick-wins -- <paths>`
   `story_fallback`.
 
 ## VERIFICATION
-IN PROGRESS
+
+All with `set -a; source .env.local; set +a` prefix, re-run on the
+post-reconciliation tree (after the Phase 2/3 commit, before merge):
+
+- `npm run build` -- clean, no errors, same output shape as baseline.
+- `npm run check:no-emoji` -- OK, unchanged result.
+- `npm run check:wordart-sync` -- OK, unchanged result (77 words) --
+  expected, this run never touched word-art data.
+- `npx playwright test --workers=1` -- **98 passed / 3 failed / 101 total,
+  15.7m.** Failures: `tests/blank-engine-comprehension.spec.js:94` (120s
+  timeout, passed in 35.0s on baseline), `tests/find-the-word.spec.js:113`
+  (60s timeout), `tests/placement-checkin.spec.js:153` (a `checkin_completed`
+  product_event not found in time). **Zero overlap** with the baseline's 2
+  failures (`celebration-timing.spec.js:79`, `placement-checkin.spec.js:203`
+  -- both passed clean on this run).
+  **Determination: not a regression.** This run's actual changes (two
+  never-imported `.sql` files, one code comment) cannot cause a
+  server-round-trip timeout or a missing telemetry event. All 3 new
+  failures are timing/round-trip-sensitive against real backend endpoints
+  (`checkin_completed` telemetry race, two AI-adjacent flows), and this
+  codebase's documented AI-endpoint limits are tight and shared per-identity
+  (`session-generator` 10/min across every mode, `story-engine` 4/day --
+  see `CLAUDE.md`/`200MW_Master_Project_Doc_v5.md`). Running the full
+  101-test suite twice back-to-back in one session, as this run's baseline
+  + verification steps did, is a documented way to starve a second pass on
+  those same limits -- consistent with different specific tests failing on
+  each pass rather than a fixed break. Zero overlap between the two
+  failure sets, both landing within 1-2 tests of the other's total, matches
+  this codebase's already-established flake noise floor (99/101 -> 98/101
+  is not a new regression pattern; see BASELINE's citation of
+  `200MW_Master_Project_Doc_v5.md` documenting the same "different specific
+  assertion each run" behavior in `placement-checkin.spec.js` specifically).
+  A third run was deliberately not triggered -- it would only add more
+  rate-limit pressure on the same test identity without changing the
+  conclusion (the migration-file-only diff has no code path that could be
+  responsible for any of these 5 distinct failures seen across both runs).
+
+**`idor-proof` -- determination: not run, by design.** Per the run doc's
+Phase 4 instruction ("idor-proof not expected... no code paths change —
+files + one comment"): this run added two `.sql` migration files that are
+already applied to production (no new code path reads or writes them --
+they exist purely so the repo's file tree matches what's live) and edited
+one code *comment*. No RLS policy, ownership check, auth flow, or any
+code path `idor-proof` exercises was touched. Running it would provision
+and clean up real test users against production for zero incremental
+coverage on this change -- skipped as not applicable, not as a shortcut.
 
 ## LOGGED FOR LATER
-IN PROGRESS
+
+- **`tests/celebration-timing.spec.js:79`** failed on both the baseline and
+  (pending confirmation) the verification run with a click-retry/"element
+  is not stable" error, then a second failure on
+  `tests/placement-checkin.spec.js:203`. Neither is caused by this run
+  (see BASELINE), but `celebration-timing`'s specific failure signature
+  (element detachment mid-click, navigation racing the click) is not yet
+  cross-referenced against an existing report the way `placement-checkin`'s
+  is -- worth a fresh look in a future hardening pass to confirm it's the
+  same flake family or a newer one.
+- Supabase CLI reports a new version available (v2.109.1, installed
+  v2.107.0) -- not acted on this run (out of scope, and upgrading tooling
+  mid-migration-drift-fix would be scope creep).
+- `feat/quick-wins` (Package E) remains parked mid-Phase-2 with its own WIP
+  commit (`ae1a6c9`) -- this run only reconciled the two already-applied
+  migration files; the branch's other work (sleeping-stars, remaining
+  streak-freeze UI) is untouched and still awaiting resumption.
 
 ## TRAPS
-IN PROGRESS
+
+- **`main` was already checked out in another worktree.** This repo has
+  several `.claude/worktrees/*` entries, one of which (`fix-story-quality`)
+  had `main` itself checked out -- `git checkout main` from the primary
+  worktree failed with "already checked out." Worked around by branching
+  directly off the ref (`git checkout -b fix/migration-drift main`) without
+  ever occupying the `main` checkout slot -- didn't touch that other
+  worktree.
+- **The working tree was not clean at session start.** The primary worktree
+  was on `feat/quick-wins` with uncommitted changes (a modified
+  `docs/FEAT_QUICK_WINS_R1.md` plus several untracked docs, including this
+  run's own prompt doc, `docs/FIX_MIGRATION_DRIFT_R1.md`). Since
+  `feat/quick-wins` must stay untouched (guardrail), everything was
+  `git stash push -u`'d before branching, and this run's prompt doc was
+  recovered from the stash's untracked-files commit (`stash@{0}^3`) onto
+  `fix/migration-drift`, verified byte-identical by diff. The stash is
+  restored onto `feat/quick-wins` at the end of this run (see FINAL STATUS)
+  so that branch's working tree ends exactly as it was found.
+- **`git checkout stash@{0} -- <path>` doesn't reach untracked files.**
+  First attempt to pull the prompt doc out of the stash failed silently
+  with "pathspec did not match" because `-u` stashes put untracked files in
+  a separate parent commit (`stash@{0}^3`), not the stash's main tree --
+  had to target that parent commit explicitly.
+- **`npm run check-wordart-sync`, as named in the run doc's Phase 4 line,
+  doesn't exist** -- the actual `package.json` script is
+  `check:wordart-sync` (colon, not dash). Used the real script name; noted
+  here in case the doc's phrasing is copy-pasted into a future run
+  verbatim.
+- **The baseline Playwright run and the Phase 2/3 file changes overlapped
+  in wall-clock time.** The baseline suite was launched in the background
+  right after the Phase 0 commit (clean tree, no migration/code changes
+  yet), then Phase 1 inventory and Phase 2/3 file changes + commits ran
+  concurrently while it was still executing. This is safe here only
+  because the changes were two never-imported `.sql` files and a one-line
+  comment edit -- neither could affect a running Playwright/Vite process.
+  Flagged so a future run with actual runtime-code changes doesn't
+  replicate this ordering.
+- **Running the full suite twice in one session (baseline + verification)
+  produces two different 1-3-test failure sets, not the same one twice.**
+  99/101 on the first pass, 98/101 on the second, with zero overlap in
+  which specific tests failed. Most plausible cause: the AI-adjacent specs
+  (`blank-engine-comprehension`, `find-the-word`, `placement-checkin`) share
+  tight per-identity rate limits (`session-generator` 10/min,
+  `story-engine` 4/day) that the first full run partially consumes, leaving
+  less headroom for the second. A future run needing a genuinely clean
+  suite result should budget for only one full run, or expect this same
+  noise on a second one -- don't chase a third run assuming it'll
+  eventually go green; it won't reveal anything the file-level diff
+  analysis here doesn't already establish.
