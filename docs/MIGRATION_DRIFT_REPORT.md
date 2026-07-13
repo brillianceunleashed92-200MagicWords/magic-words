@@ -171,15 +171,16 @@ coverage on this change -- skipped as not applicable, not as a shortcut.
 
 ## LOGGED FOR LATER
 
-- **`tests/celebration-timing.spec.js:79`** failed on both the baseline and
-  (pending confirmation) the verification run with a click-retry/"element
-  is not stable" error, then a second failure on
-  `tests/placement-checkin.spec.js:203`. Neither is caused by this run
-  (see BASELINE), but `celebration-timing`'s specific failure signature
-  (element detachment mid-click, navigation racing the click) is not yet
-  cross-referenced against an existing report the way `placement-checkin`'s
-  is -- worth a fresh look in a future hardening pass to confirm it's the
-  same flake family or a newer one.
+- **`tests/celebration-timing.spec.js:79`** failed on the baseline run with
+  a click-retry/"element is not stable" error, then passed clean on the
+  verification run -- confirming it's flaky rather than a fixed break, but
+  its specific failure signature (element detachment mid-click, navigation
+  racing the click) is not yet cross-referenced against an existing report
+  the way `placement-checkin`'s flakiness is -- worth a fresh look in a
+  future hardening pass to confirm it's the same flake family or a newer
+  one. Same applies to `tests/blank-engine-comprehension.spec.js:94` and
+  `tests/find-the-word.spec.js:113`, which failed only on the verification
+  run (see VERIFICATION for the rate-limit-pressure theory).
 - Supabase CLI reports a new version available (v2.109.1, installed
   v2.107.0) -- not acted on this run (out of scope, and upgrading tooling
   mid-migration-drift-fix would be scope creep).
@@ -187,6 +188,36 @@ coverage on this change -- skipped as not applicable, not as a shortcut.
   commit (`ae1a6c9`) -- this run only reconciled the two already-applied
   migration files; the branch's other work (sleeping-stars, remaining
   streak-freeze UI) is untouched and still awaiting resumption.
+
+## MERGE + DEPLOY
+
+- Merged `fix/migration-drift` -> `main` with `--no-ff` (commit `29ecc2b`),
+  performed in `.claude/worktrees/fix-story-quality` -- the only local
+  worktree that had `main` checked out (verified clean, up to date with
+  `origin/main` before touching it; not disturbed otherwise).
+- **Approval checkpoint**: paused and asked before `git push origin main`,
+  per the run's binding approval stop. Approved; pushed.
+  `origin/main` now at `29ecc2b` (`3994c7c..29ecc2b main -> main`).
+- **`supabase db push` was never run.** No database write of any kind
+  occurred this run -- every Supabase interaction was a read-only query
+  (`supabase migration list`, `information_schema`/`pg_constraint` via
+  `scripts/db-query.mjs`). This is the intended end state: the two
+  migration files are already applied live: the repo now truthfully
+  reflects that, nothing was (re-)applied.
+- **Deployment check**: `gh api repos/.../commits/29ecc2b/status` shows
+  the Vercel GitHub check as `"state":"success"`, `"description":"Deployment
+  has completed"`. (Vercel MCP tool access on this session's connected
+  team did not include the magic-words project -- confirmed deployment
+  status via the GitHub commit-status API instead, which reflects the
+  same underlying Vercel deployment via its GitHub App integration.)
+- **No production walk performed, by design** -- this run changed no
+  user-facing behavior (two SQL files that are already applied to
+  production, a code comment, and a docs file). Per the run doc's Phase 5
+  instruction, stating this explicitly rather than inventing a walk that
+  would exercise nothing this diff touches.
+- **Never touched the Aliya account** -- no user accounts, test or real,
+  were created, read, or modified this run (no `admin-user.mjs` use, no
+  `idor-proof` run -- see VERIFICATION for why).
 
 ## TRAPS
 
@@ -238,3 +269,43 @@ coverage on this change -- skipped as not applicable, not as a shortcut.
   noise on a second one -- don't chase a third run assuming it'll
   eventually go green; it won't reveal anything the file-level diff
   analysis here doesn't already establish.
+- **`main` was already checked out in `.claude/worktrees/fix-story-quality`
+  for the entirety of this run** -- an artifact of a prior, apparently
+  finished workstream (`docs/FIX_STORY_QUALITY_R1.md`, sitting untracked
+  in this session's working tree) that never removed its worktree. Used it
+  read-only-then-merge (confirmed clean and at `origin/main` first) rather
+  than removing or repurposing it -- not this run's cleanup to do.
+
+## FINAL STATUS
+
+**All required deliverables complete on `main` (pushed, commit `29ecc2b`
++ this closing docs commit):**
+- Inventory: production's applied-migration state queried fresh (`supabase
+  migration list` + direct `schema_migrations`/`information_schema`
+  queries) and matches `feat/quick-wins`'s `0037`/`0038` files exactly --
+  no wider drift found, no STOP triggered.
+- `0037_streak_freeze_grant_tracking.sql` and `0038_streak_freeze_events.sql`
+  are on `main`, byte-identical to what's applied to production (verified
+  by diff and by blob-hash comparison).
+- `supabase/migrations/MIGRATIONS.md` added: current highest applied
+  (`0038`), the "number after what's applied, not what's merged" rule,
+  0037/0038 provenance, `0039` reserved for `story_fallback`.
+- `src/lib/queries/stories.js`'s `story_fallback` TODO moved from `0037` to
+  `0039+`.
+- Full gate suite run twice (baseline 99/101, verification 98/101), zero
+  overlapping failures between runs, determined not a regression (see
+  VERIFICATION) -- build/no-emoji/wordart-sync clean both times.
+  `idor-proof` determination: not applicable, documented why.
+- `fix/migration-drift` merged `--no-ff` into `main`, approved by Sal
+  before push, pushed to `origin/main`, Vercel deployment confirmed
+  `READY`/"Deployment has completed" via GitHub's commit-status check.
+- **No database writes made this run.** `supabase db push` was never
+  invoked -- every guardrail in the run doc held. `feat/quick-wins` was
+  never committed to, merged, or force-touched -- only read via `git show`
+  and `git checkout -- <path>`; its own WIP commit and (now-restored)
+  stash are exactly as this run found them. The Aliya account was never
+  touched.
+- This docs push is self-certified by this very commit: the report you
+  are reading is the artifact being pushed as this run's closing action.
+
+**Run complete. No STOP, no unresolved item.**
