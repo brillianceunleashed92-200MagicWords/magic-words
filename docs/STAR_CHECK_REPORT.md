@@ -78,6 +78,25 @@ STATUS: DONE
 
 ## Phase 3 — Server
 
+STATUS: DONE
+
+- `api/_lib/starCheckBank.js` (new, CommonJS mirror of `src/lib/starCheckBank.js` — header comment cross-references both files and explains why there's no shared import, same reasoning as the existing mastery/blank-engine mirrors).
+- `api/_lib/starCheckLadder.js` (new) — `signStarCheckState`/`verifyStarCheckState` under context `'star-check-v1'`. **Deliberately self-contained, not extended from `api/_lib/placementLadder.js`**: that file's `verifyLadderState` hard-requires `state.rungIndex` (a shape specific to the unit-rung ladder) and is shared by `checkinMode` (a scope wall for this run) — duplicating the small HMAC pattern was safer than touching a file `checkinMode` depends on. State shape validated on `levelIndex`/`wordIndex`/`childId` instead of `rungIndex`.
+- `api/session-generator.js`: added `starCheckMode` dispatch (alongside `placementMode`/`checkinMode`/`historyMode`, same shared 10/min rate limit — noted in Phase 1 recon) and `handleStarCheck`. **No Anthropic call** — confirmed by inspection, the whole handler only touches `admin` (Supabase) and the two new `_lib` requires. Behavior:
+  - `skip: true` → logs `placement_skipped` (payload `{mode:'star_check_v1'}`), no `child_profiles` write — mirrors `handlePlacement`'s own skip branch exactly.
+  - No token yet → logs `placement_started`/`placement_retaken` (same server-verified-prior-completion derivation as v1, not a client claim) → `warmupStruggled: true` finalizes immediately at floorLevel 1 with `warmup_flag: true`, zero probes administered; otherwise issues the Level 1 / word 1 probe (phase `'A'` if the word has a meaning probe, else `'B'` — never a faked meaning item).
+  - Each round-trip carries exactly one `answer: boolean` (unlike v1's paired-rung `answers` array, since each word administers up to two SEQUENTIAL probes) plus the signed `ladderState`. A bad/forged/expired/cross-context token restarts fresh (logs `star_check_invalid_token` via `logSecurityEvent`, mirroring v1's `placement_ladder_invalid_token` pattern) — never trusted.
+  - Word-known rule (`isWordKnown`), two-miss-floor / one-miss-or-clean-pass level routing (`levelProgress`), and level->unit mapping (`startingUnitForFloor`) are the exact same pure functions as `src/lib/starCheckBank.js` (verified by direct dry-run below, not just code inspection).
+  - `finalize()` writes `child_profiles.placement_unit/measured_unit/placement_completed_at` through the **same three columns and same free-tier cap expression** (`Math.min(trueMeasuredUnit, FREE_TIER_MAX_UNIT)`) as `handlePlacement`'s own finalize — not reimplemented, copied verbatim. Logs `placement_completed` with `payload: { placementUnit, trueMeasuredUnit, raw_unit, applied_unit, floor_level, warmup_flag, mode:'star_check_v1', per_word }` — satisfies the Phase 1 decision rule (per-word detail included, since the `payload` column is unrestricted jsonb).
+  - Floor path marks the current level's not-yet-administered words as `skipped: true` in `per_word` (mirrors the mockup's own behavior) rather than omitting them.
+- **Dry-run verification (no HTTP, direct `require()` of the two new `_lib` modules, run this session)**:
+  - Clean sweep (all 25 words known): 37 state-machine steps, 4 level-ups, `finalFloor:'clean'`, `startingUnitForFloor('clean') === 16`. Confirms the routing loop terminates correctly and matches `LEVEL_UNIT_MAP`.
+  - Forced two-miss floor at Level 2 (word 1 and word 2 both miss): floors at `level:2` → `unit:4`, and the `perWordLog` shows Level 1's 5 words `known:true`, Level 2's `baby`/`good` `known:false`, and `duck`/`move`/`water` correctly marked `skipped:true` — exact match to the intended two-miss-floor-then-skip-rest behavior.
+  - `signStarCheckState`/`verifyStarCheckState` round-trip: same-child verifies true, wrong-child verifies false (null), garbage token verifies false (null) — the three cases `idor-proof.mjs` additions (Phase 5) will exercise over real HTTP.
+- `node -c` syntax-checked `api/session-generator.js`, `api/_lib/starCheckBank.js`, `api/_lib/starCheckLadder.js` — all clean.
+
+## Phase 4 — Client
+
 STATUS: IN PROGRESS
 
 ## Phase 4 — Client
