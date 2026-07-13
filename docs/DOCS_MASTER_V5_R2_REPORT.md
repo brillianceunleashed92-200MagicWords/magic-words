@@ -80,7 +80,39 @@ All fresh, all read-only, all this session.
 IN PROGRESS
 
 ## PHASE 4 -- GATE & SHIP
-IN PROGRESS
+
+- **Docs-only gate**: `git status --porcelain` after Phase 3 showed only `docs/200MW_Master_Project_Doc_v5.md`; `git diff main --stat` for the whole branch showed only `docs/200MW_Master_Project_Doc_v5.md` and `docs/DOCS_MASTER_V5_R2_REPORT.md` -- confirmed docs-only, nothing to revert.
+- Committed (`8618081`), then merged `docs/master-v5-r2` `--no-ff` into `main` from `.claude/worktrees/fix-story-quality` (confirmed clean/up-to-date with `origin/main` before merging, same pattern as the prior `fix/migration-drift` run -- `main` cannot be checked out a second time in the primary worktree).
+- **Approval stop**: printed `git log -1 --stat` (merge commits need `git show --stat` to display their diffstat -- `git log --stat` alone suppresses it for merge commits by default, noted in TRAPS), asked in chat, approved, pushed.
+- `origin/main`: `117327b..2357be5 main -> main`.
 
 ## FINAL STATUS
-IN PROGRESS
+
+**(a) `ls -la docs/200MW_Master_Project_Doc_v5.md`:**
+```
+-rw-r--r--  1 f00517z  staff  54477 Jul 13 13:59 docs/200MW_Master_Project_Doc_v5.md
+```
+
+**(b) `git show --stat -1 2357be5`** (the pushed merge commit; used in place of `git log -1 --stat`, which does not print a diffstat for merge commits by default):
+```
+commit 2357be572f5b1b2fbc3085c29cd6d33da7cb6191
+Merge: 117327b 8618081
+Author: brillianceunleashed92-200MagicWords <brillianceunleashed92@gmail.com>
+Date:   Mon Jul 13 14:00:15 2026 -0400
+
+    merge: docs/master-v5-r2 -- refresh master doc, forensics on false "lost artifact" report
+    ...
+
+ docs/200MW_Master_Project_Doc_v5.md | 78 +++++++++++++++++++--------------
+ docs/DOCS_MASTER_V5_R2_REPORT.md    | 86 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 132 insertions(+), 32 deletions(-)
+```
+
+**(c) `git log origin/main -1 --oneline`:**
+```
+2357be5 merge: docs/master-v5-r2 -- refresh master doc, forensics on false "lost artifact" report
+```
+
+**Summary**: `docs/200MW_Master_Project_Doc_v5.md` was never lost -- Phase 1 forensics found it committed and merged to `main` on 2026-07-12, the same day R1 ran; the "artifact loss" report traced to the primary worktree being checked out on `feat/quick-wins` (a branch that predates the file and never tracked it) at the moment someone ran `ls docs/`, not to any real loss. Refreshed the doc to current `HEAD` regardless, per the run doc's own instruction: added items 22 (`FIX_PARENT_SURFACE_R1` + follow-up) and 23 (`FIX_MIGRATION_DRIFT_R1`), every number in FRESH CENSUS re-measured this session (34 spec files/101 tests, 38 migrations with zero drift, 200/20 words/story_catalog rows unchanged, 11/11 product_events types now on `main`), resolved the two OPEN ITEMS that are now fixed (parent-surface blindness, migration-collision risk), updated WORKSTREAM STATE/BACKLOG/COMPLETION ESTIMATE, added 3 new TRAPS entries from this cycle's own findings. Docs-only diff confirmed at both the single-commit and whole-branch level. Merged `--no-ff` into `main`, approved in chat, pushed to `origin/main`, all three existence-proof commands above confirm the artifact is genuinely on the pushed remote commit. No database writes of any kind (`supabase db push` never invoked); `feat/quick-wins` was read-only referenced (`git log main..feat/quick-wins`), never committed to or merged.
+
+**Run complete. No STOP, no unresolved item.**
