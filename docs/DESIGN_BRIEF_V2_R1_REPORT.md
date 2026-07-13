@@ -69,11 +69,48 @@ e82b9a51d072b0210664c3d9dacdcfdadaa3a725333c355e2ef23b96a01f572e  mockup-M-first
 
 ## PHASE 3 — Commit design assets
 
-Status: IN PROGRESS
+Status: DONE.
+
+Byte-identity gate, drop-folder originals vs. committed copies (9/9 match):
+
+```
+efd164abff7a3fb78b6faff022cbf3883ec0978452bcd2b8098c8f9f2767ba2f  mockup-F-word-journey.html   == efd164ab... (committed)
+e12e4091f28cc4911502a550f5d1e1bfd937165a8f8c0582f067c40852301b0d  mockup-G-home-loop.html      == e12e4091... (committed)
+42483327bf1bfe64d079ce144e9e7227c44abc759a18beb9f3f25052af979032  mockup-H-grownups.html       == 42483327... (committed)
+49c952655f4f9f7dda4d1f4478af0d8f7f0789bd0ebcdd97e1b8a7e3e2f1373b  mockup-I-placement.html      == 49c95265... (committed)
+afec80acf17c07b8e2ba7e1498d49b712ebb7d7eaea6beca327e1a21f2fb9aaa  mockup-J-unit-gate.html      == afec80ac... (committed)
+0c3edae7ccac87c74048594c972c6d635b73ed8a3989184e1197e2b7f502add2  mockup-K-story-reader.html   == 0c3edae7... (committed)
+780ee9169fe40e846ffed6c7c420990ddf5b5a24ae3cbeb54b6fbb94bac90682  mockup-L-galaxy-map.html     == 780ee916... (committed)
+e82b9a51d072b0210664c3d9dacdcfdadaa3a725333c355e2ef23b96a01f572e  mockup-M-first-flight.html   == e82b9a51... (committed)
+0b3f37a7bb7248cadf5103f36baf1bd907ee0e488a064b315d6334d808c43d43  mockup-N-full-experience.html == 0b3f37a7... (committed)
+```
+
+Full sha256 output for both sides pasted verbatim in the run's tool transcript; all 9 pairs identical.
+
+Commit 1: `a680c66` — "DESIGN_BRIEF_V2_R1: commit design canon assets (mockups F-N, Blank method sources)" (13 files changed, 4387 insertions — includes this report file, added alongside per Phase 0's "create immediately after the worktree exists" allowance).
 
 ## PHASE 4 — Write docs/DESIGN_BRIEF_V2.md
 
-Status: IN PROGRESS
+Status: DONE.
+
+Authored all 17 required sections. Component contracts (section 13) were
+derived by reading the actual JS state machines in each committed mockup
+(F `armChoice`/`buildEngine`/`renderMap`; G `arm`/`rvTrial`; I
+`warmSeq`/`initBuild`/`finish`; J `showProbe`/`passPath`; K `startHunt`;
+L `miniCons`/`openSheet`; M `seedTrial`), not invented from the prompt text
+alone. Pedagogy claims cited to `docs/BLANK_METHOD_SOURCES.md` §2, §3, §4,
+§5, §6 by section number rather than restated.
+
+## PHASE 5 — Supersede prior canon
+
+Status: DONE.
+
+1. `git ls-files docs | grep -i brief` → `docs/DESIGN_BRIEF.md` (v1, present
+   as expected). Prepended the required supersession line verbatim.
+2. `git ls-files | grep -i mockup` →
+   `docs/mockup-D-candy-galaxy.html`, `docs/mockup-E2-no-emoji.html` (prior
+   mockups, not deleted, left in place) plus the newly committed
+   `docs/design/mockups/mockup-{F..N}-*.html` and its `README.md`.
 
 ## PHASE 5 — Supersede prior canon
 
