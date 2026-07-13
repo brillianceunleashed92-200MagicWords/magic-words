@@ -188,7 +188,56 @@ enforced by gate 1.
 
 ## PHASE 8 — Local merge + APPROVAL STOP
 
-Status: IN PROGRESS
+Status: DONE (merge complete, local only — not pushed).
+
+In `main`'s worktree (`.claude/worktrees/fix-story-quality`, confirmed clean
+and on branch `main` before merging):
+
+```
+git merge --no-ff docs/design-brief-v2-r1 -m "DESIGN_BRIEF_V2_R1: lock Blank-overhaul design canon (docs-only)"
+```
+
+Result: `38e7e5e`, merge of `85e8762` + `838fe47`, 16 files changed,
+4929 insertions, 0 deletions — matches the path-gate file list exactly.
+
+`git log -3 --oneline`:
+```
+38e7e5e DESIGN_BRIEF_V2_R1: lock Blank-overhaul design canon (docs-only)
+838fe47 DESIGN_BRIEF_V2_R1: record Phase 7 gate results
+69dc379 DESIGN_BRIEF_V2_R1: strip warning-sign character from BLANK_METHOD_SOURCES.md (no-emoji gate)
+```
+
+`git log -1 --stat` (merge commits suppress the diffstat by default; shown
+here via `-m` against the first parent for a non-empty view):
+```
+commit 38e7e5e8035a71bb6f59de8f39da340ea0fd7d64 (from 85e87623c1a36970a1788a544e26ab153c762dfb)
+Merge: 85e8762 838fe47
+Author: brillianceunleashed92-200MagicWords <brillianceunleashed92@gmail.com>
+Date:   Mon Jul 13 16:39:54 2026 -0400
+
+    DESIGN_BRIEF_V2_R1: lock Blank-overhaul design canon (docs-only)
+
+ docs/200MW_Master_Project_Doc_v5.md               |   2 +
+ docs/BLANK_METHOD_SOURCES.md                      | 121 +++
+ docs/DESIGN_BRIEF.md                              |   2 +
+ docs/DESIGN_BRIEF_V2.md                           | 439 ++++++++++
+ docs/DESIGN_BRIEF_V2_R1.md                        | 205 +++++
+ docs/DESIGN_BRIEF_V2_R1_REPORT.md                 | 208 +++++
+ docs/design/mockups/README.md                     |  14 +
+ docs/design/mockups/mockup-F-word-journey.html    | 806 +++++++++++++++++++
+ docs/design/mockups/mockup-G-home-loop.html       | 385 +++++++++
+ docs/design/mockups/mockup-H-grownups.html        | 194 +++++
+ docs/design/mockups/mockup-I-placement.html       | 382 +++++++++
+ docs/design/mockups/mockup-J-unit-gate.html       | 371 +++++++++
+ docs/design/mockups/mockup-K-story-reader.html    | 300 +++++++
+ docs/design/mockups/mockup-L-galaxy-map.html      | 235 ++++++
+ docs/design/mockups/mockup-M-first-flight.html    | 342 ++++++++
+ docs/design/mockups/mockup-N-full-experience.html | 923 ++++++++++++++++++++++
+ 16 files changed, 4929 insertions(+)
+```
+
+**AWAITING APPROVAL: reply "approved" to run git push origin main. Nothing
+has been pushed.**
 
 ## PHASE 9 — Push + deployment verification
 
