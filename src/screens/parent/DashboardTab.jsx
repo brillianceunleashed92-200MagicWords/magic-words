@@ -19,9 +19,21 @@ const UPGRADE_PROMPT_THRESHOLD = 20;
 // Dashboard (blueprint 4.1) — "the parent visit is 30 seconds, weekly."
 // This Week hero (3 huge numbers) + AI Insight paragraph + Dinner Table
 // Cards, print-friendly.
+const MS_PER_DAY = 86400000;
+
 export default function DashboardTab() {
   const { activeChild, words, streak, masteredCount, plan } = useCandyGalaxyData();
-  const { minutesThisWeek, wordsThisWeek, weakWords } = useWeeklyStatsQuery(activeChild?.id, words);
+  const { minutesThisWeek, wordsThisWeek, weakWords, storiesReadThisWeek } = useWeeklyStatsQuery(activeChild?.id, words);
+
+  // FIX_PARENT_SURFACE_R1 -- feeds the AI Insight the two activity
+  // sources it was previously blind to (see PARENT_SURFACE_REPORT.md
+  // SURFACE->SOURCE MAP). placement_completed_at is written by BOTH a
+  // placement and a Star Check-In (api/session-generator.js's handleCheckin
+  // finalize() bumps the same column) -- from the client's data this is
+  // "a measurement event happened," not distinguishably "placement" vs
+  // "check-in," so it's described generically in the digest prompt.
+  const placementCompletedThisWeek = !!activeChild?.placement_completed_at
+    && (Date.now() - new Date(activeChild.placement_completed_at).getTime()) < 7 * MS_PER_DAY;
 
   const summary = activeChild ? {
     childName: activeChild.name,
@@ -29,6 +41,9 @@ export default function DashboardTab() {
     weakWords,
     streak: streak.current_streak,
     minutesThisWeek,
+    storiesReadThisWeek,
+    placementCompletedThisWeek,
+    placementUnit: activeChild.placement_unit ?? null,
   } : null;
 
   const { digest, dinnerCards, loading, error, regenerate } = useParentDigest(activeChild?.id, summary);
