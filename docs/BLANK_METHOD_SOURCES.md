@@ -84,7 +84,7 @@ Teaching order within each workbook is recoverable from the Is It Known skip-cha
 **S2 · Boarding Workbook 6** — order: doll(s) → they → rocket(s) → sit/sits/sitting → Progress Check
 - Content: doll/dolls, rocket/rockets, sit/sits/sitting
 - Non-content: they
-- ⚠ Column-layout ambiguity in extraction for "sit"; classified content by the cross-book verb pattern (hop/find/get/use/stop are all content). Verify against print.
+- Column-layout ambiguity in extraction for "sit"; classified content by the cross-book verb pattern (hop/find/get/use/stop are all content). Verify against print.
 - Progress Check sentences: "The kid is not a girl." / "Some rockets are flying" / "This robot cannot jump." / "Can they walk here?" / "Some more boys are swimming." Threshold: 19+/24 advance, else review.
 
 **S3 · Runway Workbook 11** — order: my → need(s) → you → wing(s) → hop/hopping/hops → all → no → their → use/using/uses → stop/stopping/stops → Book 11
