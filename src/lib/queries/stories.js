@@ -32,8 +32,9 @@ async function insertStoryRow(childId, { title, sentences, targetWord, vocabular
 // polluted a pedagogically meaningful signal WEEKLY_INSIGHTS clusters on
 // with an unrelated story-generation-degraded signal. Console-only for
 // now, carrying the same context (which path, pool size, target word).
-// TODO(migration 0037): add 'story_fallback' to product_events' CHECK
+// TODO(migration 0039+): add 'story_fallback' to product_events' CHECK
 // constraint, then log this properly via logProductEvent instead of console.
+// (0037/0038 are taken -- see supabase/migrations/MIGRATIONS.md.)
 function reportStoryFallback(word, poolSize) {
   console.warn(`[story-engine] AI generation fell back to the local template -- word="${word}" poolSize=${poolSize}`);
 }
