@@ -97,11 +97,14 @@ STATUS: DONE
 
 ## Phase 4 — Client
 
-STATUS: IN PROGRESS
+STATUS: DONE
 
-## Phase 4 — Client
-
-STATUS: IN PROGRESS
+- `src/components/candy/StarCheckProbe.jsx` (101 lines) — separate component from `PlacementProbe.jsx` (scope wall), same measurement exception: tapped tile always `state:'correct-flash'` regardless of actual correctness (`idx === tappedIdx`), neutral "Let's try another!" message on both outcomes, 900ms delay before `onAnswer`. Meaning-probe options render via `STAR_CHECK_PICS` SVG injection (`dangerouslySetInnerHTML` — static, build-generated markup, never user input, so safe); look-alike options render as text tiles (unavoidable — that IS the probe). Audio via the existing `fetchAudio`/`playAudio` singleton (Phase 1 recon primitive), never new plumbing.
+- `src/components/candy/StarCheckWarmup.jsx` (101 lines) — the tap-copy sequencing gate (sample `['c','a']`, shuffled tray `['a','c','o','t']`). **Flagged as `[PROPOSED]` in its own header comment**: neither the mockup nor `DESIGN_BRIEF_V2.md` defines what "struggle" concretely means (the mockup's own reference JS has no correctness check at all); this implementation uses the same two-miss threshold as the level-floor rule for internal consistency, with silent (no visible penalty) miss-counting matching the errorless/no-red rule.
+- `src/screens/StarCheckScreen.jsx` (223 lines) — orchestrator: `intro → warmup → probe ⇄ levelLift → done`, mirroring `PlacementAdventureScreen.jsx`'s plumbing shape (one server round-trip per step, nothing persisted client-side beyond the signed `ladderState` token, degrade to the beginner path via `onComplete({placementUnit:null, trueMeasuredUnit:null, degraded:true})` on any request failure) without touching that file. Intro copy, facts chips, and the 5-dot climb-rungs indicator are ported from the mockup. Header comment explicitly documents the Star Check vs. Star Check-In naming distinction per the non-negotiables. Skip affordance (exit button + "Skip for now" link) fires `starCheckMode:true, skip:true` fire-and-forget, same pattern as v1.
+- **Entry-point swap** (`src/CandyGalaxyShell.jsx`): the `placementFlow === 'adventure'` branch now renders `StarCheckScreen` instead of `PlacementAdventureScreen`. Recon (Phase 1 §1) confirmed BOTH entry points (new-child onboarding via `PlacementChoiceScreen`, and `SettingsTab`'s "Retake placement" button) already funnel through this SAME `'adventure'` flow value — one render-site change covers both, no edits needed to `ChildOnboardingScreen.jsx`, `PlacementChoiceScreen.jsx`, or `SettingsTab.jsx`. `PlacementAdventureScreen` is **no longer imported** in `CandyGalaxyShell.jsx` (avoids an unused-import lint warning) but its file is untouched in `src/screens/` — reverting is a one-line import + render swap back, satisfying the "v1 stays in the tree" rollback affordance without dead code in the shell.
+- `PlacementReportCard.jsx` verified by re-reading (no code change needed): it only reads `placement_unit`/`measured_unit`/`placement_completed_at`, all written identically by v2's `finalize`, and its copy is already generic ("Placement Report", "Placed on…") — no v1-specific wording to update.
+- **Early sanity gates run now** (ahead of the full Phase 6 suite, to catch import/syntax issues before Phase 5): `npm run build` — clean, all 6 sync checks + vite build passed. `npm run check:no-emoji` — clean ("No emoji characters found in scoped UI source. OK.").
 
 ## Phase 5 — Tests
 
