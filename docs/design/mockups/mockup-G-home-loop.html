@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction G: Home v2 · The Daily Loop</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16); --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+    --dog-fill:#FFB84D; --dog-outline:#A66A1B; --dog-inner:#FFF1D6;
+    --cat-fill:#FF8A4C; --cat-outline:#B35A28; --cat-inner:#FFD9BE;
+    --blush:#FF8FA8; --dot:#2A2160;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);overflow-x:hidden;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%)}
+  .wrap{position:relative;max-width:500px;margin:0 auto;padding:26px 20px 150px;z-index:1}
+
+  .card{background:var(--cloud);color:var(--ink);border-radius:30px;padding:22px;box-shadow:var(--chunk);position:relative}
+  .sec-title{font-family:var(--display);font-weight:800;font-size:1.2rem;margin:30px 0 12px;display:flex;align-items:center;gap:10px}
+  .sec-title svg{width:20px;height:20px;flex:0 0 auto}
+  .k{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8B84BD}
+  .k.onDark{color:rgba(255,255,255,.65)}
+  .chip{display:inline-block;background:var(--sky);color:#fff;font-family:var(--display);font-weight:800;
+    font-size:.7rem;padding:6px 13px;border-radius:100px;box-shadow:0 4px 0 rgba(0,0,0,.14)}
+  .chip.mint{background:var(--mint);color:#00543E}
+  .chip.sun{background:var(--sun);color:#5C4200}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-family:var(--display);
+    font-weight:800;font-size:.95rem;padding:13px 26px;border-radius:100px;border:none;cursor:pointer;
+    box-shadow:0 6px 0 rgba(0,0,0,.18);transition:transform .15s}
+  .btn:active{transform:translateY(4px)}
+  .btn.mint{background:var(--mint);color:#00432F}
+  .btn.sunb{background:var(--sun);color:#5C4200}
+  .btn.ghost{background:rgba(42,33,96,.08);color:var(--ink);box-shadow:0 4px 0 rgba(0,0,0,.08)}
+
+  /* hero (mockup-D DNA, no emoji) */
+  .hero-card{transform:rotate(-1deg)}
+  .hero-inner{transform:rotate(1deg)}
+  .wave{font-family:var(--display);font-weight:800;font-size:1.7rem;line-height:1.15}
+  .wave span{color:var(--sky)}
+  .streak-row{display:flex;gap:10px;margin-top:14px}
+  .pill{flex:1;border-radius:18px;padding:10px 6px;text-align:center;font-family:var(--display);font-weight:800;
+    box-shadow:0 5px 0 rgba(0,0,0,.14)}
+  .pill b{display:block;font-size:1.25rem;line-height:1.1}
+  .pill span{font-size:.56rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;opacity:.8}
+  .p-fire{background:var(--tang);color:#5A2A00}
+  .p-star{background:var(--sun);color:#5C4200}
+  .p-gem{background:var(--mint);color:#00543E}
+
+  /* journey card */
+  .jcard{margin-top:12px;overflow:hidden}
+  .jtop{display:flex;align-items:center;gap:16px}
+  .jart{width:76px;height:76px;flex:0 0 auto}
+  .jart svg{width:100%;height:100%}
+  .jword{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1;color:var(--ink)}
+  .jmeta{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .jdots{display:flex;gap:6px;margin:16px 0 4px}
+  .jd{flex:1;height:11px;border-radius:100px;background:#EDEBFA;position:relative}
+  .jd.lit{background:linear-gradient(90deg,var(--sun),#FFDD7A)}
+  .jd.now{background:var(--bubble);animation:pump 1.6s ease-in-out infinite}
+  @keyframes pump{0%,100%{box-shadow:0 0 0 0 rgba(255,111,165,.5)}50%{box-shadow:0 0 0 8px rgba(255,111,165,0)}}
+  .jd .st{position:absolute;top:-9px;left:50%;transform:translateX(-50%);width:16px;height:16px;display:none}
+  .jd.lit .st{display:block;filter:drop-shadow(0 2px 0 rgba(0,0,0,.15))}
+  .jfoot{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+  .jnote{font-size:.72rem;font-weight:700;color:#8B84BD;line-height:1.4}
+  .owned-flash{display:flex;align-items:center;gap:12px}
+  .owned-flash .bs{width:52px;height:52px;filter:drop-shadow(0 0 14px rgba(255,197,49,.8))}
+  .owned-flash .t1{font-family:var(--display);font-weight:800;font-size:1.25rem}
+  .owned-flash .t2{font-size:.75rem;font-weight:700;color:#8B84BD}
+
+  /* bonus card */
+  .bonus{margin-top:12px;border:3px dashed rgba(255,255,255,.35);background:rgba(255,255,255,.1);
+    color:#fff;border-radius:26px;padding:18px 20px;display:flex;align-items:center;gap:14px}
+  .bonus.unlocked{border-style:solid;border-color:transparent;background:var(--cloud);color:var(--ink);box-shadow:var(--chunk)}
+  .bonus .bw{font-family:var(--display);font-weight:800;font-size:1.5rem}
+  .bonus .bn{font-size:.7rem;font-weight:700;opacity:.75;line-height:1.4}
+  .bonus .lock{width:30px;height:30px;flex:0 0 auto}
+
+  /* review block */
+  .due-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+  .due{font-family:var(--display);font-weight:800;font-size:.95rem;padding:9px 16px;border-radius:100px;
+    box-shadow:0 4px 0 rgba(0,0,0,.12)}
+  .due.d1{background:var(--sun);color:#5C4200}
+  .due.d2{background:var(--mint);color:#00543E}
+  .due.d3{background:var(--bubble);color:#fff}
+  .due.d4{background:var(--tang);color:#4A2000}
+
+  /* inline review session */
+  .rv{display:none;margin-top:16px;border-top:2px dashed #E4E1F6;padding-top:16px}
+  .rv.on{display:block;animation:fadeUp .3s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .rv .q{font-family:var(--display);font-weight:800;font-size:1.15rem;text-align:center;margin-bottom:14px}
+  .rv .q .target{color:var(--tang)}
+  .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:340px;margin:0 auto}
+  .mini-grid.n3{grid-template-columns:repeat(3,1fr)}
+  .mtile{background:#F4F2FC;color:var(--ink);border-radius:20px;padding:16px 8px;text-align:center;cursor:pointer;
+    font-family:var(--display);font-weight:800;font-size:1.2rem;box-shadow:0 4px 0 rgba(0,0,0,.1);
+    transition:transform .2s,opacity .3s,filter .3s}
+  .mtile:active{transform:translateY(3px)}
+  .mtile .art{width:70%;margin:0 auto}
+  .mtile .art svg{width:100%;height:auto}
+  .mtile .lb{font-size:.85rem;margin-top:4px}
+  .sentence{background:#F4F2FC;border-radius:20px;padding:18px 16px;text-align:center;
+    font-family:var(--display);font-weight:700;font-size:1.35rem;line-height:1.8;color:var(--ink)}
+  .sentence .w{padding:2px 5px;border-radius:9px}
+  .sentence .fm{cursor:pointer}
+  .sentence .fm:hover{background:#E9E6FA}
+  .sentence .fm.lit{background:var(--sun);color:#5C4200;box-shadow:0 3px 0 rgba(0,0,0,.12)}
+  .hint-glow{box-shadow:0 4px 0 rgba(0,0,0,.1),0 0 0 4px rgba(62,224,184,.55),0 0 20px rgba(62,224,184,.55) !important;
+    animation:hintPulse 1.4s ease-in-out infinite}
+  @keyframes hintPulse{0%,100%{box-shadow:0 4px 0 rgba(0,0,0,.1),0 0 0 4px rgba(62,224,184,.4)}
+    50%{box-shadow:0 4px 0 rgba(0,0,0,.1),0 0 0 7px rgba(62,224,184,.65)}}
+  .wiggle{animation:wiggle .45s ease}
+  @keyframes wiggle{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-1.5deg)}
+    50%{transform:translateX(4px) rotate(1.5deg)}75%{transform:translateX(-3px)}}
+  .soften{filter:saturate(.55);opacity:.55}
+  .flash{box-shadow:0 4px 0 rgba(0,0,0,.1),0 0 0 5px rgba(62,224,184,.75) !important}
+  .rvdone{text-align:center;font-family:var(--display);font-weight:800;font-size:1.1rem;color:#00543E;
+    background:rgba(62,224,184,.18);border-radius:18px;padding:14px;margin-top:14px}
+  .rprog{text-align:center;font-size:.7rem;font-weight:800;color:#8B84BD;margin-top:12px;letter-spacing:.08em;text-transform:uppercase}
+
+  /* function-word variant */
+  .ladders{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+  .lcol{background:#F4F2FC;border-radius:22px;padding:16px 14px}
+  .lcol h4{font-family:var(--display);font-weight:800;font-size:.95rem;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+  .lcol h4 .sw{width:14px;height:14px;border-radius:5px;flex:0 0 auto}
+  .lstep{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:#5C548F;padding:4px 0}
+  .lstep .n{width:20px;height:20px;border-radius:50%;background:#E4E1F6;color:var(--ink);font-family:var(--display);
+    font-weight:800;font-size:.65rem;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .lstep.diff{color:var(--ink)}
+  .lstep.diff .n{background:var(--sun);color:#5C4200}
+  .lstep.skip{text-decoration:line-through;opacity:.45}
+
+  /* nav (svg icons, no emoji) */
+  .nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:4px;
+    background:var(--cloud);border-radius:100px;padding:8px;box-shadow:0 10px 0 rgba(0,0,0,.2);
+    width:min(92%,440px);justify-content:space-around}
+  .nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.55rem;font-weight:800;
+    color:#8B84BD;text-decoration:none;padding:8px 14px;border-radius:100px;font-family:var(--display)}
+  .nav a.on{background:var(--sky);color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.15)}
+  .nav svg{width:20px;height:20px}
+
+  .demo-bar{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:49;width:min(94%,460px);
+    background:rgba(42,33,96,.92);border-radius:18px;padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .demo-btn{font-family:var(--display);font-weight:700;font-size:.62rem;color:var(--ink);background:#EFEDFA;
+    border:none;border-radius:100px;padding:7px 11px;cursor:pointer}
+  .note{margin-top:30px;text-align:center;color:rgba(255,255,255,.55);font-size:.66rem;font-weight:600;line-height:1.5}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <path id="starp" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/>
+  <g id="art-dog">
+    <ellipse cx="60" cy="100" rx="30" ry="7" fill="rgba(0,0,0,.12)"/>
+    <path d="M28 66c-10-8-14-24-2-28 6-2 10 4 10 4" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M92 66c10-8 14-24 2-28-6-2-10 4-10 4" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="60" cy="62" r="38" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4"/>
+    <ellipse cx="60" cy="78" rx="18" ry="14" fill="var(--dog-inner)"/>
+    <circle cx="46" cy="56" r="6.5" fill="var(--dot)"/><circle cx="48.2" cy="53.6" r="2" fill="#fff"/>
+    <circle cx="74" cy="56" r="6.5" fill="var(--dot)"/><circle cx="76.2" cy="53.6" r="2" fill="#fff"/>
+    <ellipse cx="60" cy="76" rx="7" ry="5.5" fill="var(--dog-outline)"/>
+    <path d="M50 88q10 8 20 0" fill="none" stroke="var(--dog-outline)" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="38" cy="70" rx="7" ry="4.5" fill="var(--blush)" opacity=".8"/>
+    <ellipse cx="82" cy="70" rx="7" ry="4.5" fill="var(--blush)" opacity=".8"/>
+  </g>
+  <g id="art-cat">
+    <ellipse cx="60" cy="100" rx="30" ry="7" fill="rgba(0,0,0,.12)"/>
+    <path d="M34 42l-6-22 20 14z" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M86 42l6-22-20 14z" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M40 34l-2-9 9 6z" fill="var(--cat-inner)"/><path d="M80 34l2-9-9 6z" fill="var(--cat-inner)"/>
+    <circle cx="60" cy="64" r="36" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4"/>
+    <ellipse cx="60" cy="80" rx="17" ry="13" fill="var(--cat-inner)"/>
+    <circle cx="47" cy="60" r="6" fill="var(--dot)"/><circle cx="49" cy="57.8" r="1.8" fill="#fff"/>
+    <circle cx="73" cy="60" r="6" fill="var(--dot)"/><circle cx="75" cy="57.8" r="1.8" fill="#fff"/>
+    <path d="M60 74l-5 5h10z" fill="var(--cat-outline)"/>
+    <ellipse cx="38" cy="74" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+    <ellipse cx="82" cy="74" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+  </g>
+</defs></svg>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="card hero-card">
+    <div class="hero-inner">
+      <div class="wave">Hey <span>Emma!</span><br/>One new star waits today.</div>
+      <div class="streak-row">
+        <div class="pill p-fire"><b>12</b><span>Day streak</span></div>
+        <div class="pill p-star"><b>87</b><span>Words owned</span></div>
+        <div class="pill p-gem"><b>240</b><span>Sparks</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TODAY'S WORD JOURNEY -->
+  <div class="sec-title"><svg viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>Today's Word Journey</div>
+  <div class="card jcard" id="jcard"></div>
+  <div class="bonus" id="bonus"></div>
+
+  <!-- POLISH YOUR STARS -->
+  <div class="sec-title"><svg viewBox="0 0 24 24"><use href="#starp" fill="var(--mint)"/></svg>Polish Your Stars</div>
+  <div class="card">
+    <div class="k">Quick review · stars ready for a shine</div>
+    <div class="due-row">
+      <span class="due d2">the</span><span class="due d1">cat</span><span class="due d3">jump</span><span class="due d4">big</span>
+    </div>
+    <button class="btn mint" id="rvbtn" onclick="startReview()">Polish 4 stars · about 3 min</button>
+    <div class="rv" id="rv"></div>
+    <div class="jnote" style="margin-top:14px">This is where mixed, many-word practice lives now — quick spaced reviews of owned words. Teaching stays one word at a time.</div>
+  </div>
+
+  <!-- FUNCTION-WORD VARIANT -->
+  <div class="sec-title"><svg viewBox="0 0 24 24"><use href="#starp" fill="var(--bubble)"/></svg>Two kinds of journeys</div>
+  <div class="card">
+    <div class="ladders">
+      <div class="lcol">
+        <h4><span class="sw" style="background:var(--sun)"></span>Content word · dog</h4>
+        <div class="lstep"><span class="n">1</span>Meet It</div>
+        <div class="lstep"><span class="n">2</span>Spot It</div>
+        <div class="lstep diff"><span class="n">3</span>Picture It</div>
+        <div class="lstep"><span class="n">4</span>Almost It</div>
+        <div class="lstep"><span class="n">5</span>Build It</div>
+        <div class="lstep"><span class="n">6</span>Use It</div>
+        <div class="lstep"><span class="n">7</span>Story</div>
+      </div>
+      <div class="lcol">
+        <h4><span class="sw" style="background:var(--bubble)"></span>Function word · the</h4>
+        <div class="lstep"><span class="n">1</span>Meet It</div>
+        <div class="lstep"><span class="n">2</span>Spot It</div>
+        <div class="lstep diff"><span class="n">3</span>Find It in a sentence</div>
+        <div class="lstep"><span class="n">4</span>Almost It</div>
+        <div class="lstep"><span class="n">5</span>Build It</div>
+        <div class="lstep diff"><span class="n">6</span>Use It ×2</div>
+        <div class="lstep"><span class="n">7</span>Story</div>
+      </div>
+    </div>
+    <div class="jnote" style="margin:14px 0 12px">Function words never get pictures — their meaning IS the sentence. Same journey shape, sentence-first stops.</div>
+    <button class="btn ghost" onclick="fnDemo()">Try a function-word trial</button>
+    <div class="rv" id="fnrv"></div>
+  </div>
+
+  <div class="note">Direction G · Home v2 · the daily loop: one journey a day (+1 bonus max) · review = polish · function-word ladder variant<br/>Candy Galaxy tokens locked · mockup demo, not product code</div>
+</div>
+
+<div class="demo-bar">
+  <button class="demo-btn" onclick="setJ(0)">Journey: ready</button>
+  <button class="demo-btn" onclick="setJ(1)">in progress</button>
+  <button class="demo-btn" onclick="setJ(2)">done + bonus</button>
+  <button class="demo-btn" onclick="startReview()">Review demo</button>
+  <button class="demo-btn" onclick="fnDemo()">Function trial</button>
+  <button class="demo-btn" onclick="location.reload()">Reset</button>
+</div>
+
+<nav class="nav">
+  <a class="on" href="#"><svg viewBox="0 0 24 24" fill="none"><path d="M4 11L12 4l8 7v8a1 1 0 01-1 1h-4v-5h-6v5H5a1 1 0 01-1-1v-8z" fill="currentColor"/></svg>Home</a>
+  <a href="#"><svg viewBox="0 0 24 24"><use href="#starp" fill="currentColor"/></svg>Journey</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.6" fill="currentColor"/><circle cx="18" cy="12" r="2.6" fill="currentColor"/><circle cx="8" cy="19" r="2.6" fill="currentColor"/><path d="M8 7.5L16 11M16.5 14L10 17.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Galaxy</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.4" fill="currentColor"/><circle cx="16.5" cy="9.5" r="2.6" fill="currentColor" opacity=".7"/><path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" fill="currentColor"/></svg>Grown-ups</a>
+</nav>
+
+<script>
+var $=function(s){return document.querySelector(s)};
+
+/* ── Journey card states ── */
+function dots(n, now){
+  var h='<div class="jdots">';
+  for(var i=0;i<7;i++){
+    var c=i<n?'jd lit':(i===now?'jd now':'jd');
+    h+='<div class="'+c+'"><svg class="st" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg></div>';
+  }
+  return h+'</div>';
+}
+function setJ(state){
+  var j=$('#jcard'), b=$('#bonus');
+  if(state===0){
+    j.innerHTML='<div class="jtop"><div class="jart"><svg viewBox="0 0 120 120"><use href="#art-dog"/></svg></div>'+
+      '<div><div class="k">New word</div><div class="jword">dog</div></div>'+
+      '<div class="jmeta"><span class="chip">7 stops</span><span class="chip mint">~10 min</span></div></div>'+
+      dots(0,-1)+
+      '<div class="jfoot"><button class="btn sunb" onclick="setJ(1)">Start the journey</button>'+
+      '<div class="jnote">Nova checks first — already know dog?<br/>Straight to a star, no re-teaching.</div></div>';
+  }
+  if(state===1){
+    j.innerHTML='<div class="jtop"><div class="jart"><svg viewBox="0 0 120 120"><use href="#art-dog"/></svg></div>'+
+      '<div><div class="k">In flight</div><div class="jword">dog</div></div>'+
+      '<div class="jmeta"><span class="chip">stop 4 of 7</span></div></div>'+
+      dots(3,3)+
+      '<div class="jfoot"><button class="btn" onclick="setJ(2)">Keep going — Almost It</button>'+
+      '<div class="jnote">Journeys resume exactly where they paused.</div></div>';
+  }
+  if(state===2){
+    j.innerHTML='<div class="owned-flash"><svg class="bs" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>'+
+      '<div><div class="t1">dog — owned!</div><div class="t2">Met it, built it, used it, read it. 88 / 200.</div></div>'+
+      '<span class="chip sun" style="margin-left:auto">+1 star</span></div>'+dots(7,-1);
+  }
+  b.className='bonus'+(state===2?' unlocked':'');
+  if(state===2){
+    b.innerHTML='<div style="flex:1"><div class="k">Bonus journey unlocked</div><div class="bw">run</div>'+
+      '<div class="bn">One more today? Two words a day is the max — spaced learning sticks better. After that: stories &amp; star polish.</div></div>'+
+      '<button class="btn sunb" style="flex:0 0 auto">Meet run</button>';
+  } else {
+    b.innerHTML='<svg class="lock" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="3" fill="rgba(255,255,255,.5)"/><path d="M8 10V7a4 4 0 018 0v3" stroke="rgba(255,255,255,.5)" stroke-width="2.4"/></svg>'+
+      '<div><div class="k onDark">Bonus journey</div><div class="bn" style="opacity:.85">Finish today\'s word to unlock one more (2 per day max).</div></div>';
+  }
+}
+setJ(0);
+
+/* ── mini choice helper (miss1 wiggle+glow · miss2 guided) ── */
+function arm(grid, correct, onDone){
+  var tiles=[].slice.call(grid.children), misses=0, locked=false;
+  tiles.forEach(function(t){
+    t.onclick=function(){
+      if(locked)return;
+      if(t.dataset.v===correct){locked=true;t.classList.add('flash');setTimeout(onDone,650);}
+      else{
+        misses++; t.classList.add('wiggle','soften'); setTimeout(function(){t.classList.remove('wiggle')},460);
+        var ct=tiles.filter(function(x){return x.dataset.v===correct})[0];
+        if(misses===1){ct.classList.add('hint-glow');}
+        else{tiles.forEach(function(x){if(x!==ct){x.style.opacity=.14;x.onclick=null;}});}
+      }
+    };
+  });
+}
+
+/* ── review session: 3 quick trials across due words ── */
+function startReview(){
+  $('#rvbtn').style.display='none';
+  var rv=$('#rv'); rv.classList.add('on');
+  rvTrial(1);
+  rv.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function rvTrial(n){
+  var rv=$('#rv');
+  if(n===1){
+    rv.innerHTML='<div class="q">Tap every <span class="target">the</span></div>'+
+      '<div class="sentence" id="sen"><span class="w fm" data-t="1">The</span> <span class="w">cat</span> <span class="w">can</span> <span class="w">see</span> <span class="w fm" data-t="1">the</span> <span class="w">dog.</span></div>'+
+      '<div class="rprog">Polish 1 of 3 · the (function word — always in a sentence)</div>';
+    var need=2;
+    rv.querySelectorAll('.fm').forEach(function(s){
+      s.onclick=function(){ if(s.classList.contains('lit'))return; s.classList.add('lit'); if(--need===0) setTimeout(function(){rvTrial(2)},700); };
+    });
+  }
+  if(n===2){
+    rv.innerHTML='<div class="q">Tap the picture of <span class="target">cat</span></div>'+
+      '<div class="mini-grid" id="mg">'+
+      '<div class="mtile" data-v="dog"><div class="art"><svg viewBox="0 0 120 120"><use href="#art-dog"/></svg></div><div class="lb">dog</div></div>'+
+      '<div class="mtile" data-v="cat"><div class="art"><svg viewBox="0 0 120 120"><use href="#art-cat"/></svg></div><div class="lb">cat</div></div>'+
+      '</div><div class="rprog">Polish 2 of 3 · cat</div>';
+    arm($('#mg'),'cat',function(){rvTrial(3)});
+  }
+  if(n===3){
+    rv.innerHTML='<div class="q">The dog can <span class="target">___</span></div>'+
+      '<div class="mini-grid n3" id="mg">'+
+      '<div class="mtile" data-v="big">big</div><div class="mtile" data-v="jump">jump</div><div class="mtile" data-v="the">the</div>'+
+      '</div><div class="rprog">Polish 3 of 3 · jump</div>';
+    arm($('#mg'),'jump',function(){
+      rv.innerHTML='<div class="rvdone">4 stars polished — all shiny until Thursday!</div>'+
+        '<div class="rprog">Misses here schedule a word sooner · two misses can send it back to a fresh journey</div>';
+    });
+  }
+}
+
+/* ── function-word trial demo ── */
+function fnDemo(){
+  var rv=$('#fnrv'); rv.classList.add('on');
+  rv.innerHTML='<div class="q">Find every <span class="target">the</span>!</div>'+
+    '<div class="sentence"><span class="w fm">The</span> <span class="w">frogs</span> <span class="w">can</span> <span class="w">jump</span> <span class="w">in</span> <span class="w fm">the</span> <span class="w">sun.</span></div>'+
+    '<div class="rprog">Function-word stage 3 · sentence built only from owned words · source: Detect \u2019n Select</div>';
+  var need=2;
+  rv.querySelectorAll('.fm').forEach(function(s){
+    s.onclick=function(){ if(s.classList.contains('lit'))return; s.classList.add('lit');
+      if(--need===0){ var d=document.createElement('div'); d.className='rvdone'; d.textContent='Both found — the lives inside sentences!'; rv.appendChild(d); } };
+  });
+  rv.scrollIntoView({behavior:'smooth',block:'center'});
+}
+</script>
+</body>
+</html>

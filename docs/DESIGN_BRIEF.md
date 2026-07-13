@@ -1,3 +1,5 @@
+> SUPERSEDED (2026-07-13): replaced by DESIGN_BRIEF_V2.md. Kept for history. This document and mockups D/E2 no longer govern new work.
+
 # 200 Magic Words — Candy Galaxy Design Brief
 
 Locked reference for the `ui-candy-polish` rebuild. Source: `docs/mockup-D-candy-galaxy.html`

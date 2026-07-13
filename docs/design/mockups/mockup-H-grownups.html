@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction H: Grown-Ups v2 · Evidence of Ownership</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16); --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%);min-height:100vh}
+  .wrap{max-width:780px;margin:0 auto;padding:26px 22px 80px}
+
+  .top{display:flex;align-items:center;gap:14px;color:#fff;margin-bottom:20px}
+  .back{width:44px;height:44px;border-radius:16px;background:rgba(255,255,255,.14);border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .back svg{width:18px;height:18px}
+  .top h1{font-family:var(--display);font-weight:800;font-size:1.5rem;flex:1}
+  .kidchip{background:var(--cloud);color:var(--ink);font-family:var(--display);font-weight:800;font-size:.8rem;
+    padding:9px 16px;border-radius:100px;box-shadow:var(--chunk-sm)}
+
+  .card{background:var(--cloud);border-radius:28px;padding:22px;box-shadow:var(--chunk);margin-bottom:18px}
+  .k{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8B84BD}
+  h3{font-family:var(--display);font-weight:800;font-size:1.1rem;margin:2px 0 4px}
+  .muted{font-size:.78rem;font-weight:600;color:#7d76b3;line-height:1.5}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .stat{background:var(--cloud);border-radius:24px;padding:18px;box-shadow:var(--chunk)}
+  .stat .big{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.1}
+  .stat .big small{font-size:1rem;color:#8B84BD}
+  .stat .sub{font-size:.68rem;font-weight:700;color:#8B84BD;margin-top:4px;line-height:1.4}
+  .stat.mintline{box-shadow:var(--chunk),inset 0 -6px 0 rgba(62,224,184,.5)}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 14px}
+  .lg{display:flex;align-items:center;gap:7px;font-size:.72rem;font-weight:700;color:#5C548F}
+  .sw{width:15px;height:15px;border-radius:6px;flex:0 0 auto}
+
+  .wgrid{display:flex;gap:9px;flex-wrap:wrap}
+  .wc{font-family:var(--display);font-weight:800;font-size:.92rem;padding:9px 15px;border-radius:100px;cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.12);transition:transform .15s;position:relative}
+  .wc:active{transform:translateY(3px)}
+  .wc.owned{background:var(--sun);color:#5C4200}
+  .wc.pre{background:var(--mint);color:#00543E}
+  .wc.pol{background:var(--bubble);color:#fff}
+  .wc.up{background:#EDEBFA;color:#8B84BD;box-shadow:0 4px 0 rgba(0,0,0,.06);cursor:default}
+  .wc.sel{outline:3px solid var(--ink);outline-offset:2px}
+
+  .detail{background:#F4F2FC;border-radius:22px;padding:18px 20px;margin-top:16px}
+  .detail h4{font-family:var(--display);font-weight:800;font-size:1.35rem;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  .badge{font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:100px}
+  .badge.owned{background:var(--sun);color:#5C4200}
+  .badge.pre{background:var(--mint);color:#00543E}
+  .badge.pol{background:var(--bubble);color:#fff}
+  .ev{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+  .ev div{font-size:.8rem;font-weight:700;color:#4A4380;padding:5px 0;display:flex;align-items:center;gap:8px}
+  .ev svg{width:15px;height:15px;flex:0 0 auto}
+  .ev b{color:var(--ink)}
+
+  .rx{border:3px solid rgba(62,224,184,.6)}
+  .rx .pillrow{display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
+  .rx .p{font-family:var(--display);font-weight:800;font-size:.9rem;background:var(--bubble);color:#fff;
+    padding:8px 15px;border-radius:100px;box-shadow:0 4px 0 rgba(0,0,0,.12)}
+
+  .why{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px}
+  .why .w1{background:#F4F2FC;border-radius:20px;padding:15px}
+  .why h5{font-family:var(--display);font-weight:800;font-size:.85rem;margin-bottom:6px}
+  .why p{font-size:.72rem;font-weight:600;color:#5C548F;line-height:1.55}
+
+  .note{text-align:center;color:rgba(255,255,255,.55);font-size:.66rem;font-weight:600;margin-top:26px;line-height:1.5}
+  @media(max-width:640px){.stats{grid-template-columns:1fr}.why{grid-template-columns:1fr}.ev{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <button class="back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <h1>Grown-Ups</h1>
+    <span class="kidchip">Emma · learning at Unit 9</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat mintline">
+      <div class="k">Words owned</div>
+      <div class="big">88 <small>/ 200</small></div>
+      <div class="sub">Owned = finished the full journey and built the word with letter tiles, unassisted.</div>
+    </div>
+    <div class="stat">
+      <div class="k">Measured level</div>
+      <div class="big">Unit 9</div>
+      <div class="sub">Star Check-In, Jul 2 · unassisted probe, same rules as placement. Next check-in ~Aug 1.</div>
+    </div>
+    <div class="stat">
+      <div class="k">This week</div>
+      <div class="big">42 min</div>
+      <div class="sub">Time in learning activities this week (not app-open time) · 5 words owned · reviews 91% right.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="k">Word collection · Unit 9 shown</div>
+    <h3>Every word, and how Emma got it</h3>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="background:var(--sun)"></span>Owned — journey finished</span>
+      <span class="lg"><span class="sw" style="background:var(--mint)"></span>Already knew it — pretest pass</span>
+      <span class="lg"><span class="sw" style="background:var(--bubble)"></span>Polishing — back in review</span>
+      <span class="lg"><span class="sw" style="background:#EDEBFA"></span>Up next</span>
+    </div>
+    <div class="wgrid" id="wgrid"></div>
+    <div class="detail" id="detail"></div>
+  </div>
+
+  <div class="card rx">
+    <div class="k">From the last Star Check-In</div>
+    <h3>Two stars getting extra polish</h3>
+    <div class="pillrow"><span class="p">they</span><span class="p">when</span></div>
+    <div class="muted">The check-in noticed these two felt wobbly, so Nova quietly added them to this week's reviews.
+      If a word stays wobbly, it gets a fresh, shorter journey — Emma never sees a test score or a red mark, just more chances to shine.</div>
+  </div>
+
+  <div class="card">
+    <div class="k">Why it works this way</div>
+    <h3>Dr. Marion Blank's method, faithfully</h3>
+    <div class="why">
+      <div class="w1"><h5>One word at a time</h5><p>Each session teaches a single word through ~30 varied trials — see it, spot it, build it, use it, read it — instead of skimming many words shallowly.</p></div>
+      <div class="w1"><h5>Whole words, never sounded out</h5><p>Most English words can't be decoded by rules. Words are always spoken and learned whole — letter tiles are silent; the finished word speaks.</p></div>
+      <div class="w1"><h5>Errors are never practiced</h5><p>A wrong tap is redirected instantly and every trial ends with Emma making the correct response herself. No red marks, no X's — and no wrong answer ever gets rehearsed.</p></div>
+    </div>
+  </div>
+
+  <div class="note">Direction H · Grown-Ups v2 · "words owned" evidence framing · honest labels · pretest-passed words shown distinctly<br/>Candy Galaxy tokens locked · mockup demo, not product code</div>
+</div>
+
+<script>
+var WORDS=[
+  {w:'cat',s:'owned'},{w:'dog',s:'owned'},{w:'run',s:'owned'},{w:'ball',s:'pre'},{w:'jump',s:'owned'},
+  {w:'the',s:'owned'},{w:'they',s:'pol'},{w:'big',s:'owned'},{w:'look',s:'owned'},{w:'book',s:'pre'},
+  {w:'when',s:'pol'},{w:'eat',s:'owned'},{w:'fly',s:'owned'},{w:'one',s:'up'},{w:'other',s:'up'},{w:'good',s:'up'}
+];
+var DETAILS={
+  dog:{s:'owned',h:'dog',rows:[
+    ['star','Owned <b>Jul 13</b> — journey finished'],
+    ['probe','Pretest: <b>didn\u2019t know it yet</b> — full journey given'],
+    ['path','<b>7 stops · 31 trials</b> · about 9 minutes'],
+    ['help','<b>2 helped moments</b> (Nova guided, Emma still tapped it right)'],
+    ['build','Built <b>d-o-g</b> with letter tiles, <b>unassisted</b>, on the final try'],
+    ['next','Next polish: <b>Jul 16</b>, then spacing stretches out']]},
+  ball:{s:'pre',h:'ball',rows:[
+    ['probe','Pretest: <b>built it perfectly, first try</b> — Emma already knew it'],
+    ['star','Marked known <b>Jul 9</b> · <b>zero minutes re-taught</b>'],
+    ['next','Still joins reviews now and then, so it stays sharp']]},
+  they:{s:'pol',h:'they',rows:[
+    ['probe','Star Check-In (Jul 2) found it <b>wobbly</b>'],
+    ['path','Back in this week\u2019s <b>review rotation</b> — sentence trials only (function word)'],
+    ['next','Two more misses would relaunch a <b>short fresh journey</b> — no penalty, just re-teaching']]},
+  cat:{s:'owned',h:'cat',rows:[
+    ['star','Owned <b>Jul 10</b>'],
+    ['path','7 stops · 29 trials · <b>zero helped moments</b>'],
+    ['build','Built unassisted · reviews since: <b>3 of 3 right</b>']]}
+};
+var ICONS={
+  star:'<svg viewBox="0 0 24 24"><path fill="var(--sun)" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/></svg>',
+  probe:'<svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="var(--sky)" stroke-width="2.6"/><path d="M16 16l4 4" stroke="var(--sky)" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  path:'<svg viewBox="0 0 24 24" fill="none"><circle cx="5" cy="6" r="2.4" fill="var(--bubble)"/><circle cx="19" cy="12" r="2.4" fill="var(--bubble)"/><circle cx="7" cy="19" r="2.4" fill="var(--bubble)"/><path d="M7 7.5L17 11M17 14L9 17.5" stroke="var(--bubble)" stroke-width="2" stroke-linecap="round"/></svg>',
+  help:'<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="var(--mint)" stroke-width="2.6"/><path d="M12 8v5" stroke="var(--mint)" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="16.4" r="1.5" fill="var(--mint)"/></svg>',
+  build:'<svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="9" width="7" height="7" rx="2" stroke="var(--tang)" stroke-width="2.4"/><rect x="13.5" y="9" width="7" height="7" rx="2" stroke="var(--tang)" stroke-width="2.4"/></svg>',
+  next:'<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="var(--sky)" stroke-width="2.4"/><path d="M12 7.5V12l3 2.5" stroke="var(--sky)" stroke-width="2.4" stroke-linecap="round"/></svg>'
+};
+var grid=document.getElementById('wgrid');
+WORDS.forEach(function(o){
+  var c=document.createElement('span');
+  c.className='wc '+o.s; c.textContent=o.w;
+  if(DETAILS[o.w]) c.onclick=function(){ document.querySelectorAll('.wc').forEach(function(x){x.classList.remove('sel')}); c.classList.add('sel'); showDetail(o.w); };
+  grid.appendChild(c);
+});
+function showDetail(w){
+  var d=DETAILS[w], el=document.getElementById('detail');
+  var bl={owned:'Owned',pre:'Already knew it',pol:'Polishing'}[d.s];
+  el.innerHTML='<h4>'+d.h+' <span class="badge '+d.s+'">'+bl+'</span></h4><div class="ev">'+
+    d.rows.map(function(r){return '<div>'+ICONS[r[0]]+'<span>'+r[1]+'</span></div>'}).join('')+'</div>'+
+    '<div class="muted" style="margin-top:10px">Tap the highlighted words above (dog, ball, they, cat) to compare how each was earned.</div>';
+}
+showDetail('dog');
+</script>
+</body>
+</html>
