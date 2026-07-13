@@ -99,10 +99,10 @@ Data this week:
 - Words that need more practice: ${weakWords.join(', ') || 'none flagged'}
 - Current streak: ${streak} days
 - Minutes played this week: ${minutesThisWeek}
-- Placement/Star Check-In completed this week: ${placementCompletedThisWeek ? `yes, landed at Unit ${placementUnit ?? '?'}` : 'no'}
+- Placement or Star Check-In result this week: ${placementCompletedThisWeek ? `yes, landed at Unit ${placementUnit ?? '?'}` : 'no'}
 - Stories read this week: ${storiesReadThisWeek}
 
-Only say the child "hasn't started" or similar if words practiced is "none yet" AND placement/check-in is "no" AND stories read is 0. If the only activity this week is a placement/check-in and/or a story read, acknowledge that specific activity truthfully and warmly instead — do not claim they haven't started, and do not invent word-practice numbers that aren't listed above.
+Only say the child "hasn't started" or similar if words practiced is "none yet" AND placement/check-in is "no" AND stories read is 0. If the only activity this week is a placement/check-in and/or a story read, acknowledge that specific activity truthfully and warmly instead — do not claim they haven't started, and do not invent word-practice numbers that aren't listed above. The data does not say whether this was specifically a placement or specifically a Star Check-In — never assert one of those two terms as fact. Describe it neutrally instead (e.g. "found their level," "got measured," "a level check").
 
 Return ONLY this JSON, no markdown, no backticks:
 {"digest": "one warm, plain-language paragraph (3-4 sentences) — specific, not generic, growth-framed never alarming", "dinnerCards": ["3 short conversation prompts a parent can use at dinner using this week's words, each one sentence"]}`;
