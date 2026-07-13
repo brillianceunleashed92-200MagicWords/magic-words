@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction I: Placement Adventure v2 (Skills Survey)</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16); --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);overflow-x:hidden;min-height:100vh;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%)}
+  .stage{position:relative;max-width:640px;margin:0 auto;padding:24px 22px 130px;z-index:1}
+  .screen{display:none}
+  .screen.on{display:block;animation:fadeUp .35s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* ── climb indicator: no fixed-length promise ── */
+  .climb{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .climb .lbl{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.1em;
+    text-transform:uppercase;color:rgba(255,255,255,.65)}
+  .rungs{flex:1;display:flex;gap:7px;align-items:center}
+  .rung{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.18);transition:all .4s}
+  .rung.lit{background:var(--sun);box-shadow:0 0 10px rgba(255,197,49,.7)}
+  .rung.dots{background:none;box-shadow:none;color:rgba(255,255,255,.5);font-weight:800;width:auto;height:auto;font-size:.8rem;letter-spacing:2px}
+  .climbstar{width:24px;height:24px;filter:drop-shadow(0 0 8px rgba(255,197,49,.8))}
+
+  .nova-row{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
+  .porthole{width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7A6BF0,var(--sky-deep) 70%);
+    border:5px solid rgba(255,255,255,.9);box-shadow:var(--chunk-sm);position:relative;overflow:hidden;flex:0 0 auto}
+  .nova{position:absolute;inset:10%}
+  .n-core{position:absolute;inset:8%;border-radius:50% 50% 46% 54%/56% 50% 50% 44%;
+    background:radial-gradient(circle at 36% 30%,#FFF6D8,var(--sun) 55%,#F09A12 100%)}
+  .n-eye{position:absolute;top:34%;width:11%;height:16%;border-radius:50%;background:var(--ink)}
+  .n-eye.l{left:30%}.n-eye.r{right:30%}
+  .n-eye::after{content:'';position:absolute;top:15%;left:15%;width:42%;height:42%;border-radius:50%;background:#fff}
+  .n-smile{position:absolute;top:56%;left:50%;transform:translateX(-50%);width:22%;height:11%;
+    border-radius:0 0 40px 40px;background:var(--ink)}
+  .bub{background:var(--cloud);color:var(--ink);border-radius:22px 22px 22px 4px;padding:12px 18px;
+    font-family:var(--display);font-weight:700;font-size:.98rem;box-shadow:var(--chunk-sm);min-height:44px;display:flex;align-items:center}
+
+  .eyebrow{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:6px}
+  .prompt{font-family:var(--display);font-weight:800;font-size:1.5rem;text-align:center;margin:6px 0 24px;line-height:1.25}
+  .prompt .target{color:var(--sun)}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:1rem;padding:14px 30px;border-radius:100px;border:none;
+    cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.15);transition:transform .15s}
+  .btn:active{transform:translateY(5px)}
+  .btn.sunb{background:var(--sun);color:#5C4200}
+  .btn.mint{background:var(--mint);color:#00432F}
+  .btn.ghosty{background:rgba(255,255,255,.16);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.1)}
+  .center{text-align:center}
+
+  /* intro card */
+  .intro-card{background:var(--cloud);color:var(--ink);border-radius:30px;padding:26px;box-shadow:var(--chunk);text-align:center}
+  .intro-card h2{font-family:var(--display);font-weight:800;font-size:1.9rem;margin-bottom:10px}
+  .intro-card p{font-size:.88rem;font-weight:600;color:#5C548F;line-height:1.6;max-width:420px;margin:0 auto 8px}
+  .facts{display:flex;gap:10px;justify-content:center;margin:16px 0;flex-wrap:wrap}
+  .fact{font-family:var(--display);font-weight:800;font-size:.72rem;padding:8px 15px;border-radius:100px;
+    box-shadow:0 4px 0 rgba(0,0,0,.12)}
+  .f1{background:var(--sun);color:#5C4200}.f2{background:var(--mint);color:#00543E}.f3{background:#EDEBFA;color:var(--ink)}
+
+  /* sequence warm-up */
+  .seq-sample{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
+  .seq-answer{display:flex;gap:12px;justify-content:center;min-height:78px;margin-bottom:18px}
+  .sq{width:70px;height:70px;border-radius:20px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:2rem;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--chunk-sm)}
+  .sq.slot{background:rgba(255,255,255,.12);border:3px dashed rgba(255,255,255,.4);box-shadow:none;color:#fff}
+  .sq.slot.filled{background:var(--cloud);border-color:var(--cloud);color:var(--ink);box-shadow:var(--chunk-sm);
+    animation:slotPop .3s cubic-bezier(.3,1.7,.4,1)}
+  @keyframes slotPop{from{transform:scale(.6)}to{transform:scale(1)}}
+  .seq-tray{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .sq.pick{cursor:pointer;transition:transform .15s,opacity .3s}
+  .sq.pick:active{transform:translateY(4px)}
+  .sq.pick.used{opacity:.18;pointer-events:none}
+
+  /* probe tiles — MEASUREMENT MODE: no hint-glow class exists on this page */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto}
+  .grid.n3{grid-template-columns:repeat(3,1fr)}
+  .ttile{background:var(--cloud);color:var(--ink);border-radius:26px;padding:24px 12px;box-shadow:var(--chunk);
+    cursor:pointer;text-align:center;font-family:var(--display);font-weight:800;font-size:1.65rem;
+    transition:transform .2s;letter-spacing:.03em}
+  .ttile:active{transform:translateY(5px)}
+  /* neutral trail — identical for right AND wrong answers */
+  .trail{box-shadow:var(--chunk),0 0 0 5px rgba(255,255,255,.55),0 0 22px rgba(255,255,255,.5) !important}
+
+  /* build (measurement mode) */
+  .slots{display:flex;gap:14px;justify-content:center;margin:22px 0 6px}
+  .slot{width:84px;height:84px;border-radius:22px;border:3px dashed rgba(255,255,255,.4);
+    background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:800;font-size:2.5rem;color:var(--ink)}
+  .slot.filled{background:var(--cloud);border:3px solid var(--cloud);box-shadow:var(--chunk-sm);animation:slotPop .3s cubic-bezier(.3,1.7,.4,1)}
+  .tray{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .ltile{width:64px;height:64px;border-radius:20px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:1.9rem;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--chunk-sm);cursor:pointer;transition:transform .15s,opacity .3s}
+  .ltile:active{transform:translateY(4px)}
+  .ltile.used{opacity:.18;pointer-events:none;transform:scale(.9)}
+
+  /* cloze */
+  .cloze{background:var(--cloud);color:var(--ink);border-radius:28px;padding:26px 22px;box-shadow:var(--chunk);
+    max-width:480px;margin:0 auto;text-align:center;font-family:var(--display);font-weight:800;font-size:1.8rem;line-height:1.5}
+  .cloze .gap{display:inline-block;min-width:96px;border-bottom:5px dashed #C9C4EF;margin:0 6px;color:var(--sky)}
+  .cloze .gap.filled{border-bottom-color:#C9C4EF}
+  .bank{display:flex;gap:12px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+  .bank .ttile{padding:14px 26px;font-size:1.35rem}
+
+  /* results */
+  .res{min-height:56vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+  .bigstar{width:140px;height:140px;filter:drop-shadow(0 0 30px rgba(255,197,49,.85));animation:bigstar .8s cubic-bezier(.3,1.6,.4,1)}
+  @keyframes bigstar{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+  .res h2{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.2}
+  .res .sub{font-family:var(--display);font-weight:800;font-size:1.1rem;color:rgba(255,255,255,.85)}
+  .chip{display:inline-block;background:var(--sun);color:#5C4200;font-family:var(--display);font-weight:800;
+    font-size:.95rem;padding:10px 20px;border-radius:100px;box-shadow:0 5px 0 rgba(0,0,0,.16)}
+  .pnote{background:rgba(255,255,255,.1);border:2px dashed rgba(255,255,255,.3);border-radius:22px;
+    padding:16px 20px;max-width:460px;font-size:.75rem;font-weight:600;color:rgba(255,255,255,.8);line-height:1.6;text-align:left}
+  .pnote b{color:#fff}
+
+  .note{margin-top:30px;text-align:center;color:rgba(255,255,255,.55);font-size:.66rem;font-weight:600;line-height:1.6}
+  .contract{background:rgba(255,255,255,.08);border-radius:16px;padding:10px 14px;margin-top:16px;
+    font-size:.68rem;font-weight:700;color:rgba(255,255,255,.75);line-height:1.55;text-align:center}
+  .contract b{color:var(--sun)}
+
+  .demo-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:50;width:min(96%,640px);
+    background:var(--cloud);border-radius:22px;padding:9px 12px;box-shadow:0 10px 0 rgba(0,0,0,.2);
+    display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .demo-btn{font-family:var(--display);font-weight:700;font-size:.66rem;color:var(--ink);background:#EFEDFA;
+    border:none;border-radius:100px;padding:8px 12px;cursor:pointer}
+  .demo-btn:active{transform:translateY(2px)}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <path id="starp" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/>
+</defs></svg>
+
+<div class="stage">
+
+  <div class="climb" id="climb">
+    <span class="lbl">Finding your star</span>
+    <div class="rungs" id="rungs"></div>
+    <svg class="climbstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+  </div>
+
+  <!-- INTRO -->
+  <section class="screen" id="s-intro">
+    <div class="intro-card">
+      <h2>Find your starting star</h2>
+      <p>Nova will show you a few things — some easy, some tricky. <b>There are no wrong answers here.</b> Just show her what you know, and she'll find the perfect place for your adventure to begin.</p>
+      <div class="facts">
+        <span class="fact f1">usually about 2 minutes</span>
+        <span class="fact f2">it can end early — that's normal!</span>
+        <span class="fact f3">no scores, no marks</span>
+      </div>
+      <button class="btn sunb" onclick="startWarm()">Let's go, Nova!</button>
+    </div>
+    <div class="contract">Copy fix shipped here: no more "3–5 minutes" promise — <b>"about 2 minutes"</b> + early-end normalized. Progress shows rungs, never a fixed count.</div>
+    <div class="note">Direction I · Placement Adventure v2 · Blank doctrine §6: measurement is unassisted, production-weighted, prerequisite-gated, branchable</div>
+  </section>
+
+  <!-- WARM-UP: SEQUENCING GATE -->
+  <section class="screen" id="s-warm">
+    <div class="eyebrow">Warm-up · watch, then copy</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-warm">Copy my letters — same order, left to right!</div>
+    </div>
+    <div class="seq-sample" id="seqSample"></div>
+    <div class="seq-answer" id="seqAnswer"></div>
+    <div class="seq-tray" id="seqTray"></div>
+    <div class="contract"><b>Sequencing gate</b> (RK Skills Survey / Seeing Sequences): left-to-right visual matching is the prerequisite skill. Any tap is accepted and scored silently; a child who struggles here routes to a <b>gentle start</b> — Unit 1 plus sequence warm-up games — instead of harder probes. Doubles as the tap tutorial.</div>
+  </section>
+
+  <!-- PROBE: RECOGNITION -->
+  <section class="screen" id="s-spot">
+    <div class="eyebrow">Word probe · recognition</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-spot">Which one says dog?</div>
+    </div>
+    <div class="prompt">Tap <span class="target">dog</span></div>
+    <div class="grid" id="grid-spot"></div>
+    <div class="contract"><b>Measurement mode — §5a lives here.</b> Tap ANY tile: right and wrong get the identical white trail and the same "Ooh, next!" No wiggle, no soften, no hint-glow — those classes don't exist on this page. The child cannot tell a miss from a hit.</div>
+  </section>
+
+  <!-- PROBE: PRODUCTION (BUILD, MEASUREMENT MODE) -->
+  <section class="screen" id="s-build">
+    <div class="eyebrow">Word probe · production</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-build">Can you build cat?</div>
+    </div>
+    <div class="prompt">Build <span class="target">cat</span></div>
+    <div class="slots" id="slots"></div>
+    <div class="tray" id="tray"></div>
+    <div class="contract"><b>The contract split that makes placement honest:</b> teaching-mode Build It bounces wrong tiles back (errorless). Measurement-mode Build It <b>places every tile you tap</b>, in order, no judgment — try building it wrong. Three tiles in, Nova says "Ooh, next!" either way. This is Blank's "write cat" pretest, tablet-native. Production evidence, not tap-recognition.</div>
+  </section>
+
+  <!-- PROBE: SENTENCE RUNG -->
+  <section class="screen" id="s-sent">
+    <div class="eyebrow">Higher rung · sentence</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-sent">Finish the sentence!</div>
+    </div>
+    <div class="cloze" id="cloze">The frogs <span class="gap" id="gap">&nbsp;</span> jump.</div>
+    <div class="bank" id="bank"></div>
+    <div class="contract">Higher rungs mix in <b>sentence-level items</b> (RK Skills Survey reads AND writes words + sentences). Same neutral treatment. The ladder climbs until <b>two misses land</b> — then it stops gracefully and the floor locks below them (two-miss floor, from the queue).</div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="s-results">
+    <div class="res">
+      <svg class="bigstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+      <h2 id="res-h">Nova found your starting star!</h2>
+      <div class="sub" id="res-sub">Your adventure begins at Unit 4</div>
+      <span class="chip" id="res-chip">Starting star: Unit 4</span>
+      <div class="pnote">
+        <b>For grown-ups (stored, never shown to the child):</b> unit floor set at 4 · per-probe evidence saved (recognition vs production, per word) · words above the floor still get their own one-word pretest, so nothing known is ever re-taught · future Star Check-Ins use these same unassisted probes and can add <b>review prescriptions</b> (see Grown-Ups mockup H) — the displayed level never regresses.
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn mint" onclick="reset()">Start the adventure</button>
+        <button class="btn ghosty" onclick="reset()">Replay demo</button>
+      </div>
+    </div>
+    <div class="note">No scores, no percentages, no "you got X right" — the child receives a starting place, full stop.</div>
+  </section>
+
+</div>
+
+<div class="demo-bar">
+  <button class="demo-btn" onclick="reset()">Intro</button>
+  <button class="demo-btn" onclick="startWarm()">Warm-up</button>
+  <button class="demo-btn" onclick="jump('spot')">Spot probe</button>
+  <button class="demo-btn" onclick="jump('build')">Build probe</button>
+  <button class="demo-btn" onclick="jump('sent')">Sentence rung</button>
+  <button class="demo-btn" onclick="twoMiss()">Two-miss floor</button>
+  <button class="demo-btn" onclick="finish(false)">Results</button>
+</div>
+
+<script>
+var $=function(s){return document.querySelector(s)};
+var rung=0, TOTAL=5;
+
+/* rung indicator: 5 dots + trailing ellipsis (no fixed-length promise) */
+(function(){
+  var r=$('#rungs');
+  for(var i=0;i<TOTAL;i++){var d=document.createElement('div');d.className='rung';r.appendChild(d);}
+  var dots=document.createElement('div');dots.className='rung dots';dots.textContent='...';r.appendChild(dots);
+})();
+function lightRung(){ rung=Math.min(rung+1,TOTAL);
+  var rs=document.querySelectorAll('.rung:not(.dots)');
+  for(var i=0;i<rs.length;i++) rs[i].classList.toggle('lit', i<rung);
+}
+function go(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on')});
+  $('#'+id).classList.add('on'); window.scrollTo(0,0);
+}
+function reset(){ rung=0; lightRung(); rung=0;
+  document.querySelectorAll('.rung:not(.dots)').forEach(function(r){r.classList.remove('lit')});
+  go('s-intro');
+}
+
+/* neutral advance: identical for every answer */
+function trailAdvance(el, next){
+  el.classList.add('trail');
+  setTimeout(function(){ lightRung(); next(); }, 650);
+}
+
+/* ── WARM-UP: two sequencing rounds ── */
+var warmRound=0;
+function startWarm(){ warmRound=0; go('s-warm'); warmSeq(['c','a'],['a','c','o','t']); }
+function warmSeq(sample, tray){
+  $('#bb-warm').textContent = warmRound===0 ? 'Copy my letters — same order, left to right!' : 'One more — a longer one!';
+  var s=$('#seqSample'), a=$('#seqAnswer'), t=$('#seqTray');
+  s.innerHTML=sample.map(function(L){return '<div class="sq">'+L+'</div>'}).join('');
+  a.innerHTML=sample.map(function(){return '<div class="sq slot">&nbsp;</div>'}).join('');
+  t.innerHTML='';
+  var idx=0;
+  tray.forEach(function(L){
+    var d=document.createElement('div'); d.className='sq pick'; d.textContent=L;
+    d.onclick=function(){
+      if(d.classList.contains('used')||idx>=sample.length) return;
+      d.classList.add('used');
+      var slot=a.children[idx]; slot.textContent=L; slot.classList.add('filled'); idx++;
+      /* measurement: ANY letter is accepted into the next slot */
+      if(idx===sample.length){
+        setTimeout(function(){
+          lightRung();
+          if(warmRound===0){ warmRound=1; warmSeq(['s','u','n'],['n','s','a','u','t']); }
+          else jump('spot');
+        },600);
+      }
+    };
+    t.appendChild(d);
+  });
+}
+
+/* ── PROBES ── */
+function jump(which){
+  if(which==='spot'){ initSpot(); go('s-spot'); }
+  if(which==='build'){ initBuild(); go('s-build'); }
+  if(which==='sent'){ initSent(); go('s-sent'); }
+}
+function initSpot(){
+  var g=$('#grid-spot'); g.innerHTML='';
+  ['dot','dog','dig','bog'].forEach(function(w){
+    var t=document.createElement('div'); t.className='ttile'; t.textContent=w;
+    t.onclick=function(){
+      g.querySelectorAll('.ttile').forEach(function(x){x.onclick=null});
+      $('#bb-spot').textContent='Ooh, next!';
+      trailAdvance(t, function(){ jump('build'); });
+    };
+    g.appendChild(t);
+  });
+}
+function initBuild(){
+  var slots=$('#slots'), tray=$('#tray');
+  slots.innerHTML=''; tray.innerHTML='';
+  for(var i=0;i<3;i++){var s=document.createElement('div');s.className='slot';s.innerHTML='&nbsp;';slots.appendChild(s);}
+  var idx=0;
+  ['t','c','o','a','s'].forEach(function(L){
+    var d=document.createElement('div'); d.className='ltile'; d.textContent=L;
+    d.onclick=function(){
+      if(d.classList.contains('used')||idx>=3) return;
+      d.classList.add('used');
+      var slot=slots.children[idx]; slot.textContent=L; slot.classList.add('filled'); idx++;
+      /* measurement mode: every tile places — right or wrong. Scored silently. */
+      if(idx===3){
+        $('#bb-build').textContent='Ooh, next!';
+        setTimeout(function(){ lightRung(); jump('sent'); },700);
+      }
+    };
+    tray.appendChild(d);
+  });
+}
+function initSent(){
+  var b=$('#bank'); b.innerHTML='';
+  $('#gap').innerHTML='&nbsp;'; $('#gap').classList.remove('filled');
+  ['the','can','big'].forEach(function(w){
+    var t=document.createElement('div'); t.className='ttile'; t.textContent=w;
+    t.onclick=function(){
+      b.querySelectorAll('.ttile').forEach(function(x){x.onclick=null});
+      $('#gap').textContent=w; $('#gap').classList.add('filled');
+      $('#bb-sent').textContent='Ooh, next!';
+      trailAdvance(t, function(){ finish(false); });
+    };
+    b.appendChild(t);
+  });
+}
+
+/* ── endings ── */
+function finish(early){
+  if(early){
+    $('#res-h').textContent='Nova found your starting star!';
+    $('#res-sub').textContent='Two tricky ones landed — the climb stopped there, gently. Your adventure begins at Unit 3.';
+    $('#res-chip').textContent='Starting star: Unit 3 (two-miss floor)';
+  } else {
+    $('#res-h').textContent='Nova found your starting star!';
+    $('#res-sub').textContent='Your adventure begins at Unit 4';
+    $('#res-chip').textContent='Starting star: Unit 4';
+  }
+  go('s-results');
+}
+function twoMiss(){ finish(true); }
+
+reset();
+</script>
+</body>
+</html>
