@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction O: The Star Check (Dr. Blank's 25-Word Placement)</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16); --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);overflow-x:hidden;min-height:100vh;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%)}
+  .stage{position:relative;max-width:640px;margin:0 auto;padding:24px 22px 150px;z-index:1}
+  .screen{display:none}
+  .screen.on{display:block;animation:fadeUp .35s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* ── climb indicator: 5 rungs = Dr. Blank's 5 levels; lit only when a level is PASSED ── */
+  .climb{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .climb .lbl{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.1em;
+    text-transform:uppercase;color:rgba(255,255,255,.65)}
+  .rungs{flex:1;display:flex;gap:7px;align-items:center}
+  .rung{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.18);transition:all .4s}
+  .rung.lit{background:var(--sun);box-shadow:0 0 10px rgba(255,197,49,.7)}
+  .climbstar{width:24px;height:24px;filter:drop-shadow(0 0 8px rgba(255,197,49,.8))}
+
+  .nova-row{display:flex;align-items:center;gap:14px;margin:8px 0 20px}
+  .porthole{width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7A6BF0,var(--sky-deep) 70%);
+    border:5px solid rgba(255,255,255,.9);box-shadow:var(--chunk-sm);position:relative;overflow:hidden;flex:0 0 auto}
+  .nova{position:absolute;inset:10%}
+  .n-core{position:absolute;inset:8%;border-radius:50% 50% 46% 54%/56% 50% 50% 44%;
+    background:radial-gradient(circle at 36% 30%,#FFF6D8,var(--sun) 55%,#F09A12 100%)}
+  .n-eye{position:absolute;top:34%;width:11%;height:16%;border-radius:50%;background:var(--ink)}
+  .n-eye.l{left:30%}.n-eye.r{right:30%}
+  .n-eye::after{content:'';position:absolute;top:15%;left:15%;width:42%;height:42%;border-radius:50%;background:#fff}
+  .n-smile{position:absolute;top:56%;left:50%;transform:translateX(-50%);width:22%;height:11%;
+    border-radius:0 0 40px 40px;background:var(--ink)}
+  .bub{background:var(--cloud);color:var(--ink);border-radius:22px 22px 22px 4px;padding:12px 18px;
+    font-family:var(--display);font-weight:700;font-size:.98rem;box-shadow:var(--chunk-sm);min-height:44px;display:flex;align-items:center}
+
+  .eyebrow{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:6px}
+  .hearrow{display:flex;flex-direction:column;align-items:center;gap:6px;margin:4px 0 22px}
+  .hearbtn{width:74px;height:74px;border-radius:50%;background:var(--cloud);color:var(--ink);border:none;cursor:pointer;
+    box-shadow:var(--chunk-sm);display:flex;align-items:center;justify-content:center;transition:transform .15s}
+  .hearbtn:active{transform:translateY(4px)}
+  .hearbtn svg{width:38px;height:38px}
+  .hearlbl{font-family:var(--display);font-weight:800;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+  .vocap{text-align:center;font-weight:700;font-size:.7rem;color:var(--mint);margin:-8px 0 16px}
+  body.notes-off .vocap{display:none}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:1rem;padding:14px 30px;border-radius:100px;border:none;
+    cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.15);transition:transform .15s}
+  .btn:active{transform:translateY(5px)}
+  .btn.sunb{background:var(--sun);color:#5C4200}
+  .btn.mint{background:var(--mint);color:#00432F}
+  .btn.ghosty{background:rgba(255,255,255,.16);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.1)}
+  .center{text-align:center}
+
+  .intro-card{background:var(--cloud);color:var(--ink);border-radius:30px;padding:26px;box-shadow:var(--chunk);text-align:center}
+  .intro-card h2{font-family:var(--display);font-weight:800;font-size:1.9rem;margin-bottom:10px}
+  .intro-card p{font-size:.88rem;font-weight:600;color:#5C548F;line-height:1.6;max-width:420px;margin:0 auto 8px}
+  .facts{display:flex;gap:10px;justify-content:center;margin:16px 0;flex-wrap:wrap}
+  .fact{font-family:var(--display);font-weight:800;font-size:.72rem;padding:8px 15px;border-radius:100px;
+    box-shadow:0 4px 0 rgba(0,0,0,.12)}
+  .f1{background:var(--sun);color:#5C4200}.f2{background:var(--mint);color:#00543E}.f3{background:#EDEBFA;color:var(--ink)}
+
+  /* sequence warm-up */
+  .seq-sample{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
+  .seq-answer{display:flex;gap:12px;justify-content:center;min-height:78px;margin-bottom:18px}
+  .sq{width:70px;height:70px;border-radius:20px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:2rem;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--chunk-sm)}
+  .sq.slot{background:rgba(255,255,255,.12);border:3px dashed rgba(255,255,255,.4);box-shadow:none;color:#fff}
+  .sq.slot.filled{background:var(--cloud);border-color:var(--cloud);color:var(--ink);box-shadow:var(--chunk-sm);
+    animation:slotPop .3s cubic-bezier(.3,1.7,.4,1)}
+  @keyframes slotPop{from{transform:scale(.6)}to{transform:scale(1)}}
+  .seq-tray{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .sq.pick{cursor:pointer;transition:transform .15s,opacity .3s}
+  .sq.pick:active{transform:translateY(4px)}
+  .sq.pick.used{opacity:.18;pointer-events:none}
+
+  /* probe tiles — MEASUREMENT MODE: no hint-glow, no wiggle, no soften anywhere on this page */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto}
+  .ttile{background:var(--cloud);color:var(--ink);border-radius:26px;padding:24px 12px;box-shadow:var(--chunk);
+    cursor:pointer;text-align:center;font-family:var(--display);font-weight:800;font-size:1.55rem;
+    transition:transform .2s;letter-spacing:.03em}
+  .ttile:active{transform:translateY(5px)}
+  /* neutral trail — identical for right AND wrong answers */
+  .trail{box-shadow:var(--chunk),0 0 0 5px rgba(255,255,255,.55),0 0 22px rgba(255,255,255,.5) !important}
+
+  /* picture-variant tiles (kid worked example) */
+  .ptile{background:var(--cloud);border-radius:26px;padding:14px 10px 10px;box-shadow:var(--chunk);cursor:pointer;
+    text-align:center;transition:transform .2s}
+  .ptile:active{transform:translateY(5px)}
+  .ptile svg{width:80px;height:80px;display:block;margin:0 auto}
+  .variant-row{text-align:center;margin-top:16px}
+
+  .chip{display:inline-block;background:var(--sun);color:#5C4200;font-family:var(--display);font-weight:800;
+    font-size:.95rem;padding:10px 20px;border-radius:100px;box-shadow:0 5px 0 rgba(0,0,0,.16)}
+  .chip.m{background:var(--mint);color:#00432F}
+  .chip.g{background:#EDEBFA;color:var(--ink)}
+
+  /* level lift interstitial */
+  .lift{min-height:44vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+  .lift h2{font-family:var(--display);font-weight:800;font-size:1.7rem}
+
+  /* results */
+  .res{min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px}
+  .bigstar{width:140px;height:140px;filter:drop-shadow(0 0 30px rgba(255,197,49,.85));animation:bigstar .8s cubic-bezier(.3,1.6,.4,1)}
+  @keyframes bigstar{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+  .res h2{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.2}
+  .res .sub{font-family:var(--display);font-weight:800;font-size:1.05rem;color:rgba(255,255,255,.85)}
+  .pathrow{display:flex;gap:14px;align-items:center;margin-top:6px}
+  .pdot{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.18)}
+  .pdot.you{width:30px;height:30px;background:var(--sun);box-shadow:0 0 18px rgba(255,197,49,.85)}
+
+  /* grown-up / researcher record */
+  .gcard{background:var(--cloud);color:var(--ink);border-radius:28px;padding:22px;box-shadow:var(--chunk)}
+  .gcard h3{font-family:var(--display);font-weight:800;font-size:1.25rem;margin-bottom:10px}
+  .gchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  table.rec{width:100%;border-collapse:collapse;font-size:.78rem;font-weight:600}
+  table.rec th{font-family:var(--display);font-weight:800;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;
+    color:#8A83C0;text-align:left;padding:7px 8px;border-bottom:2px solid #EDEBFA}
+  table.rec td{padding:7px 8px;border-bottom:1px solid #F2F0FB}
+  td.ok{color:#0E7C5B;font-weight:700}
+  td.miss{color:#B05A00;font-weight:700}
+  td.skip{color:#8A83C0}
+  .lvlrow td{background:#F7F6FD;font-family:var(--display);font-weight:800;font-size:.72rem;color:var(--ink)}
+
+  .contract{background:rgba(255,255,255,.08);border-radius:16px;padding:10px 14px;margin-top:16px;
+    font-size:.68rem;font-weight:700;color:rgba(255,255,255,.75);line-height:1.55;text-align:center}
+  .contract b{color:var(--sun)}
+  .contract i{color:var(--mint);font-style:normal;font-weight:800}
+  .note{margin-top:30px;text-align:center;color:rgba(255,255,255,.55);font-size:.66rem;font-weight:600;line-height:1.6}
+  body.notes-off .contract, body.notes-off .note{display:none}
+
+  .demo-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:50;width:min(96%,640px);
+    background:var(--cloud);border-radius:22px;padding:9px 12px;box-shadow:0 10px 0 rgba(0,0,0,.2);
+    display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .demo-btn{font-family:var(--display);font-weight:700;font-size:.66rem;color:var(--ink);background:#EFEDFA;
+    border:none;border-radius:100px;padding:8px 12px;cursor:pointer}
+  .demo-btn:active{transform:translateY(2px)}
+  @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <path id="starp" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/>
+</defs></svg>
+
+<div class="stage">
+
+  <div class="climb" id="climb">
+    <span class="lbl">The Star Check</span>
+    <div class="rungs" id="rungs"></div>
+    <svg class="climbstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+  </div>
+
+  <!-- INTRO -->
+  <section class="screen on" id="s-intro">
+    <div class="intro-card">
+      <h2>Find your starting star</h2>
+      <p>Nova will show you some words — a few easy ones, a few tricky ones. <b>There are no wrong answers here.</b> Show her what you know, and she'll find the perfect place for your adventure to begin.</p>
+      <div class="facts">
+        <span class="fact f1">usually just a few minutes</span>
+        <span class="fact f2">it can end early — that's normal!</span>
+        <span class="fact f3">no scores, no marks</span>
+      </div>
+      <button class="btn sunb" onclick="startWarm()">Let's go, Nova!</button>
+    </div>
+    <div class="contract"><b>[HER DOC]</b> Item bank is Dr. Blank's "Magic Words for the Revision" (July 13, 2026) <b>verbatim</b>: 5 levels, 5 words each, run bottom-up. Two probes per word: <b>meaning</b> (spoken word to picture — does the child know the word) then <b>look-alike</b> (can they read its exact form). Words with no unambiguous picture run the print probe only, never a faked meaning item. <i>[QUESTION]</i> Fixed 25-word bank, or a format sample to extend per level?</div>
+    <div class="note">Direction O · The Star Check · item bank: Dr. Marion Blank, July 13 2026 · NOT CANON until her sign-off · demo bar below is dev-only</div>
+  </section>
+
+  <!-- WARM-UP: SEQUENCING GATE -->
+  <section class="screen" id="s-warm">
+    <div class="eyebrow">Warm-up · watch, then copy</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub">Copy me — same order, left to right!</div>
+    </div>
+    <div class="seq-sample" id="seqSample"></div>
+    <div class="seq-answer" id="seqAnswer"></div>
+    <div class="seq-tray" id="seqTray"></div>
+    <div class="contract"><b>[HER METHOD Sources 6.3]</b> Prerequisite skills are gated first — sequencing before word items. Scored silently; a struggle here routes to the <b>Star Seeds gentle start</b> instead of harder probes. Doubles as the tap tutorial.</div>
+  </section>
+
+  <!-- PROBE A: MEANING -->
+  <section class="screen" id="s-probeA">
+    <div class="eyebrow" id="eyeA">Level 1 · word 1 of 5 · meaning probe</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bubA">Listen and find the word!</div>
+    </div>
+    <div class="hearrow"><button class="hearbtn" onclick="replay()" aria-label="Hear it again">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a4.5 4.5 0 010 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M18.8 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    </button><span class="hearlbl">Hear it again</span></div>
+    <div class="vocap" id="vocapA"></div>
+    <div class="grid" id="gridA"></div>
+    <div class="variant-row" id="variantRow" style="display:none">
+      <button class="btn ghosty" onclick="toggleVariant()" id="variantBtn">See the picture variant</button>
+    </div>
+    <div class="contract" id="noteA"></div>
+  </section>
+
+  <!-- PROBE B: LOOK-ALIKE -->
+  <section class="screen" id="s-probeB">
+    <div class="eyebrow" id="eyeB">Level 1 · word 1 of 5 · look-alike probe</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bubB">Listen close — this one is tricky!</div>
+    </div>
+    <div class="hearrow"><button class="hearbtn" onclick="replay()" aria-label="Hear it again">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a4.5 4.5 0 010 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M18.8 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    </button><span class="hearlbl">Hear it again</span></div>
+    <div class="vocap" id="vocapB"></div>
+    <div class="grid" id="gridB"></div>
+    <div class="contract" id="noteB"></div>
+  </section>
+
+  <!-- LEVEL LIFT -->
+  <section class="screen" id="s-lift">
+    <div class="lift">
+      <svg width="70" height="70" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+      <h2 id="liftTitle">Up we float!</h2>
+      <div class="bub" id="liftBub" style="border-radius:22px">New stars ahead — ready?</div>
+      <button class="btn mint" onclick="render()">Keep going</button>
+    </div>
+    <div class="contract"><b>[PROPOSED — confirm]</b> A level is passed with <b>at most 1 missed word</b> out of 5 (a word counts as known only when BOTH probes are correct). The pass is silent to the child — this drift moment is pacing, not praise.</div>
+  </section>
+
+  <!-- CHILD RESULTS -->
+  <section class="screen" id="s-done">
+    <div class="res">
+      <svg class="bigstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+      <h2>You found your starting star!</h2>
+      <div class="sub" id="doneSub">Nova knows the perfect place to begin.</div>
+      <div class="pathrow" id="pathrow"></div>
+      <div style="margin-top:14px"><button class="btn sunb" onclick="showGrown()">See the grown-up record</button>
+      <button class="btn ghosty" onclick="reset()">Replay demo</button></div>
+    </div>
+    <div class="contract"><b>[PROPOSED]</b> Child results are <b>scoreless</b> — no numbers, no level names, no pass/fail language. The glowing dot is simply "where your journey starts." Never-regress display rule carries over from the ratified design.</div>
+  </section>
+
+  <!-- GROWN-UP / RESEARCHER RECORD -->
+  <section class="screen" id="s-grown">
+    <div class="gcard">
+      <h3>Star Check record</h3>
+      <div class="gchips" id="gchips"></div>
+      <table class="rec" id="recTable"></table>
+    </div>
+    <div class="contract"><b>[PROPOSED — confirm]</b> Routing rule shown to you, never the child: proceed word by word, both probes each; a word is <b>Known</b> only if both are correct. <b>Two missed words within a level ends the check</b> ("child moves on if stuck") and teaching begins at that level. Pass all five levels and placement lands beyond Level 5 — mapping her 5 levels onto our 18 units is a curriculum-reconciliation deliverable.</div>
+    <div class="center" style="margin-top:16px"><button class="btn ghosty" onclick="reset()">Replay demo</button></div>
+  </section>
+
+  <div class="note" id="footNote">Measurement contract on every probe: identical feedback for right and wrong, no hints, no scaffold — "Do not offer any assistance." Foil sets beyond "kid" follow her look-alike engineering; picture art is placeholder — both await her ratification tables. Voice: run make-nova-audio.mjs once on your machine to bake Nova's ElevenLabs clips into this file; until then the browser voice fills in.</div>
+</div>
+
+<!-- DEMO BAR (dev only) -->
+<div class="demo-bar">
+  <button class="demo-btn" onclick="reset()">Intro</button>
+  <button class="demo-btn" onclick="startWarm()">Warm-up</button>
+  <button class="demo-btn" onclick="beginCheck()">Level 1</button>
+  <button class="demo-btn" onclick="autoPassLevel()">Auto-pass level</button>
+  <button class="demo-btn" onclick="forceFloor()">Force 2 misses</button>
+  <button class="demo-btn" onclick="go('s-done')">Child result</button>
+  <button class="demo-btn" onclick="showGrown()">Grown-up record</button>
+  <button class="demo-btn" onclick="toggleSound()">Sound on/off</button>
+  <button class="demo-btn" onclick="document.body.classList.toggle('notes-off')">Pitch notes on/off</button>
+</div>
+
+<script>
+/* ============ DR. BLANK'S ITEM BANK — words verbatim from her July 13 2026 document ============
+   pos: n = concrete noun -> her frame verbatim "Find the one that is a/an ___"; w = everything else -> "Find the word ___"
+   VO rule: the target is SPOKEN, never printed on measurement screens (dictation-style)
+   A = meaning-probe options (semantic register, low letter overlap) — kid set is HERS verbatim, others illustrative
+   B = look-alike options — kid set is hers with one foil swapped for child-safety (kin/kid/kit/bid); others generated to her pattern */
+var BANK = [
+ {n:1, words:[
+  {w:'kid',   pos:'n',  A:['man','dog','kid','bird'],        B:['kin','kid','kit','bid'],
+    tag:'<b>[HER DOC]</b> Her worked example, pictures reading: man / dog / kid / bird. The print set is hers too, with one foil swapped — noted on the next screen.'},
+  {w:'girl',  pos:'n',  A:['boy','girl','cat','bus'],        B:['gill','girl','grid','gird']},
+  {w:'boys',  pos:'pl', A:['girls','boys','cows','hats'],    B:['bogs','boys','buys','sobs'],
+    tag:'<i>[QUESTION]</i> "boys" is a plural form at Level 1 (also rocks L3, trees L5). Ties to our word-forms question: should the v1 check use base forms, or do forms belong in assessment from the start?'},
+  {w:'eat',   pos:'w',  A:['run','eat','hop','sit'],         B:['ate','eat','tea','oat']},
+  {w:'rest',  pos:'w',  A:['play','rest','jump','swim'],     B:['rust','rest','nest','rats']}
+ ]},
+ {n:2, words:[
+  {w:'baby',  pos:'n',  A:['man','baby','cow','fish'],       B:['babe','baby','bays','tabby']},
+  {w:'good',  pos:'w',  A:['bad','good','wet','tall'],       B:['goad','good','gold','hood']},
+  {w:'duck',  pos:'n',  A:['cat','duck','cow','pig'],        B:['dusk','duck','dock','luck']},
+  {w:'move',  pos:'w',  A:['stop','move','clap','sit'],      B:['mole','move','dove','movie']},
+  {w:'water', pos:'m', A:['milk','water','sand','fire'],    B:['wader','water','waiter','later']}
+ ]},
+ {n:3, words:[
+  {w:'sad',   pos:'w',  A:['happy','sad','cold','big'],      B:['sat','sad','ads','said']},
+  {w:'rocks', pos:'pl', A:['sticks','rocks','leaves','shells'], B:['socks','rocks','racks','corks']},
+  {w:'cry',   pos:'w',  A:['laugh','cry','sing','hop'],      B:['dry','cry','wry','fry']},
+  {w:'hole',  pos:'n',  A:['door','hole','hill','box'],      B:['hold','hole','mole','whole'],
+    tag:'<i>[RECON FLAG]</i> "hole" is in her test but currently absent from our 200-word curriculum — placement items and teaching inventory must be reconciled before build.'},
+  {w:'push',  pos:'w',  A:['pull','push','drop','run'],      B:['posh','push','plush','bush']}
+ ]},
+ {n:4, words:[
+  {w:'plant', pos:'n',  A:['grass','plant','bug','stone'],   B:['plane','plant','pant','planet']},
+  {w:'animal',pos:'n',  A:['person','animal','house','cloud'],B:['annual','animal','manila','lamina']},
+  {w:'small', pos:'w',  A:['big','small','hot','wet'],       B:['smell','small','stall','malls']},
+  {w:'dig',   pos:'w',  A:['jump','dig','swim','clap'],      B:['dip','dig','big','grid']},
+  {w:'safe',  pos:'w',  A:['lost','safe','cold','loud'],     B:['save','safe','sale','sofa']}
+ ]},
+ {n:5, words:[
+  {w:'bite',  pos:'w',  A:['kick','bite','wave','hug'],      B:['bit','bite','kite','tribe']},
+  {w:'letter',pos:'n',  A:['book','letter','chair','lamp'],  B:['later','letter','litter','settle']},
+  {w:'smile', pos:'w',  A:['frown','smile','wave','nod'],    B:['slime','smile','miles','mile']},
+  {w:'open',  pos:'w',  A:['shut','open','warm','tall'],     B:['oven','open','nope','pen']},
+  {w:'trees', pos:'pl', A:['bushes','trees','hills','roads'],B:['tress','trees','steer','tries']}
+ ]}
+];
+
+/* Icon pool for the picture meaning-probe. Flat token-palette shapes, no letterforms anywhere. */
+var PICS = {
+ man:'<svg viewBox="0 0 80 80"><circle cx="40" cy="14" r="8.5" fill="#FFC531"/><circle cx="36.9" cy="12.5" r="1.6" fill="#2A2160"/><circle cx="43.1" cy="12.5" r="1.6" fill="#2A2160"/><path d="M31.5 16 L48.5 16 L48.5 18 A8.5 8 0 0 1 31.5 18 Z" fill="#2A2160"/><rect x="26" y="25" width="28" height="27" rx="10" fill="#5B4BD6"/><rect x="31" y="52" width="6.5" height="22" rx="3" fill="#2A2160"/><rect x="42.5" y="52" width="6.5" height="22" rx="3" fill="#2A2160"/></svg>',
+ kid:'<svg viewBox="0 0 80 80"><circle cx="40" cy="26" r="11" fill="#FFC531"/><circle cx="36.2" cy="24" r="2" fill="#2A2160"/><circle cx="43.8" cy="24" r="2" fill="#2A2160"/><path d="M36 30 Q40 33.5 44 30" stroke="#2A2160" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="32" y="38" width="16" height="16" rx="7" fill="#FF8A4C"/><rect x="34.5" y="54" width="5" height="11" rx="2.5" fill="#2A2160"/><rect x="40.5" y="54" width="5" height="11" rx="2.5" fill="#2A2160"/></svg>',
+ dog:'<svg viewBox="0 0 80 80"><ellipse cx="42" cy="48" rx="22" ry="14" fill="#FF8A4C"/><circle cx="20" cy="40" r="11" fill="#FF8A4C"/><path d="M12 32 L8 20 L20 30 Z" fill="#E06B2D"/><circle cx="17" cy="38" r="2.4" fill="#2A2160"/><path d="M62 44 Q74 36 70 50" stroke="#FF8A4C" stroke-width="6" fill="none" stroke-linecap="round"/><rect x="30" y="58" width="6" height="14" rx="3" fill="#E06B2D"/><rect x="48" y="58" width="6" height="14" rx="3" fill="#E06B2D"/></svg>',
+ bird:'<svg viewBox="0 0 80 80"><ellipse cx="40" cy="44" rx="16" ry="13" fill="#FF6FA5"/><circle cx="54" cy="34" r="8" fill="#FF6FA5"/><path d="M61 33 L70 36 L61 39 Z" fill="#FFC531"/><circle cx="56" cy="32" r="2" fill="#2A2160"/><path d="M28 42 Q18 38 22 50" fill="#E0538B"/><rect x="36" y="56" width="3" height="12" fill="#FFC531"/><rect x="43" y="56" width="3" height="12" fill="#FFC531"/></svg>',
+ boy:'<svg viewBox="0 0 80 80"><path d="M30 16 a10 10 0 0 1 20 0 l2 2 h-24 z" fill="#5B4BD6"/><circle cx="40" cy="24" r="9" fill="#FFC531"/><circle cx="36.8" cy="23" r="1.6" fill="#2A2160"/><circle cx="43.2" cy="23" r="1.6" fill="#2A2160"/><path d="M37 27 Q40 29 43 27" stroke="#2A2160" stroke-width="1.7" fill="none" stroke-linecap="round"/><rect x="31" y="34" width="18" height="20" rx="8" fill="#3EE0B8"/><rect x="34" y="54" width="5" height="16" rx="2.5" fill="#2A2160"/><rect x="41" y="54" width="5" height="16" rx="2.5" fill="#2A2160"/></svg>',
+ girl:'<svg viewBox="0 0 80 80"><path d="M28 22 q0 -14 12 -14 q12 0 12 14 l3 12 h-30 z" fill="#E06B2D"/><circle cx="40" cy="22" r="9" fill="#FFC531"/><circle cx="36.8" cy="21" r="1.6" fill="#2A2160"/><circle cx="43.2" cy="21" r="1.6" fill="#2A2160"/><path d="M37 25 Q40 27 43 25" stroke="#2A2160" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M30 34 h20 l6 22 h-32 z" fill="#FF6FA5"/><rect x="34" y="56" width="5" height="14" rx="2.5" fill="#FFC531"/><rect x="41" y="56" width="5" height="14" rx="2.5" fill="#FFC531"/></svg>',
+ boys:'<svg viewBox="0 0 80 80"><g><circle cx="26" cy="24" r="7" fill="#FFC531"/><circle cx="23.7" cy="23" r="1.2" fill="#2A2160"/><circle cx="28.3" cy="23" r="1.2" fill="#2A2160"/><rect x="19" y="32" width="14" height="15" rx="6" fill="#5B4BD6"/><rect x="22" y="47" width="4" height="13" rx="2" fill="#2A2160"/><rect x="28" y="47" width="4" height="13" rx="2" fill="#2A2160"/></g><g><circle cx="54" cy="24" r="7" fill="#FFC531"/><circle cx="51.7" cy="23" r="1.2" fill="#2A2160"/><circle cx="56.3" cy="23" r="1.2" fill="#2A2160"/><rect x="47" y="32" width="14" height="15" rx="6" fill="#3EE0B8"/><rect x="50" y="47" width="4" height="13" rx="2" fill="#2A2160"/><rect x="56" y="47" width="4" height="13" rx="2" fill="#2A2160"/></g></svg>',
+ girls:'<svg viewBox="0 0 80 80"><g><circle cx="26" cy="22" r="7" fill="#FFC531"/><circle cx="23.7" cy="21" r="1.2" fill="#2A2160"/><circle cx="28.3" cy="21" r="1.2" fill="#2A2160"/><path d="M19 30 h14 l4 16 h-22 z" fill="#FF6FA5"/><rect x="22" y="46" width="4" height="12" rx="2" fill="#FFC531"/><rect x="28" y="46" width="4" height="12" rx="2" fill="#FFC531"/></g><g><circle cx="54" cy="22" r="7" fill="#FFC531"/><circle cx="51.7" cy="21" r="1.2" fill="#2A2160"/><circle cx="56.3" cy="21" r="1.2" fill="#2A2160"/><path d="M47 30 h14 l4 16 h-22 z" fill="#7A6BF0"/><rect x="50" y="46" width="4" height="12" rx="2" fill="#FFC531"/><rect x="56" y="46" width="4" height="12" rx="2" fill="#FFC531"/></g></svg>',
+ person:'<svg viewBox="0 0 80 80"><circle cx="40" cy="22" r="10" fill="#8A83C0"/><circle cx="36.4" cy="20.5" r="1.7" fill="#2A2160"/><circle cx="43.6" cy="20.5" r="1.7" fill="#2A2160"/><path d="M36.5 25 Q40 27.5 43.5 25" stroke="#2A2160" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M24 66 q0 -24 16 -24 q16 0 16 24 z" fill="#8A83C0"/></svg>',
+ baby:'<svg viewBox="0 0 80 80"><circle cx="40" cy="30" r="14" fill="#FFC531"/><path d="M40 15 q6 -6 10 0" stroke="#2A2160" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="35" cy="28" r="2" fill="#2A2160"/><circle cx="45" cy="28" r="2" fill="#2A2160"/><path d="M36 34 Q40 37 44 34" stroke="#2A2160" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M26 46 h28 a14 14 0 0 1 -28 0 z" fill="#3EE0B8"/></svg>',
+ cat:'<svg viewBox="0 0 80 80"><path d="M24 26 L20 12 L32 20 Z" fill="#FF8A4C"/><path d="M56 26 L60 12 L48 20 Z" fill="#FF8A4C"/><circle cx="40" cy="32" r="15" fill="#FF8A4C"/><circle cx="34" cy="30" r="2.2" fill="#2A2160"/><circle cx="46" cy="30" r="2.2" fill="#2A2160"/><path d="M20 34 h-10 M20 40 h-10 M60 34 h10 M60 40 h10" stroke="#2A2160" stroke-width="2" stroke-linecap="round"/><ellipse cx="40" cy="58" rx="15" ry="11" fill="#FF8A4C"/></svg>',
+ cow:'<svg viewBox="0 0 80 80"><path d="M26 20 q-8 -6 -6 4 M54 20 q8 -6 6 4" stroke="#8A83C0" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="40" cy="34" rx="16" ry="13" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.5"/><circle cx="34" cy="30" r="2.2" fill="#2A2160"/><circle cx="46" cy="30" r="2.2" fill="#2A2160"/><ellipse cx="40" cy="41" rx="8" ry="5" fill="#FF6FA5"/><ellipse cx="40" cy="60" rx="17" ry="11" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.5"/><circle cx="32" cy="58" r="4.5" fill="#2A2160"/><circle cx="49" cy="63" r="3.5" fill="#2A2160"/></svg>',
+ cows:'<svg viewBox="0 0 80 80"><g><ellipse cx="26" cy="40" rx="13" ry="10" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.2"/><circle cx="22" cy="38" r="3.2" fill="#2A2160"/><ellipse cx="26" cy="57" rx="12" ry="8" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.2"/></g><g><ellipse cx="56" cy="36" rx="11" ry="9" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.2"/><circle cx="60" cy="34" r="2.8" fill="#2A2160"/><ellipse cx="56" cy="52" rx="10" ry="7" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.2"/></g></svg>',
+ pig:'<svg viewBox="0 0 80 80"><path d="M26 24 L22 14 L32 20 Z" fill="#FF6FA5"/><path d="M54 24 L58 14 L48 20 Z" fill="#FF6FA5"/><circle cx="40" cy="40" r="20" fill="#FF6FA5"/><circle cx="32" cy="34" r="2.4" fill="#2A2160"/><circle cx="48" cy="34" r="2.4" fill="#2A2160"/><ellipse cx="40" cy="46" rx="9" ry="6.5" fill="#E0538B"/><circle cx="36.5" cy="46" r="1.8" fill="#2A2160"/><circle cx="43.5" cy="46" r="1.8" fill="#2A2160"/></svg>',
+ fish:'<svg viewBox="0 0 80 80"><ellipse cx="36" cy="42" rx="20" ry="12" fill="#3EE0B8"/><path d="M54 42 L70 30 L70 54 Z" fill="#2EC49F"/><circle cx="26" cy="38" r="2.5" fill="#2A2160"/><path d="M34 32 q6 10 0 20" stroke="#2EC49F" stroke-width="2.5" fill="none"/><circle cx="18" cy="24" r="2.5" fill="#7A6BF0"/><circle cx="12" cy="16" r="2" fill="#7A6BF0"/></svg>',
+ duck:'<svg viewBox="0 0 80 80"><ellipse cx="42" cy="46" rx="19" ry="13" fill="#FFC531"/><circle cx="26" cy="32" r="10" fill="#FFC531"/><path d="M17 32 L6 35 L17 38 Z" fill="#FF8A4C"/><circle cx="24" cy="30" r="2.2" fill="#2A2160"/><path d="M44 42 q10 -3 14 4" stroke="#F09A12" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M14 62 q8 5 16 0 q8 5 16 0 q8 5 16 0" stroke="#3EE0B8" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+ animal:'<svg viewBox="0 0 80 80"><ellipse cx="40" cy="52" rx="15" ry="12" fill="#2A2160"/><circle cx="22" cy="32" r="6.5" fill="#2A2160"/><circle cx="34" cy="24" r="6.5" fill="#2A2160"/><circle cx="47" cy="24" r="6.5" fill="#2A2160"/><circle cx="59" cy="32" r="6.5" fill="#2A2160"/></svg>',
+ bug:'<svg viewBox="0 0 80 80"><path d="M32 20 q-6 -8 -12 -8 M48 20 q6 -8 12 -8" stroke="#2A2160" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="40" cy="26" r="9" fill="#2A2160"/><circle cx="36.8" cy="24.5" r="1.6" fill="#FFFFFF"/><circle cx="43.2" cy="24.5" r="1.6" fill="#FFFFFF"/><ellipse cx="40" cy="48" rx="17" ry="16" fill="#3EE0B8"/><path d="M40 32 v32" stroke="#2A2160" stroke-width="2.5"/><circle cx="32" cy="44" r="3" fill="#2A2160"/><circle cx="48" cy="44" r="3" fill="#2A2160"/><circle cx="34" cy="55" r="3" fill="#2A2160"/><circle cx="46" cy="55" r="3" fill="#2A2160"/></svg>',
+ bus:'<svg viewBox="0 0 80 80"><rect x="10" y="24" width="60" height="34" rx="8" fill="#FFC531"/><rect x="16" y="30" width="12" height="11" rx="3" fill="#7A6BF0"/><rect x="34" y="30" width="12" height="11" rx="3" fill="#7A6BF0"/><rect x="52" y="30" width="12" height="11" rx="3" fill="#7A6BF0"/><circle cx="24" cy="60" r="7" fill="#2A2160"/><circle cx="56" cy="60" r="7" fill="#2A2160"/><rect x="10" y="46" width="60" height="5" fill="#F09A12"/></svg>',
+ hats:'<svg viewBox="0 0 80 80"><g><path d="M12 40 a14 12 0 0 1 28 0 z" fill="#FF8A4C"/><rect x="6" y="40" width="40" height="5" rx="2.5" fill="#E06B2D"/></g><g><path d="M42 60 a14 12 0 0 1 28 0 z" fill="#5B4BD6"/><rect x="36" y="60" width="40" height="5" rx="2.5" fill="#3D2FA8"/></g></svg>',
+ milk:'<svg viewBox="0 0 80 80"><path d="M28 22 h24 l4 10 v32 a4 4 0 0 1 -4 4 h-24 a4 4 0 0 1 -4 -4 v-32 z" fill="#EDEBFA" stroke="#2A2160" stroke-width="2.5"/><path d="M26 40 h28 v24 a4 4 0 0 1 -4 4 h-20 a4 4 0 0 1 -4 -4 z" fill="#FFFFFF" stroke="#2A2160" stroke-width="2"/><rect x="30" y="14" width="20" height="8" rx="2" fill="#7A6BF0"/></svg>',
+ water:'<svg viewBox="0 0 80 80"><path d="M40 12 q16 20 16 32 a16 16 0 0 1 -32 0 q0 -12 16 -32 z" fill="#7A6BF0"/><path d="M33 44 a8 8 0 0 0 6 9" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M14 68 q8 5 16 0 q8 5 16 0 q8 5 16 0" stroke="#3EE0B8" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+ sand:'<svg viewBox="0 0 80 80"><path d="M10 58 q30 -28 60 0 z" fill="#FFC531"/><circle cx="30" cy="50" r="1.8" fill="#F09A12"/><circle cx="42" cy="46" r="1.8" fill="#F09A12"/><circle cx="52" cy="52" r="1.8" fill="#F09A12"/><rect x="8" y="58" width="64" height="5" rx="2.5" fill="#F09A12"/></svg>',
+ fire:'<svg viewBox="0 0 80 80"><path d="M40 10 q14 14 10 26 q10 -4 8 8 a19 19 0 0 1 -38 0 q-2 -14 8 -22 q-2 10 6 12 q-4 -14 6 -24 z" fill="#FF8A4C"/><path d="M40 36 q8 8 5 16 a10 10 0 0 1 -11 8 a10 10 0 0 1 -9 -12 q1 -7 7 -11 q-1 7 4 9 q-2 -6 4 -10 z" fill="#FFC531"/></svg>',
+ sticks:'<svg viewBox="0 0 80 80"><path d="M16 62 L58 18" stroke="#E06B2D" stroke-width="7" stroke-linecap="round"/><path d="M40 30 L52 24" stroke="#E06B2D" stroke-width="5" stroke-linecap="round"/><path d="M24 64 L64 34" stroke="#FF8A4C" stroke-width="7" stroke-linecap="round"/></svg>',
+ rocks:'<svg viewBox="0 0 80 80"><path d="M14 58 q2 -16 16 -16 q14 0 15 16 z" fill="#8A83C0"/><path d="M44 58 q1 -11 11 -11 q11 0 12 11 z" fill="#B8B3DD"/><path d="M28 42 q1 -9 9 -9 q9 0 9 9 l-2 4 h-14 z" fill="#B8B3DD"/><rect x="10" y="58" width="60" height="4" rx="2" fill="#3EE0B8"/></svg>',
+ leaves:'<svg viewBox="0 0 80 80"><path d="M22 56 q-8 -24 16 -34 q6 26 -16 34 z" fill="#3EE0B8"/><path d="M26 50 q4 -14 10 -24" stroke="#2EC49F" stroke-width="2.5" fill="none"/><path d="M58 60 q10 -20 -8 -32 q-10 22 8 32 z" fill="#2EC49F"/><path d="M55 54 q-4 -12 -3 -22" stroke="#3EE0B8" stroke-width="2.5" fill="none"/></svg>',
+ shells:'<svg viewBox="0 0 80 80"><path d="M40 18 a22 22 0 0 1 22 22 l-44 0 a22 22 0 0 1 22 -22 z" fill="#FF6FA5"/><path d="M40 18 v22 M28 22 l6 18 M52 22 l-6 18" stroke="#E0538B" stroke-width="2.5"/><path d="M18 40 h44 l-6 8 h-32 z" fill="#FFC531"/><path d="M26 60 a8 8 0 1 1 12 -6 a5 5 0 1 0 -8 4" fill="none" stroke="#8A83C0" stroke-width="3" stroke-linecap="round"/></svg>',
+ door:'<svg viewBox="0 0 80 80"><rect x="22" y="12" width="36" height="58" rx="4" fill="#2A2160"/><rect x="27" y="17" width="26" height="53" rx="3" fill="#FF8A4C"/><circle cx="47" cy="45" r="3" fill="#FFC531"/><rect x="31" y="22" width="18" height="14" rx="2" fill="#E06B2D"/></svg>',
+ hole:'<svg viewBox="0 0 80 80"><rect x="6" y="42" width="68" height="6" rx="3" fill="#3EE0B8"/><ellipse cx="40" cy="48" rx="20" ry="9" fill="#2A2160"/><ellipse cx="40" cy="47" rx="15" ry="6" fill="#181040"/></svg>',
+ hill:'<svg viewBox="0 0 80 80"><path d="M6 62 q34 -44 68 0 z" fill="#3EE0B8"/><circle cx="62" cy="20" r="8" fill="#FFC531"/><path d="M30 54 q2 -5 6 0 M44 48 q2 -5 6 0" stroke="#2EC49F" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>',
+ box:'<svg viewBox="0 0 80 80"><rect x="18" y="32" width="44" height="34" rx="3" fill="#FF8A4C"/><path d="M18 32 L28 20 h44 L62 32 z" fill="#E06B2D"/><path d="M40 32 v34" stroke="#E06B2D" stroke-width="3"/><rect x="18" y="32" width="44" height="7" fill="#FFC531"/></svg>',
+ grass:'<svg viewBox="0 0 80 80"><path d="M14 64 q0 -22 -4 -30 M24 64 q2 -24 -2 -34 M34 64 q0 -20 6 -30 M44 64 q-2 -24 4 -32 M54 64 q0 -18 8 -26 M64 64 q2 -20 -4 -28" stroke="#3EE0B8" stroke-width="4.5" fill="none" stroke-linecap="round"/><rect x="8" y="63" width="64" height="5" rx="2.5" fill="#2EC49F"/></svg>',
+ plant:'<svg viewBox="0 0 80 80"><path d="M40 44 v-18" stroke="#2EC49F" stroke-width="4" stroke-linecap="round"/><path d="M40 32 q-14 -4 -16 -16 q14 2 16 16 z" fill="#3EE0B8"/><path d="M40 28 q14 -6 18 -18 q-16 2 -18 18 z" fill="#2EC49F"/><path d="M26 46 h28 l-4 22 h-20 z" fill="#FF8A4C"/><rect x="24" y="44" width="32" height="6" rx="3" fill="#E06B2D"/></svg>',
+ stone:'<svg viewBox="0 0 80 80"><path d="M16 58 q0 -24 24 -24 q24 0 24 24 l-4 6 h-40 z" fill="#8A83C0"/><path d="M28 44 q8 -6 16 0" stroke="#B8B3DD" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+ house:'<svg viewBox="0 0 80 80"><rect x="18" y="36" width="44" height="32" rx="3" fill="#7A6BF0"/><path d="M12 38 L40 14 L68 38 z" fill="#FF8A4C"/><rect x="34" y="48" width="12" height="20" rx="2" fill="#2A2160"/><rect x="22" y="42" width="10" height="9" rx="2" fill="#FFC531"/><rect x="50" y="42" width="10" height="9" rx="2" fill="#FFC531"/></svg>',
+ cloud:'<svg viewBox="0 0 80 80"><path d="M22 52 a11 11 0 0 1 3 -21 a14 14 0 0 1 27 -3 a11 11 0 0 1 6 24 z" fill="#EDEBFA" stroke="#8A83C0" stroke-width="2.5"/></svg>',
+ book:'<svg viewBox="0 0 80 80"><rect x="18" y="16" width="42" height="50" rx="4" fill="#5B4BD6"/><rect x="24" y="16" width="36" height="50" rx="3" fill="#7A6BF0"/><rect x="18" y="16" width="8" height="50" rx="3" fill="#3D2FA8"/><rect x="32" y="26" width="20" height="12" rx="3" fill="#FFC531"/></svg>',
+ letter:'<svg viewBox="0 0 80 80"><rect x="12" y="24" width="56" height="36" rx="5" fill="#FFFFFF" stroke="#2A2160" stroke-width="2.5"/><path d="M14 27 L40 46 L66 27" stroke="#2A2160" stroke-width="2.5" fill="none"/><circle cx="40" cy="52" r="4" fill="#FFC531"/></svg>',
+ chair:'<svg viewBox="0 0 80 80"><rect x="24" y="12" width="8" height="36" rx="3" fill="#2A2160"/><rect x="24" y="40" width="34" height="9" rx="4" fill="#FF8A4C"/><rect x="24" y="49" width="7" height="20" rx="3" fill="#2A2160"/><rect x="51" y="49" width="7" height="20" rx="3" fill="#2A2160"/><rect x="24" y="12" width="30" height="8" rx="4" fill="#E06B2D"/></svg>',
+ lamp:'<svg viewBox="0 0 80 80"><path d="M26 30 L54 30 L48 12 L32 12 z" fill="#FFC531"/><rect x="37" y="30" width="6" height="28" fill="#2A2160"/><rect x="26" y="58" width="28" height="7" rx="3.5" fill="#2A2160"/><path d="M22 36 l-6 4 M58 36 l6 4 M40 34 v8" stroke="#FFC531" stroke-width="3" stroke-linecap="round"/></svg>',
+ bushes:'<svg viewBox="0 0 80 80"><path d="M8 60 a16 14 0 0 1 32 0 z" fill="#3EE0B8"/><path d="M38 60 a17 15 0 0 1 34 0 z" fill="#2EC49F"/><circle cx="22" cy="52" r="2.2" fill="#2EC49F"/><circle cx="54" cy="50" r="2.2" fill="#3EE0B8"/><rect x="6" y="60" width="68" height="4" rx="2" fill="#2EC49F"/></svg>',
+ trees:'<svg viewBox="0 0 80 80"><g><circle cx="26" cy="30" r="14" fill="#3EE0B8"/><rect x="22" y="42" width="8" height="22" rx="3" fill="#E06B2D"/></g><g><circle cx="58" cy="38" r="11" fill="#2EC49F"/><rect x="55" y="47" width="6" height="17" rx="3" fill="#E06B2D"/></g></svg>',
+ hills:'<svg viewBox="0 0 80 80"><path d="M2 64 q22 -34 44 0 z" fill="#3EE0B8"/><path d="M34 64 q22 -28 44 0 z" fill="#2EC49F"/></svg>',
+ roads:'<svg viewBox="0 0 80 80"><path d="M28 68 L38 12 h12 L62 68 z" fill="#8A83C0"/><path d="M45 16 v8 M45 32 v8 M45 48 v8" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></svg>'
+};
+
+/* ============ STATE ============ */
+var li=0, wi=0, phase='A', levelMisses=0, log=[], placed=null, passedAll=false, startT=0, picMode=false;
+var TOTAL=5;
+
+function el(id){return document.getElementById(id)}
+function go(id){
+  var s=document.querySelectorAll('.screen'); for(var i=0;i<s.length;i++) s[i].classList.remove('on');
+  el(id).classList.add('on'); window.scrollTo(0,0);
+}
+var rungLit=0;
+function buildRungs(){ var r=el('rungs'); r.innerHTML='';
+  for(var i=0;i<TOTAL;i++){var d=document.createElement('div');d.className='rung'+(i<rungLit?' lit':'');r.appendChild(d)} }
+function lightRung(){ rungLit=Math.min(rungLit+1,TOTAL); buildRungs(); }
+
+function reset(){ li=0;wi=0;phase='A';levelMisses=0;log=[];placed=null;passedAll=false;rungLit=0;picMode=false;startT=0;
+  buildRungs(); go('s-intro'); }
+
+/* deterministic shuffle so the target moves position but the demo is repeatable */
+function shuf(arr, seed){ var a=arr.slice();
+  for(var i=a.length-1;i>0;i--){ var j=(seed*7+i*13+3)%(i+1); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+/* neutral advance — IDENTICAL for right and wrong (measurement contract) */
+function trailAdvance(tile, next){
+  var tiles=tile.parentNode.children; for(var i=0;i<tiles.length;i++) tiles[i].style.pointerEvents='none';
+  tile.classList.add('trail');
+  setTimeout(next, 420);
+}
+
+/* ============ WARM-UP ============ */
+function startWarm(){ if(!startT) startT=Date.now(); go('s-warm'); say('Copy me — same order, left to right!'); warmSeq(['c','a'],['a','c','o','t']); }
+function warmSeq(sample, tray){
+  var s=el('seqSample'); s.innerHTML=''; for(var i=0;i<sample.length;i++){var d=document.createElement('div');d.className='sq';d.textContent=sample[i];s.appendChild(d)}
+  var ans=el('seqAnswer'); ans.innerHTML=''; var slots=[];
+  for(var i=0;i<sample.length;i++){var d=document.createElement('div');d.className='sq slot';ans.appendChild(d);slots.push(d)}
+  var t=el('seqTray'); t.innerHTML=''; var filled=0;
+  var picks=shuf(tray,2);
+  for(var i=0;i<picks.length;i++){ (function(letter){
+    var d=document.createElement('div'); d.className='sq pick'; d.textContent=letter;
+    d.onclick=function(){ d.classList.add('used'); slots[filled].textContent=letter; slots[filled].classList.add('filled'); filled++;
+      if(filled>=sample.length){ setTimeout(beginCheck, 550); } };
+    t.appendChild(d); })(picks[i]); }
+}
+
+/* ============ THE CHECK ============ */
+function beginCheck(){ if(!startT) startT=Date.now(); li=0;wi=0;phase='A';levelMisses=0;log=[];placed=null;passedAll=false;rungLit=0;picMode=false;
+  buildRungs(); render(); }
+
+function cur(){ return BANK[li].words[wi]; }
+function hasPics(word){ for(var i=0;i<word.A.length;i++){ if(!PICS[word.A[i]]) return false; } return true; }
+function frameA(word){
+  if(word.pos==='pl') return 'Find the ones that are '+word.w;
+  if(word.pos==='m')  return 'Find the one that is '+word.w;
+  var art=/^[aeiou]/.test(word.w)?'an ':'a ';
+  return 'Find the one that is '+art+word.w;
+}
+function voFor(word, ph){ return ph==='A' ? frameA(word)+'.' : 'Tap the one that says '+word.w+'.'; }
+
+/* ── audio: Nova's ElevenLabs clips when baked in (run make-nova-audio.mjs once); browser voice as fallback ── */
+/*NOVA_AUDIO_START*/
+var NOVA_AUDIO = {};
+/*NOVA_AUDIO_END*/
+var MUTE=false, currentVO='', player=null;
+function stopAudio(){
+  try{ if(player){ player.pause(); player=null; } }catch(e){}
+  try{ if(typeof window!=='undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel(); }catch(e){}
+}
+function say(text){
+  currentVO=text;
+  if(MUTE || typeof window==='undefined') return;
+  stopAudio();
+  try{
+    if(NOVA_AUDIO[text] && window.Audio){ player=new window.Audio(NOVA_AUDIO[text]); player.play().catch(function(){}); return; }
+    if('speechSynthesis' in window){
+      var u=new window.SpeechSynthesisUtterance(text); u.rate=.95; u.pitch=1.1; u.lang='en-US';
+      window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+function replay(){ if(currentVO) say(currentVO); }
+function toggleSound(){ MUTE=!MUTE; if(MUTE) stopAudio(); }
+function defaultNoteA(word){
+  var t = word.tag ? word.tag+' ' : '';
+  return t + '<b>[HER DOC — pictures reading]</b> "Find the one that <b>is</b> a ___" = spoken word to picture: does the child <b>know the word</b>, before any print. The look-alike probe then asks can they <b>read</b> it — two different measures, not the same question twice. ' +
+    '<b>[HER METHOD Sources 6.1]</b> Target spoken, never printed. Tap ANY picture — identical trail for right and wrong. Art and option sets beyond "kid" are illustrative pending her ratification. <i>[CONFIRM]</i> the picture reading.';
+}
+function defaultNoteB(word){
+  var hers = word.w==='kid' ? '<b>[HER DOC — one swap, confirm]</b> Her engineered set with the fourth foil swapped to "kit" — one of her originals can read as a slur, so it never appears in a child-facing product. Same real-word, letter-overlap engineering. Her "Click" is spoken as "Tap" on touch screens. '
+    : '<b>[PATTERN]</b> Foils generated to her kid-set engineering: real-word, letter-overlap neighbors the child never reads aloud. ';
+  if(!hasPics(word)) hers = '<b>[PROPOSED — confirm]</b> No unambiguous picture exists for "'+word.w+'", so the meaning probe is <b>skipped, not faked</b> — this word runs the print probe only. Picturable actions (eat, cry, dig, push, bite, smile, rest) can gain illustrated meaning probes with production art; abstract describing words (good, safe, open, small, move) likely stay print-only — her call. ' + hers;
+  return hers + '<b>[HER METHOD]</b> Target spoken, never printed. <b>[HER METHOD Sources 6.1]</b> Identical neutral feedback for right and wrong; the child cannot tell a miss from a hit.';
+}
+
+function render(){
+  var word=cur(); var lvl=BANK[li].n;
+  if(phase==='A' && !hasPics(word)) phase='B';  /* no valid picture -> print probe only, never a faked meaning item */
+  if(phase==='A'){
+    el('eyeA').textContent='Level '+lvl+' · word '+(wi+1)+' of 5 · meaning probe (pictures)';
+    var vo=voFor(word,'A');
+    el('vocapA').textContent='VO: "'+vo+'"';
+    el('noteA').innerHTML=defaultNoteA(word);
+    say(vo);
+    el('variantRow').style.display='block';
+    picMode=true; el('variantBtn').textContent='See the written-word variant';
+    drawGridA(word);
+    go('s-probeA');
+  } else {
+    el('eyeB').textContent='Level '+lvl+' · word '+(wi+1)+' of 5 · look-alike probe';
+    var vo=voFor(word,'B');
+    el('vocapB').textContent='VO: "'+vo+'"';
+    el('noteB').innerHTML=defaultNoteB(word);
+    say(vo);
+    var g=el('gridB'); g.innerHTML='';
+    var opts=shuf(word.B, li*5+wi+1);
+    for(var i=0;i<opts.length;i++){ (function(o){
+      var d=document.createElement('div'); d.className='ttile'; d.textContent=o;
+      d.onclick=function(){ answer(o===word.w, d); };
+      g.appendChild(d); })(opts[i]); }
+    go('s-probeB');
+  }
+}
+
+function drawGridA(word){
+  var g=el('gridA'); g.innerHTML='';
+  var opts=shuf(word.A, li*5+wi+2);
+  if(picMode && hasPics(word)){
+    for(var i=0;i<opts.length;i++){ (function(o){
+      var d=document.createElement('div'); d.className='ptile'; d.innerHTML=PICS[o]; d.setAttribute('data-word',o);
+      d.onclick=function(){ answer(o===word.w, d); };
+      g.appendChild(d); })(opts[i]); }
+  } else {
+    for(var i=0;i<opts.length;i++){ (function(o){
+      var d=document.createElement('div'); d.className='ttile'; d.textContent=o; d.setAttribute('data-word',o);
+      d.onclick=function(){ answer(o===word.w, d); };
+      g.appendChild(d); })(opts[i]); }
+  }
+}
+function toggleVariant(){
+  picMode=!picMode; say(voFor(cur(),'A'));
+  el('variantBtn').textContent = picMode ? 'See the written-word variant' : 'Back to pictures';
+  el('noteA').innerHTML = picMode ? defaultNoteA(cur())
+    : '<i>[ALTERNATE READING]</i> The same probe as a word grid. Note how it collapses toward the look-alike probe — same spoken target, same tap-a-word response, just easier distractors. This redundancy is why we read her probe as pictures.';
+  drawGridA(cur());
+}
+
+function answer(correct, tile){
+  var word=cur(); var entry=findEntry(BANK[li].n, word.w);
+  if(phase==='A') entry.a=correct; else entry.b=correct;
+  trailAdvance(tile, nextStep);
+}
+function findEntry(level, w){
+  for(var i=0;i<log.length;i++){ if(log[i].level===level && log[i].w===w) return log[i]; }
+  var e={level:level, w:w, a:null, b:null, skipped:false}; log.push(e); return e;
+}
+
+function nextStep(){
+  if(phase==='A'){ phase='B'; render(); return; }
+  /* word complete */
+  var word=cur(); var e=findEntry(BANK[li].n, word.w);
+  var known = (e.a===true || e.a===null) && e.b===true;
+  if(!known) levelMisses++;
+  if(levelMisses>=2){ /* two-miss floor: place here, skip the rest silently */
+    for(var j=wi+1;j<5;j++){ var w2=BANK[li].words[j]; var e2=findEntry(BANK[li].n, w2.w); e2.skipped=true; }
+    finish(BANK[li].n, false); return;
+  }
+  wi++;
+  if(wi>=5){ /* level passed (misses <= 1) */
+    lightRung(); levelMisses=0; wi=0; phase='A'; li++;
+    if(li>=BANK.length){ finish(null, true); return; }
+    el('liftTitle').textContent='Level star found!';
+    el('liftBub').textContent='Up we float — new stars ahead!';
+    say('Level star found! Up we float!');
+    go('s-lift'); return;
+  }
+  phase='A'; render();
+}
+
+/* ============ FINISH + RECORDS ============ */
+function finish(placedLevel, all){
+  placed=placedLevel; passedAll=all;
+  el('doneSub').textContent = 'Nova knows the perfect place to begin.';
+  say('You found your starting star!');
+  var p=el('pathrow'); p.innerHTML='';
+  var youAt = all ? TOTAL : (placedLevel-1);
+  for(var i=0;i<TOTAL+1;i++){ var d=document.createElement('div'); d.className='pdot'+(i===youAt?' you':''); p.appendChild(d); }
+  go('s-done');
+}
+function showGrown(){
+  var c=el('gchips'); c.innerHTML='';
+  var placeTxt = passedAll ? 'Passed all 5 levels — placement beyond Level 5' : 'Teaching begins at Level '+placed;
+  var given=0, missed=0, skipped=0;
+  for(var i=0;i<log.length;i++){ if(log[i].skipped){skipped++;continue} given++;
+    if(!((log[i].a===true||log[i].a===null)&&log[i].b===true)) missed++; }
+  var dur = startT ? Math.round((Date.now()-startT)/1000) : 0;
+  c.innerHTML='<span class="chip">'+placeTxt+'</span>'+
+    '<span class="chip m">'+given+' words probed · '+missed+' missed · '+skipped+' skipped</span>'+
+    '<span class="chip g">'+(dur? Math.floor(dur/60)+'m '+(dur%60)+'s' : 'duration n/a')+'</span>';
+  var t=el('recTable');
+  var h='<tr><th>Word</th><th>Meaning (pictures)</th><th>Look-alike (print)</th><th>Result</th></tr>';
+  var lastLvl=0;
+  for(var i=0;i<log.length;i++){ var e=log[i];
+    if(e.level!==lastLvl){ h+='<tr class="lvlrow"><td colspan="4">Level '+e.level+'</td></tr>'; lastLvl=e.level; }
+    if(e.skipped){ h+='<tr><td>'+e.w+'</td><td class="skip">skipped</td><td class="skip">skipped</td><td class="skip">Skipped (floor reached)</td></tr>'; continue; }
+    var aTxt=e.a===true?'<td class="ok">correct</td>':(e.a===false?'<td class="miss">missed</td>':'<td class="skip">no picture</td>');
+    var bTxt=e.b===true?'<td class="ok">correct</td>':(e.b===false?'<td class="miss">missed</td>':'<td class="skip">-</td>');
+    var res=((e.a===true||e.a===null)&&e.b===true)?'<td class="ok">Known</td>':'<td class="miss">Missed</td>';
+    h+='<tr><td>'+e.w+'</td>'+aTxt+bTxt+res+'</tr>';
+  }
+  t.innerHTML=h;
+  go('s-grown');
+}
+
+/* ============ DEMO HELPERS ============ */
+function inCheck(){ return el('s-probeA').classList.contains('on')||el('s-probeB').classList.contains('on')||el('s-lift').classList.contains('on'); }
+function autoPassLevel(){
+  if(!inCheck()){ beginCheck(); }
+  if(li>=BANK.length){ return; }
+  var lvl=BANK[li];
+  for(var j=wi;j<5;j++){ var wd=lvl.words[j]; var e=findEntry(lvl.n, wd.w); e.a=hasPics(wd)?true:null; e.b=true; }
+  lightRung(); levelMisses=0; wi=0; phase='A'; li++;
+  if(li>=BANK.length){ finish(null,true); return; }
+  el('liftTitle').textContent='Level star found!';
+  el('liftBub').textContent='Up we float — Level '+BANK[li].n+' stars ahead!';
+  go('s-lift');
+}
+function forceFloor(){
+  if(!inCheck()){ beginCheck(); }
+  if(li>=BANK.length){ return; }
+  var lvl=BANK[li]; var forced=0;
+  for(var j=wi;j<5 && forced<2;j++){ var wd=lvl.words[j]; var e=findEntry(lvl.n, wd.w); e.a=hasPics(wd)?false:null; e.b=false; forced++; }
+  for(var j=wi+forced;j<5;j++){ var e2=findEntry(lvl.n, lvl.words[j].w); e2.skipped=true; }
+  finish(lvl.n, false);
+}
+
+buildRungs();
+</script>
+</body>
+</html>
