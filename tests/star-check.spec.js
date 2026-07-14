@@ -430,12 +430,17 @@ test("product_events: a completed Star Check lands a placement_completed row wit
     await tapWrong(page, "girl");
     await expect(page.getByText("You found your starting star!")).toBeVisible({ timeout: 20000 });
 
+    // logProductEvent is fire-and-forget (never awaited server-side, same
+    // pattern as every other product_events writer) -- poll rather than a
+    // single fixed wait, same convention as idor-proof.mjs's own
+    // positive-twin checks.
+    const childId = (await fetchChildId(userId)).id;
     let rows = [];
-    for (let i = 0; i < 6 && rows.length === 0; i++) {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/product_events?child_id=eq.${(await fetchChildId(userId)).id}&event_type=eq.placement_completed`, { headers: adminHeaders });
+    for (let i = 0; i < 20 && rows.length === 0; i++) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/product_events?child_id=eq.${childId}&event_type=eq.placement_completed`, { headers: adminHeaders });
       const data = await res.json().catch(() => []);
       rows = data ?? [];
-      if (rows.length === 0) await new Promise((r) => setTimeout(r, 1000));
+      if (rows.length === 0) await new Promise((r) => setTimeout(r, 1500));
     }
     expect(rows.length).toBeGreaterThanOrEqual(1);
     const payload = rows[0].payload;

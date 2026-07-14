@@ -376,9 +376,18 @@ async function main() {
       !!starCheckFinal && starCheckFinal.floorLevel === 1 && starCheckFinal.trueMeasuredUnit === 1
     );
 
+    // Wider polling window than the check-in positive-twin above --
+    // observed live against the branch preview that logProductEvent's
+    // fire-and-forget insert (never awaited, same as every other
+    // product_events writer) can lag noticeably longer than 3s under the
+    // preview's own load/latency, even though the synchronous
+    // child_profiles write (checked separately below) always lands
+    // immediately. Not a masked bug: verified independently via a
+    // standalone script that the write itself is correct and eventually
+    // lands every time, just sometimes slower than a short poll allows.
     let starCheckEventRows = [];
-    for (let i = 0; i < 6 && starCheckEventRows.length === 0; i++) {
-      await new Promise((r) => setTimeout(r, 500));
+    for (let i = 0; i < 20 && starCheckEventRows.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
       const { data } = await admin
         .from('product_events')
         .select('event_type, payload')
