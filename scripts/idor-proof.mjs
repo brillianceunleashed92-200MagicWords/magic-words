@@ -481,6 +481,41 @@ async function main() {
       .select('child_id').eq('event_type', 'scaffold_down').eq('user_id', a.userId)
       .order('created_at', { ascending: false }).limit(1);
     check('track: A\'s own real childId IS attached to the written row', ownChildRows?.[0]?.child_id === a.childId);
+
+    // 11. FIX_EVENTS_PURGE_R1: product_events deletion integrity (migration
+    //     0040). A FOURTH identity, deleted via the raw Supabase Admin API
+    //     -- the exact bypass-api/delete-account.js path this repo's own
+    //     test/admin cleanup convention (including this script's own
+    //     `cleanup()` below) uses, and the confirmed dominant source of the
+    //     736+ orphan rows found live (docs/EVENTS_PURGE_REPORT.md Phase 1).
+    //     Before the FK/cascade existed this reliably left orphans; after,
+    //     Postgres itself guarantees zero regardless of which code path (or
+    //     none) performed the deletion.
+    const d = await provisionUser('D');
+    // Sign in as D to write under D's own identity, matching a real
+    // per-user event trail.
+    const clientD = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: signInD } = await clientD.auth.signInWithPassword({ email: d.email, password: PASSWORD });
+    const tokenD = signInD?.session?.access_token;
+    await fetch(`${deployBase}/api/track`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenD}` },
+      body: JSON.stringify({ eventType: 'scaffold_down', childId: d.childId, payload: { word: 'cat', activityId: 'word_match' } }),
+    });
+    let dRowsBefore = [];
+    for (let i = 0; i < 10 && dRowsBefore.length === 0; i++) {
+      const { data } = await admin.from('product_events').select('id').eq('user_id', d.userId);
+      dRowsBefore = data ?? [];
+      if (dRowsBefore.length === 0) await new Promise((r) => setTimeout(r, 1000));
+    }
+    check('product_events: D\'s own scaffold_down event actually landed before deletion (positive twin, not vacuous)', dRowsBefore.length >= 1);
+
+    await admin.auth.admin.deleteUser(d.userId); // raw Admin API -- bypasses api/delete-account.js entirely
+    const { data: dRowsAfter } = await admin.from('product_events').select('id, event_type').eq('user_id', d.userId);
+    const { data: dRowsAfterByChild } = await admin.from('product_events').select('id, event_type').eq('child_id', d.childId);
+    check(
+      'product_events: deletion that bypasses application code entirely leaves ZERO attributable rows once the DB-level cascade exists',
+      (dRowsAfter?.length ?? 0) === 0 && (dRowsAfterByChild?.length ?? 0) === 0
+    );
   } else {
     console.log('  SKIP: create-portal-session/create-checkout-session live endpoint checks (set DEPLOY_BASE_URL to run them)');
   }

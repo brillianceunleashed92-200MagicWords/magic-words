@@ -62,7 +62,19 @@ STATUS: DONE
 
 ## Phase 3 — Tests
 
-STATUS: IN PROGRESS
+STATUS: DONE
+
+### `tests/events-deletion-cascade.spec.js` (new, 3 tests)
+1. **Positive-landing regression**: drives a real Star Check to a two-miss floor + one `api/track` `scaffold_down` call, polls up to 15s, asserts `placement_started`/`placement_completed`/`scaffold_down` all land with `placement_completed`'s `per_word` array populated. **This test already passes pre-migration** — confirms `api/delete-account.js`'s existing app-level purge (Phase 1) doesn't interfere with normal writes, and gives the real regression coverage the non-negotiables require, but by itself cannot prove the fix (see below).
+2. **Real-path cascade**: same event generation, then deletes via the real `POST /api/delete-account` with a real JWT, polls up to 10s, asserts zero rows by both `user_id` and `child_id`. **Also already passes pre-migration** — Phase 1 established this endpoint's own explicit purge already works correctly in the non-adversarial case, so this test alone would not have distinguished pre/post-migration behavior either. Kept because it's real, valuable coverage of the actual user-facing deletion flow, not because it proves the fix.
+3. **The deterministic proof** (`deletion that bypasses application code entirely...`): generates the same real events, then deletes via the **raw Supabase Admin API directly** (`DELETE /auth/v1/admin/users/{id}`) — the exact bypass every test/admin-script deletion in this codebase's history uses, confirmed in Phase 1 as the dominant orphan source. **Run against the un-migrated DB, this test FAILS** (see Phase 4 below) — the only one of the three that actually distinguishes pre/post-migration behavior, since it's the only one that doesn't rely on any application code running at all.
+
+### `scripts/idor-proof.mjs` — new check 11 (deletion integrity)
+Added a fourth test identity (`D`), signed in under its own JWT (not reusing A/B/C, same reasoning as C's own provisioning comment — fresh rate/resource budget, and a real per-user event trail rather than one attributed to a different identity), writes one real `scaffold_down` event via `api/track`, polls up to 10s for a positive-landing check (not vacuous), then deletes via the raw Admin API (bypassing `api/delete-account.js` entirely, same as this script's own existing `cleanup()` helper does for every identity) and asserts zero `product_events` rows remain by either `user_id` or `child_id`. **Check count: 37 → 39** (`grep -c "check(" scripts/idor-proof.mjs`).
+
+### Pre-migration sanity runs (both confirm expected behavior before touching production schema)
+- `tests/events-deletion-cascade.spec.js` standalone: all 3 tests pass individually when run alone; the bypass test specifically shown failing when isolated (`-g "bypasses application code"`) — full diff of surviving rows printed (`placement_started`, `placement_completed` with real `per_word`, `scaffold_down`), confirming the exact orphan shape Phase 1 predicted.
+- `scripts/idor-proof.mjs` full run: new check 11's second half (`deletion that bypasses application code entirely...`) fails as expected; the only other failures are the two pre-existing, already-documented flaky fire-and-forget positive-twin checks from `STAR_CHECK_R1` (`checkin_completed`, Star Check `placement_completed`) — unrelated to this change, not touched by this diff.
 
 ## Phase 4 — Pre-push gates + documented failure
 
