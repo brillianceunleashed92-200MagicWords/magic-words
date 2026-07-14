@@ -51,7 +51,14 @@ Cleanup note: none of the 3 reproduction accounts' auth users or child_profiles 
 
 ## Phase 2 — The migration
 
-STATUS: IN PROGRESS
+STATUS: DONE
+
+`supabase/migrations/0040_product_events_deletion_integrity.sql` (number confirmed fresh via Phase 1's `supabase migration list`, `0039` left untouched for `story_fallback`):
+1. Purges existing orphans first (`delete ... where (user_id set, orphaned) or (child_id set, orphaned)`) — required before the FK constraints can be added, since a FK addition fails if any existing row would violate it. NULL-owner rows (none currently exist) are untouched by construction.
+2. Adds `product_events_user_id_fkey` (`user_id -> auth.users(id) ON DELETE CASCADE`) and `product_events_child_id_fkey` (`child_id -> child_profiles(id) ON DELETE CASCADE`), same idempotent `drop constraint if exists` + `add constraint` style as the existing `0018_coppa_deletion_cascades.sql`.
+3. `MIGRATIONS.md` updated: highest applied bumped to `0040`, new provenance section added, `0039`'s `story_fallback` reservation explicitly confirmed untouched.
+
+**`api/delete-account.js` deliberately left untouched**: Phase 1 found its existing app-level purge code is not broken (it works correctly for its own single path) — the FK is the load-bearing fix per the non-negotiables, and this file's own explicit purge becomes a harmless, no-op-once-redundant belt-and-suspenders once the cascade exists (deleting rows a moment before they'd be cascade-deleted anyway is not a bug). No other file touched.
 
 ## Phase 3 — Tests
 

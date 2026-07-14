@@ -1,9 +1,22 @@
 # Migration numbering
 
-**Current highest applied (production):** `0038` (`0038_streak_freeze_events.sql`).
-**Next-free number:** `0039`, earmarked for `story_fallback` (see the TODO in
-`src/lib/queries/stories.js`, `reportStoryFallback`) -- do not use 0039 for
-anything else without updating that TODO too.
+**Current highest applied (production):** `0040` (`0040_product_events_deletion_integrity.sql`, `FIX_EVENTS_PURGE_R1`).
+**Next-free number:** `0041`. `0039` remains earmarked for `story_fallback`
+(see the TODO in `src/lib/queries/stories.js`, `reportStoryFallback`) --
+`FIX_EVENTS_PURGE_R1` confirmed via a fresh `supabase migration list` that
+0038 was still the highest applied at the time it ran, and deliberately took
+`0040` rather than the reserved `0039` -- do not use 0039 for anything else
+without updating that TODO too.
+
+## 0040 provenance
+
+`0040_product_events_deletion_integrity.sql` (`FIX_EVENTS_PURGE_R1`) purges
+`product_events`' historical orphans (rows whose `user_id`/`child_id` point at
+already-deleted owners -- 737 of 768 rows, 96%, confirmed live) and adds
+`ON DELETE CASCADE` foreign keys on both `user_id` (-> `auth.users`) and
+`child_id` (-> `child_profiles`), closing a gap the master doc had
+(incorrectly) documented as already fixed. See
+`docs/EVENTS_PURGE_REPORT.md` for the full root-cause writeup.
 
 ## The rule
 
