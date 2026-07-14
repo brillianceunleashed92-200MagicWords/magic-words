@@ -157,7 +157,123 @@ confirms no other spec file changed count).
 
 ## PHASE 4 — Flagged dev route
 
-Status: NOT STARTED.
+Status: DONE.
+
+**Research first** (Explore agent, no code): confirmed react-router-dom v7
+(`src/main.jsx`) is the real routing layer (the "manual `screen` state, no
+router" note in the top-of-repo CLAUDE.md is stale -- superseded by the
+Candy Galaxy redesign); confirmed the Vite `import.meta.env.VITE_*`
+feature-flag convention already exists (`LoginScreen.jsx`'s
+`VITE_GOOGLE_AUTH_ENABLED`) though no prior env-gated *route* existed;
+confirmed `useSpeak()`/`gameAudio.js` as the whole-word/sentence TTS path
+(60 req/min via `api/speak.mjs`, single-clip singleton, no
+`speechSynthesis` fallback); confirmed the current design canon is
+`docs/DESIGN_BRIEF_V2.md` + `src/theme/tokens.js` ("Candy Galaxy" tokens) --
+**and mockup-P-memory-master.html's own CSS custom properties are those
+exact same 9 hex values**, confirming the mockup was already built to this
+canon, not the older dawn-indigo system described in the repo's own
+top-level CLAUDE.md snapshot (that file has drifted stale on this point).
+
+**Built** `src/screens/memorymaster/` (14 files: `MemoryMasterDevRoute.jsx`
+orchestrator + `mmTokens.js`, `icons.jsx` (SVG only, no emoji), `Keyboard.jsx`,
+`CardScreen.jsx`, `NovaBubble.jsx`, `HomeIntegration.jsx`, `Primer.jsx`,
+`Practice.jsx`, `PlacementChoice.jsx`, `SkillsAssessment.jsx`,
+`ReadPhase.jsx`, `WritePhase.jsx` (also serves copy mode via an `isCopyMode`
+prop), `SessionEnd.jsx`, `ParentRecord.jsx`) -- ported from mockup-P's
+screen set, driven entirely by `src/lib/memoryMaster.js`'s pure functions
+(no rule logic duplicated in the UI layer). Custom keyboard has no
+underlying `<input>`/`<textarea>` anywhere -- every character is a button
+press building a plain string in React state, so autocorrect/autocap/
+predictive-text/smart-quotes are structurally absent, not just disabled.
+
+Route: `/memory-master-dev` registered as a normal sibling route in
+`main.jsx` (same pattern as `/update-password` -- not nested under `/app/*`,
+so it doesn't inherit `CandyGalaxyShell`'s `AuthGuard`/bottom-nav). The flag
+check lives *inside* the component (`VITE_MEMORY_MASTER_ENABLED === 'true'`,
+else renders the app's real `NotFound` page) rather than conditionally
+including the `<Route>` -- functionally identical (unreachable/404 without
+the flag) and simpler to reason about. **Confirmed stronger than expected**:
+built `dist/assets/MemoryMasterDevRoute-*.js` locally with the flag unset ->
+**0.49 kB** (just the `NotFound` re-export); rebuilt with
+`VITE_MEMORY_MASTER_ENABLED=true` -> **56.68 kB** (the real module). Vite's
+static env replacement + Rollup tree-shaking eliminates the entire module's
+code from the bundle when the flag is off, not just at runtime -- extra
+defense-in-depth beyond the runtime check alone.
+
+No per-letter TTS: `speak()` is only ever called with whole words (read-phase
+tap-a-word) or whole segments/sentences (solo-mode auto-read, primer,
+practice, assessment) -- verified structurally, not just by convention:
+`Keyboard.jsx` has no `speak` prop and no `speak(` call anywhere in the file
+(a real per-letter TTS bug would require adding one), asserted by a new
+static-source test (see Phase 4 tests below).
+
+Env: added `VITE_MEMORY_MASTER_ENABLED="false"` to `.env.example` (documents
+the flag; default OFF). Set to `"true"` in this worktree's own untracked
+`.env.local` (copied in during Phase 3, since `git worktree add` doesn't
+carry untracked files) so the local dev server and Playwright's webServer
+build the module for testing -- **production and any Vercel Preview
+deployment default OFF** unless the same variable is explicitly added in
+Vercel's project settings, which is a dashboard action outside this run's
+write access (flagged for Phase 6 below).
+
+**Bugs found and fixed via live smoke-testing, before Phase 5 gates, not
+after**:
+1. `eslint` caught a real `react-hooks/set-state-in-effect` violation in
+   `WritePhase.jsx` (an effect calling `setRevealed(true)` synchronously on
+   every segment/attempt change). Fixed by removing the effect entirely and
+   instead keying `<WritePhase key={segIdx-attempt}>` in the orchestrator so
+   the component remounts fresh (its `useState(true)` initializer does the
+   job an effect was doing wrong).
+2. `eslint` caught an unused `p`/`progress` parameter in `startPortion()`
+   that was accepted but never read; simplified the signature and updated
+   all four call sites.
+3. **Found by live Playwright walk-through, not caught by lint or the unit
+   suite**: the "Big letter" shift key never released after one letter --
+   `Keyboard.jsx`'s letter-key `onClick` set the character's case but never
+   called `onToggleShift()` afterward, so shift stayed stuck on
+   indefinitely instead of being one-shot (handoff's own "releases after
+   one letter, like a real keyboard" requirement, and mockup-P's reference
+   JS does this in its own key handler -- a real port gap, not a design
+   choice). Fixed: the letter-key handler now calls `onToggleShift()` after
+   emitting the character, only when shift was active.
+
+**Live verification, ad hoc Playwright walks (not committed as test
+scripts, run from this worktree so `node_modules/playwright` resolved;
+deleted after each run)**:
+- Full happy path: home -> intro -> auto-placement -> 3-step primer -> read
+  phase -> write both segments of portion 1 -> read/write portion 2 ->
+  **checkmark screen reached**, zero console/page errors (only the expected
+  `/api/speak` 404s -- local Vite dev doesn't serve `/api` routes, a
+  documented existing constraint, not new).
+- Full failure path: 5 real wrong submissions on the same segment -> copy
+  mode fired after the 3rd (confirmed via the "Try N" indicator
+  disappearing, copy mode's own screen has none) -> exiting copy mode
+  resumed hidden writing at try 4 without counting as a 6th failure ->
+  2 more real failures -> **5-try-stop screen reached** -> "Finish up" ->
+  session-end with no checkmark -> "Done" -> **the same session was
+  re-presented** (back at the read phase for the same level/session
+  number, not session+1) -- confirms the T4/R9 design decision from Phase 2
+  actually works end-to-end through the real UI, not just the pure
+  reducer.
+
+**Committed as a real test** (`tests/memory-master-dev-route.spec.js`, 4
+tests, run via the project's normal Playwright command against the local
+dev server with this worktree's flag-on `.env.local`):
+1. flag-on reachability (module renders, not a 404).
+2. entering the module reaches the intro screen.
+3. the practice corner is reachable from home and *is* off-path (shows the
+   fix on a miss -- unlike any real trial screen, per its own contract).
+4. the no-per-letter-TTS structural assertion described above.
+All 4 passed on the first run after the shift-key fix.
+
+**Deliberate scope simplifications from the mockup**, noted rather than
+silently taken: no audio prefetch-next-line optimization (handoff item 3
+mentions prefetching current+next; this dev route calls `speak()` on demand
+only -- `api/speak.mjs` already caches by a hash of the text with a 24h
+`Cache-Control`, so repeated taps of the same line don't regenerate, and
+"walkable, not shippable" doesn't require the optimization); `CHILD_UNIT`
+placement input is a hardcoded constant (`= 4`), not a real reading-level
+lookup (no Supabase reads in this run, per the non-negotiables).
 
 ## PHASE 5 — Gates
 
