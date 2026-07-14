@@ -5,8 +5,8 @@ No schema, no persistence, no telemetry, no customer-facing entry point.
 
 ## RUN TIMING
 
-- Start: IN PROGRESS
-- End: IN PROGRESS
+- Start: 2026-07-14T01:13:00Z (approx., first source-file timestamp)
+- End (through APPROVAL STOP): 2026-07-14T06:16:07Z
 
 ## STEP 0 — Preconditions, worktree, run report
 
@@ -434,4 +434,97 @@ No console/page errors (`page.on('pageerror')`) across any of the walks.
 
 ## APPROVAL STOP
 
-Status: NOT REACHED.
+Status: **REACHED. Halting here for Sal's approval before any merge/push
+to main.**
+
+### Diff stat (`origin/main..HEAD`, HEAD = `b104555`)
+
+```
+ .env.example                                      |    6 +
+ docs/MEMORY_MASTER_REPORT.md                      |  437 +++++
+ package.json                                      |    5 +-
+ scripts/check-memorymaster-content.mjs            |  118 ++
+ src/content/memorymaster_content.json             | 2012 +++++++++++++++++++++
+ src/lib/memoryMaster.js                           |  259 +++
+ src/main.jsx                                      |    8 +
+ src/screens/memorymaster/CardScreen.jsx           |   52 +
+ src/screens/memorymaster/HomeIntegration.jsx      |   61 +
+ src/screens/memorymaster/Keyboard.jsx             |   91 +
+ src/screens/memorymaster/MemoryMasterDevRoute.jsx |  369 ++++
+ src/screens/memorymaster/NovaBubble.jsx           |   25 +
+ src/screens/memorymaster/ParentRecord.jsx         |   97 +
+ src/screens/memorymaster/PlacementChoice.jsx      |   33 +
+ src/screens/memorymaster/Practice.jsx             |   75 +
+ src/screens/memorymaster/Primer.jsx               |   83 +
+ src/screens/memorymaster/ReadPhase.jsx            |   69 +
+ src/screens/memorymaster/SessionEnd.jsx           |   46 +
+ src/screens/memorymaster/SkillsAssessment.jsx     |   49 +
+ src/screens/memorymaster/WritePhase.jsx           |  107 ++
+ src/screens/memorymaster/icons.jsx                |   45 +
+ src/screens/memorymaster/mmTokens.js              |   17 +
+ tests/memory-master-dev-route.spec.js             |   42 +
+ tests/memory-master-engine.spec.js                |  227 +++
+ 24 files changed, 4331 insertions(+), 2 deletions(-)
+```
+
+8 commits on `feat/memory-master-r1`, all pushed. **Zero migration files,
+zero `api/` changes** (verified twice, Phase 5 and again after the Phase 6
+fix). No `product_events` types touched. No writes to any existing table.
+
+### Gate results
+
+| Gate | Result |
+|---|---|
+| `npm run build` (7 sync checks incl. new content check) | PASS |
+| `npm run check:no-emoji` | PASS |
+| `npx playwright test --workers=1` (full suite) | 146/150 -- **21/21 Memory Master tests pass**; 4 failures confirmed pre-existing/unrelated (zero diff against those files or the app code they exercise) |
+| `node scripts/idor-proof.mjs` | ALL CHECKS PASSED (37/37, unchanged baseline) |
+| Diff review | zero migrations, zero `api/` changes, zero touched existing tables |
+| Vercel preview deploy | success, resolved via GitHub commit-status + Deployments API |
+
+### Test-count deltas
+
+- Playwright: **129 -> 150** (+17 engine acceptance tests, +4 dev-route
+  tests; every other spec file's count unchanged).
+- idor-proof.mjs: **37 -> 37** (unchanged; this run adds no endpoints).
+- Build-time sync checks: **6 -> 7** (`check-memorymaster-content.mjs`
+  added).
+
+### Measured content census
+
+150/150 portions present (5 levels x 15 sessions x 2 portions), 0 tiling
+failures, 0 empty/whitespace segment issues. Skills Assessment: 5/5 levels,
+unit sums match `max_units` exactly (L1 20/20, L2 20/20, L3 23/23,
+L4 24/24, L5 26/26). `meta.errata` preserved verbatim (17 entries).
+`contentVersion: 1` set.
+
+### Every `[PROPOSED]` constant, with its OQ number
+
+| Constant / decision | Location | OQ | What ratifying it means |
+|---|---|---|---|
+| `UNIT_TO_MM_LEVEL` breakpoint table | `src/lib/memoryMaster.js:60` | **OQ1** | Config edit to the table only -- the "-1, min 1" arithmetic around it is her ratified R1 rule, not itself proposed. |
+| `scoreDictation` unit-scoring algorithm | `src/lib/memoryMaster.js:70` | (unnumbered, handoff §8) | Confirm whole-word-equality-after-stripping-punctuation is the right operationalization of "no omitted/added/misplaced letters, max one error per word." |
+| Solo mode (app-voices-sentence + tap-to-hear) as R3/R4's digital analog | `MemoryMasterDevRoute.jsx:63` | **OQ2** | Approve Solo mode as an alternative to Coach mode; approve tap-a-word-to-hear as the digital "tell the child the word." |
+| Guided mode (`COPY_MODE_AT_ATTEMPT_GUIDED = 3` vs `4`) | `src/lib/memoryMaster.js:141` | (unnumbered) | Ships OFF regardless; ratification is only relevant if Sal wants to demo/ship the alternative. |
+| `CHILD_UNIT = 4` hardcoded placement input | `MemoryMasterDevRoute.jsx:39` | n/a (R2 territory) | Not a pedagogy question -- this is a real reading-level lookup that doesn't exist without schema/persistence (deferred to MEMORY_MASTER_R2). |
+| Backspace-before-submit not counted as an error | (implemented structurally -- the checker only ever sees the final submitted string) | **OQ3** | No code change needed either way; confirms the existing behavior is correct. |
+
+Also carried forward, unresolved by this run (by design -- R1 was scoped to
+avoid them): **OQ4** (E1 replacement content for L5 S14, E2/E7/E14 rulings),
+**OQ5** (celebration tone/certificate wording/R18 illustration timing),
+**OQ6** (day-one visibility vs. unlock-after-progress), **OQ7** (licensing/
+consumer-facing name, handoff §2), **OQ8** (subscription packaging),
+**OQ9** (paper-mode toggle).
+
+### What this run does NOT include (by design)
+
+No schema, no `supabase db push`, no persistence, no telemetry, no
+customer-facing entry point (no home tile, no nav link -- confirmed by
+inspection: `HomeScreen.jsx`/`CandyGalaxyShell.jsx` have zero references to
+Memory Master). The route 404s on the real deployed preview today, with no
+Vercel dashboard changes made.
+
+### Approval covers
+
+`--no-ff` merge of `feat/memory-master-r1` into `main`, `git push origin
+main`, and the docs push (Phase 7). Nothing else. Waiting here.
