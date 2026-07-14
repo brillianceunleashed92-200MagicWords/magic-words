@@ -863,7 +863,22 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const verifiedUser = await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
+  // STAR_CHECK_R1: starCheckMode gets its OWN rate-limit bucket (a
+  // distinct `endpoint` key, not a distinct URL -- checkRateLimit buckets
+  // purely by that string) and a higher ceiling, sized for its own wire
+  // shape. Every other mode's 10/min budget is completely unchanged.
+  // Discovered live, not assumed: a real preview-deployment walkthrough
+  // showed the shared 10/min cap gets hit mid-check (one round-trip per
+  // probe, up to 37 for a full 25-word/5-level clean sweep, at least
+  // 6-10+ even for an early two-miss floor) well before a single Star
+  // Check session finishes, silently bouncing the child to Home via the
+  // client's own "never strand the child" degrade-to-error path -- not a
+  // cross-mode contention issue (the existing documented trap), the
+  // mode's OWN normal usage pattern exceeded its own shared budget.
+  const starCheckModePreParse = req.body?.starCheckMode === true;
+  const verifiedUser = starCheckModePreParse
+    ? await requireAuthAndRateLimit(req, res, 'session-generator-starcheck', 40, 1)
+    : await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
   if (!verifiedUser) return;
 
   const rawChildId = req.body?.childId;
@@ -873,7 +888,7 @@ module.exports = async function handler(req, res) {
   const reviewOnly = req.body?.reviewOnly === true;
   const placementMode = req.body?.placementMode === true;
   const checkinMode = req.body?.checkinMode === true;
-  const starCheckMode = req.body?.starCheckMode === true;
+  const starCheckMode = starCheckModePreParse;
   const historyMode = req.body?.historyMode === true;
 
   if (!childId) return res.status(400).json({ error: 'childId is required' });

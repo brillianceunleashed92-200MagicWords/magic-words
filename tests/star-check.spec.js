@@ -209,22 +209,71 @@ async function signInAndOnboard(page, email, name) {
 }
 
 // Taps the tray letters in the correct order (c, then a) -- never
-// triggers the [PROPOSED] struggle path.
+// triggers the [PROPOSED] struggle path. Waits for the resulting
+// starCheckMode round-trip (the first probe fetch) to actually land
+// before returning, same reasoning as submitAnswer below.
 async function passWarmup(page) {
   await expect(page.getByText("Copy me")).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: "Tap c" }).click();
   await page.waitForTimeout(200);
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/session-generator') && res.request().method() === 'POST',
+    { timeout: 15000 }
+  );
   await page.getByRole("button", { name: "Tap a" }).click();
-  await page.waitForTimeout(700);
+  await responsePromise;
+  await page.locator("[data-word] button").first().waitFor({ state: "attached", timeout: 10000 });
 }
 
-// Taps the tile whose data-word matches `word` (never rendered as visible
-// text for the meaning/picture probe -- see StarCheckProbe.jsx's own
-// comment on why this attribute exists).
-async function tapWord(page, word) {
-  await page.locator(`[data-word="${word}"] button`).click();
-  await page.waitForTimeout(1000);
+// Taps a tile (the word's own target if `correct`, otherwise whichever
+// tile is NOT it -- guaranteed wrong), then drives the round-trip off the
+// REAL /api/session-generator response body rather than guessed sleeps.
+// StarCheckProbe holds the tap for 900ms before calling onAnswer, so a
+// fixed short sleep races the network call; a first version of this
+// helper did exactly that and produced real timeouts/false negatives
+// during Phase 6's gate run (root-caused via a live manual walkthrough,
+// not guessed) -- fixed by reading the response's own `levelUp`/`done`
+// flags to know deterministically whether to wait out the "Keep going"
+// interstitial, and by waiting for the NEXT probe's own tile to actually
+// be attached before returning, instead of assuming React has committed
+// by some fixed deadline.
+async function submitAnswer(page, word, correct) {
+  const tiles = page.locator("[data-word]");
+  const count = await tiles.count();
+  let target;
+  if (correct) {
+    target = page.locator(`[data-word="${word}"] button`);
+  } else {
+    target = null;
+    for (let i = 0; i < count; i++) {
+      const w = await tiles.nth(i).getAttribute("data-word");
+      if (w !== word) { target = tiles.nth(i).locator("button"); break; }
+    }
+    expect(target).not.toBeNull();
+  }
+
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/session-generator') && res.request().method() === 'POST',
+    { timeout: 15000 }
+  );
+  await target.click();
+  const response = await responsePromise;
+  const body = await response.json().catch(() => ({}));
+  const starCheck = body.starCheck;
+
+  if (starCheck?.levelUp) {
+    const keepGoing = page.getByRole("button", { name: "Keep going" });
+    await keepGoing.waitFor({ state: "visible", timeout: 10000 });
+    await keepGoing.click();
+  }
+  if (starCheck && !starCheck.done) {
+    await page.locator("[data-word] button").first().waitFor({ state: "attached", timeout: 10000 });
+  }
+  return starCheck;
 }
+
+async function tapWord(page, word) { return submitAnswer(page, word, true); }
+async function tapWrong(page, word) { return submitAnswer(page, word, false); }
 
 test("Star Check: beginner path -- skip logs placement_skipped, no child_profiles write", async ({ page }) => {
   test.skip(!SERVICE_KEY, "requires SUPABASE_SERVICE_ROLE_KEY");
@@ -265,7 +314,12 @@ test("Star Check: skip mid-check via the exit button also lands no child_profile
 
 test("Star Check: full clean sweep -- passes all 5 levels, lands the 'clean' floor (Unit 16), scoreless result", async ({ page }) => {
   test.skip(!SERVICE_KEY, "requires SUPABASE_SERVICE_ROLE_KEY");
-  test.setTimeout(180000);
+  // 37 real server round-trips (one per probe across all 25 words) --
+  // 180s proved too tight against real production latency (this test hit
+  // the ceiling at exactly 3.0m twice during Phase 6, confirmed via a
+  // standalone debug script that the same tap sequence works correctly
+  // and just needs more wall-clock room, not a logic fix).
+  test.setTimeout(300000);
   const { email, userId } = await provisionAccount("mwstarclean");
   try {
     await signInAndOnboard(page, email, "CleanKid");
@@ -291,9 +345,6 @@ test("Star Check: full clean sweep -- passes all 5 levels, lands the 'clean' flo
     for (const word of words) {
       const probesForThisWord = PICTURE_ELIGIBLE.has(word) ? 2 : 1;
       for (let p = 0; p < probesForThisWord; p++) await tapWord(page, word);
-      // Level lift interstitial appears between levels -- dismiss it if shown.
-      const keepGoing = page.getByRole("button", { name: "Keep going" });
-      if (await keepGoing.isVisible().catch(() => false)) await keepGoing.click();
     }
 
     await expect(page.getByText("You found your starting star!")).toBeVisible({ timeout: 20000 });
@@ -319,16 +370,16 @@ test("Star Check: forced two-miss floor at Level 2 -- floors at Unit 4, target w
   try {
     await signInAndOnboard(page, email, "FloorKid");
     await page.getByRole("button", { name: /Let Nova find their level/i }).click();
+    await expect(page.getByText("Find your starting star")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Let's go, Nova!" }).click();
     await passWarmup(page);
 
-    // Pass Level 1 clean.
+    // Pass Level 1 clean (kid/girl/boys are picture-eligible -- 2 probes
+    // each; eat/rest are print-only -- 1 probe each).
+    const PICTURE_ELIGIBLE_L1 = new Set(["kid", "girl", "boys"]);
     for (const word of ["kid", "girl", "boys", "eat", "rest"]) {
-      for (let probeCount = 0; probeCount < 2; probeCount++) {
-        const hasTile = await page.locator(`[data-word="${word}"]`).count();
-        if (hasTile === 0) break;
-        await tapWord(page, word);
-      }
+      const probesForThisWord = PICTURE_ELIGIBLE_L1.has(word) ? 2 : 1;
+      for (let p = 0; p < probesForThisWord; p++) await tapWord(page, word);
     }
 
     // Measurement exception check while a Level-2 probe is on screen:
@@ -340,27 +391,15 @@ test("Star Check: forced two-miss floor at Level 2 -- floors at Unit 4, target w
     expect(eyebrowText).not.toMatch(/Listen and find the word! baby/i); // target never named in the prompt itself
 
     // Force two misses on Level 2's first two words (baby, good) by
-    // tapping a wrong tile each time.
-    for (const word of ["baby", "good"]) {
-      for (let probeCount = 0; probeCount < 2; probeCount++) {
-        const tiles = page.locator("[data-word]");
-        const count = await tiles.count();
-        if (count === 0) break;
-        // Tap whichever tile is NOT this word's own target -- guaranteed wrong.
-        let tappedWrong = false;
-        for (let i = 0; i < count; i++) {
-          const w = await tiles.nth(i).getAttribute("data-word");
-          if (w !== word) { await tiles.nth(i).locator("button").click(); tappedWrong = true; break; }
-        }
-        expect(tappedWrong).toBe(true);
-        await page.waitForTimeout(1000);
-
-        const wiggleCount = await page.locator('[style*="lessonWiggle"]').count();
-        expect(wiggleCount).toBe(0);
-        const bodyText = await page.locator("body").innerText();
-        expect(bodyText).not.toMatch(/Not quite|try again|incorrect/i);
-      }
-    }
+    // tapping a wrong tile each time -- baby is picture-eligible (2
+    // probes), good is print-only (1 probe).
+    await tapWrong(page, "baby");
+    const wiggleCount = await page.locator('[style*="lessonWiggle"]').count();
+    expect(wiggleCount).toBe(0);
+    const bodyText = await page.locator("body").innerText();
+    expect(bodyText).not.toMatch(/Not quite|try again|incorrect/i);
+    await tapWrong(page, "baby");
+    await tapWrong(page, "good");
 
     await expect(page.getByText("You found your starting star!")).toBeVisible({ timeout: 20000 });
     await page.getByRole("button", { name: "Let's fly!" }).click();
@@ -380,23 +419,15 @@ test("product_events: a completed Star Check lands a placement_completed row wit
   try {
     await signInAndOnboard(page, email, "EventKid");
     await page.getByRole("button", { name: /Let Nova find their level/i }).click();
+    await expect(page.getByText("Find your starting star")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Let's go, Nova!" }).click();
     await passWarmup(page);
-    // Force a two-miss floor at Level 1 (fastest path to a finalize call).
-    for (const word of ["kid", "girl"]) {
-      for (let probeCount = 0; probeCount < 2; probeCount++) {
-        const tiles = page.locator("[data-word]");
-        const count = await tiles.count();
-        if (count === 0) break;
-        let tapped = false;
-        for (let i = 0; i < count; i++) {
-          const w = await tiles.nth(i).getAttribute("data-word");
-          if (w !== word) { await tiles.nth(i).locator("button").click(); tapped = true; break; }
-        }
-        expect(tapped).toBe(true);
-        await page.waitForTimeout(1000);
-      }
-    }
+    // Force a two-miss floor at Level 1 (fastest path to a finalize call)
+    // -- kid and girl are both picture-eligible, 2 probes each.
+    await tapWrong(page, "kid");
+    await tapWrong(page, "kid");
+    await tapWrong(page, "girl");
+    await tapWrong(page, "girl");
     await expect(page.getByText("You found your starting star!")).toBeVisible({ timeout: 20000 });
 
     let rows = [];
