@@ -54,7 +54,33 @@ New branch `feat/memory-master-r1` tracking `origin/main`, HEAD at `253ea0a`.
 
 ## PHASE 1 — Content ingest + validation
 
-Status: NOT STARTED.
+Status: DONE.
+
+1. No existing content-pipeline convention found for static content JSON:
+   `src/content/` did not exist; the one precedent (`src/games/
+   curriculumWords.json`) has **zero importers** anywhere in `src/` (grep
+   confirmed) so isn't a live pattern to follow; all other content is
+   DB-only (`src/lib/queries/storyCatalog.js` reads from Supabase).
+   **Deviation, per the doc's own fallback instruction**: committed the
+   content at `src/content/memorymaster_content.json`, added
+   `meta.contentVersion: 1`, preserved `meta.errata` (17 entries) verbatim.
+2. `scripts/check-memorymaster-content.mjs` written (build-time sync check,
+   same static-scan-script contract as the other 6 in `scripts/`). Asserts:
+   5 levels x 15 sessions x 2 portions = 150 portions; every portion's
+   `segments.join(' ') === display`; no empty/untrimmed segments; Skills
+   Assessment 5 levels with sentence unit sums matching `max_units`;
+   `contentVersion === 1`. Wired into `npm run build` as the 7th check
+   (after `check-blank-engine-weighting-sync`, before `vite build`); also
+   exposed standalone as `npm run check:memorymaster-content`.
+3. Measured counts (both via standalone Python cross-check before writing
+   the script, and via the script itself post-wiring):
+   - **150/150 portions** present, 0 tiling failures, 0 empty/whitespace
+     segment issues.
+   - Skills Assessment: 5/5 levels, unit sums match `max_units` exactly
+     (L1: 20/20, L2: 20/20, L3: 23/23, L4: 24/24, L5: 26/26).
+   - `node scripts/check-memorymaster-content.mjs` run standalone: **PASS**.
+   All assertions passed against the shipped JSON on the first run — no
+   STOP condition hit.
 
 ## PHASE 2 — Rules engine (`src/lib/memoryMaster.js`)
 

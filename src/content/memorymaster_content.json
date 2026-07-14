@@ -1,0 +1,2012 @@
+{
+  "meta": {
+    "name": "MemoryMaster (Memory Master) - module content for the 200 Magic Words app",
+    "source_document": "MemoryMaster Spelling.pdf - 'Memory Master: Developing Visual Memory - The Key to Fluent Reading & Writing', by Dr. Marion Blank; footer brands it 'Reading Kingdom's Memory Master Program' (95 pages)",
+    "extracted": "2026-07-14, full manual extraction of all 5 levels x 15 sessions x 2 portions",
+    "canonical_rules": [
+      "display text is the source of truth; where the PDF's segment guide wording differs, segments were corrected to tile the display text exactly (differences logged in errata)",
+      "straight ASCII apostrophes (') and quotes (\") are canonical; the answer checker MUST normalize curly<->straight before comparing",
+      "internal whitespace normalized to single spaces; checker should collapse whitespace runs and trim before comparing",
+      "everything else is exact-match: spelling, word order, capitals, and punctuation all count",
+      "segments are the reveal/re-read chunks used during the writing phase; joined with single spaces they reproduce the display text exactly (validated programmatically)"
+    ],
+    "counts": {
+      "levels": 5,
+      "sessions_per_level": 15,
+      "portions_per_session": 2,
+      "total_portions": 150,
+      "unique_sentences_note": "three sentences appear twice (see errata E1, E2)",
+      "distinct_word_forms": 313
+    },
+    "errata": [
+      {
+        "id": "E1",
+        "severity": "high",
+        "where": "Level 4 Session 14 and Level 5 Session 14 (pp. 65, 80)",
+        "issue": "Both portions of L5 S14 are an exact duplicate of L4 S14 (same sentences, same segments). Almost certainly an authoring error.",
+        "action": "Request replacement Level 5 Session 14 content from Dr. Blank before launch. Shipping blocker for Level 5."
+      },
+      {
+        "id": "E2",
+        "severity": "medium",
+        "where": "Level 2 Sessions 4 and 6 (pp. 25, 27)",
+        "issue": "Portion 1 sentence 'That big kid is in the water.' appears in both sessions; S4 splits it into 2 segments, S6 presents it as a single segment.",
+        "action": "Confirm with Dr. Blank whether the repeat with reduced segmentation is intentional scaffold-fading or an oversight."
+      },
+      {
+        "id": "E3",
+        "severity": "low",
+        "where": "Level 5 Session 11 Portion 2 (p. 77)",
+        "issue": "Segment guide says 'The man said,' but the display sentence says 'The boy said,'. Canonical text follows the display ('The boy said,').",
+        "action": "Confirm speaker with author."
+      },
+      {
+        "id": "E4",
+        "severity": "low",
+        "where": "Level 4 Session 12 Portion 1 (p. 63)",
+        "issue": "Segment guide says 'The puppy isn't' vs display 'That puppy isn't'. Canonical follows display.",
+        "action": "None needed beyond confirmation."
+      },
+      {
+        "id": "E5",
+        "severity": "low",
+        "where": "Level 3 Session 3 Portion 2 (p. 39)",
+        "issue": "Segment guide says 'That boy has some pets' vs display 'That kid has some pets'. Canonical follows display.",
+        "action": "None needed beyond confirmation."
+      },
+      {
+        "id": "E5a",
+        "severity": "low",
+        "where": "Level 3 Session 3 Portion 1 (p. 39)",
+        "issue": "Segment guide says 'Something was in the way.' vs display 'Something was in its way.' Canonical follows display.",
+        "action": "None needed beyond confirmation."
+      },
+      {
+        "id": "E6",
+        "severity": "low",
+        "where": "Level 5 Session 2 Portion 1 (p. 68)",
+        "issue": "Segment guide includes 'still' ('Why were these birds still hungry') which the display sentence omits. Canonical follows display (no 'still').",
+        "action": "Confirm intended wording with author."
+      },
+      {
+        "id": "E7",
+        "severity": "medium",
+        "where": "Level 3 Session 8 Portion 2 (p. 44)",
+        "issue": "'The man wanted someone to move that big rock out of the way?' is declarative but ends with a question mark, in both display and segments. Since the checker enforces exact punctuation, this trains a likely error.",
+        "action": "Confirm with Dr. Blank; expected fix is a period. Kept as printed in this file pending sign-off."
+      },
+      {
+        "id": "E8",
+        "severity": "low",
+        "where": "Level 2 Session 2 Portion 1 (p. 23)",
+        "issue": "Segment guide ends 'babies big.' (period) vs display 'Are some babies big?' Canonical follows display ('?').",
+        "action": "None needed."
+      },
+      {
+        "id": "E9",
+        "severity": "low",
+        "where": "Level 2 Session 9 Portion 1 (p. 30)",
+        "issue": "Segment guide says 'in that truck now' vs display 'in the truck now'. Canonical follows display.",
+        "action": "None needed beyond confirmation."
+      },
+      {
+        "id": "E10",
+        "severity": "low",
+        "where": "Level 2 Session 10 Portion 1 (p. 31)",
+        "issue": "Segment guide places the question mark outside the closing quote (there\"?) while display places it inside (there?\"). Canonical follows display.",
+        "action": "None needed."
+      },
+      {
+        "id": "E11",
+        "severity": "low",
+        "where": "Level 3 Session 10 Portion 2 (p. 46); Level 5 Session 4 Portion 2 (p. 70)",
+        "issue": "Display text renders the opening double quote reversed (a closing-style mark). Typography normalized to a proper opening quote in canonical text.",
+        "action": "Fix in any print/PDF regeneration."
+      },
+      {
+        "id": "E12",
+        "severity": "trivial",
+        "where": "Level 2 Session 13 Portion 2 (p. 34)",
+        "issue": "Display shows extra internal spaces ('It is not   moving.'). Normalized to single spaces.",
+        "action": "None."
+      },
+      {
+        "id": "E13",
+        "severity": "doc-only",
+        "where": "Record Forms, Levels 2-5 tables (pp. 84-90)",
+        "issue": "Leftover editor note inside the table: 'This column should be made to disappear'. Confirms the PDF is a working draft.",
+        "action": "Ignore for app; fix if the PDF is ever distributed."
+      },
+      {
+        "id": "E14",
+        "severity": "medium",
+        "where": "Level 5 Session 13 Portion 2 (p. 79)",
+        "issue": "Tense mix: 'Once the truck slows down, people could get on.' Reads oddly (slows/could).",
+        "action": "Confirm intended wording with author before enforcing it as the exact target."
+      },
+      {
+        "id": "E15",
+        "severity": "trivial",
+        "where": "Level 5 Session 5 Portion 1 (p. 71)",
+        "issue": "Segment guide omits the comma after 'float' that the display includes. Canonical follows display (comma).",
+        "action": "None."
+      },
+      {
+        "id": "E16",
+        "severity": "trivial",
+        "where": "Various segment guides (e.g., L2 S11 P1, p. 32)",
+        "issue": "Minor guide inconsistencies: missing trailing slashes; one bare '?' as its own segment. Segmentation normalized so segments exactly tile the display text.",
+        "action": "None."
+      }
+    ],
+    "contentVersion": 1
+  },
+  "program": {
+    "levels": [
+      {
+        "level": 1,
+        "sessions": [
+          {
+            "session": 1,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Can some bugs jump?",
+                "segments": [
+                  "Can some",
+                  "bugs jump?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Kids cannot fly.",
+                "segments": [
+                  "Kids cannot fly."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 2,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Some boys are eating.",
+                "segments": [
+                  "Some boys",
+                  "are eating."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can some dolls walk?",
+                "segments": [
+                  "Can some dolls",
+                  "walk?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 3,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The boys are not here.",
+                "segments": [
+                  "The boys",
+                  "are not here."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Are some girls swimming?",
+                "segments": [
+                  "Are some girls",
+                  "swimming?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 4,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Some more birds are flying.",
+                "segments": [
+                  "Some more birds",
+                  "are flying."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Is this cat resting?",
+                "segments": [
+                  "Is this cat",
+                  "resting?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 5,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Can the birds rest here?",
+                "segments": [
+                  "Can the birds",
+                  "rest here?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The boys are not resting.",
+                "segments": [
+                  "The boys",
+                  "are not resting."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 6,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The rockets are flying.",
+                "segments": [
+                  "The rockets",
+                  "are flying."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some kids are sitting.",
+                "segments": [
+                  "Some kids",
+                  "are sitting."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 7,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The girls are not here.",
+                "segments": [
+                  "The girls",
+                  "are not here."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Kids can walk. They cannot fly.",
+                "segments": [
+                  "Kids can walk.",
+                  "They cannot fly."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 8,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The kids can swim some more.",
+                "segments": [
+                  "The kids can",
+                  "swim some more."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can a robot swim?",
+                "segments": [
+                  "Can a robot",
+                  "swim?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 9,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The robots are toys.",
+                "segments": [
+                  "The robots",
+                  "are toys."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "They are not jumping.",
+                "segments": [
+                  "They are",
+                  "not jumping."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 10,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "A robot is walking.",
+                "segments": [
+                  "A robot",
+                  "is walking."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some kids walk here.",
+                "segments": [
+                  "Some kids",
+                  "walk here."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 11,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Are some planes here?",
+                "segments": [
+                  "Are some",
+                  "planes here?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can this plane fly?",
+                "segments": [
+                  "Can this plane",
+                  "fly?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 12,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "This is a toy, but it is not a robot.",
+                "segments": [
+                  "This is a toy,",
+                  "but it is not",
+                  "a robot."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can the kids swim here?",
+                "segments": [
+                  "Can the kids",
+                  "swim here?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 13,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The kids can sit. They are sitting.",
+                "segments": [
+                  "The kids can sit.",
+                  "They are sitting."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The planes can fly, but they are not flying.",
+                "segments": [
+                  "The planes can fly,",
+                  "but they are not flying."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 14,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Can the rocket fly?",
+                "segments": [
+                  "Can the rocket fly?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Here are some more rockets.",
+                "segments": [
+                  "Here are some",
+                  "more rockets."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 15,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Some bugs can fly, but some cannot.",
+                "segments": [
+                  "Some bugs can fly,",
+                  "but some cannot."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some birds are pets.",
+                "segments": [
+                  "Some birds are pets."
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "sessions": [
+          {
+            "session": 1,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "What things does that girl like?",
+                "segments": [
+                  "What things",
+                  "does that girl like?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Those things in there are not frogs.",
+                "segments": [
+                  "Those things in there",
+                  "are not frogs."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 2,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Are some babies big?",
+                "segments": [
+                  "Are some",
+                  "babies big?"
+                ],
+                "errata": [
+                  "E8"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The baby cannot walk and she cannot run.",
+                "segments": [
+                  "The baby cannot walk",
+                  "and she cannot run."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 3,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Who is resting here? It is a frog.",
+                "segments": [
+                  "Who is resting here?",
+                  "It is a frog."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Who are they? They are baby birds.",
+                "segments": [
+                  "Who are they?",
+                  "They are baby birds."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 4,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That big kid is in the water.",
+                "segments": [
+                  "That big kid",
+                  "is in the water."
+                ],
+                "errata": [
+                  "E2"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Does the kid also want to pet that cat?",
+                "segments": [
+                  "Does the kid",
+                  "also want to",
+                  "pet that cat?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 5,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "This baby is not big, but she does talk.",
+                "segments": [
+                  "This baby is not big,",
+                  "but she does talk."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Does that kid have some toys that are not good?",
+                "segments": [
+                  "Does that kid have",
+                  "some toys that",
+                  "are not good?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 6,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That big kid is in the water.",
+                "segments": [
+                  "That big kid is in the water."
+                ],
+                "errata": [
+                  "E2"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Are there many ducks swimming in the water?",
+                "segments": [
+                  "Are there many ducks",
+                  "swimming in the water?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 7,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "What does the baby girl want to do now?",
+                "segments": [
+                  "What does the baby girl",
+                  "want to do now?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Those birds are eating, but it is not what they like.",
+                "segments": [
+                  "Those birds are eating,",
+                  "but it is not what they like."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 8,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Some kids are swimming, but the other ones do not want to do that.",
+                "segments": [
+                  "Some kids are swimming,",
+                  "but the other ones do",
+                  "not want to do that."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That bug can jump. What other things can it do?",
+                "segments": [
+                  "That bug can jump.",
+                  "What other things",
+                  "can it do?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 9,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "These girls want to sit in the truck now.",
+                "segments": [
+                  "These girls want to sit",
+                  "in the truck now."
+                ],
+                "errata": [
+                  "E9"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That puppy wants to jump into the water.",
+                "segments": [
+                  "That puppy wants to jump",
+                  "into the water."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 10,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "\"We want to swim and run. Can we do both those things there?\"",
+                "segments": [
+                  "\"We want to swim and run.",
+                  "Can we do both",
+                  "those things there?\""
+                ],
+                "errata": [
+                  "E10"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "There are many frogs in the water. They like to swim there.",
+                "segments": [
+                  "There are many frogs",
+                  "in the water.",
+                  "They like to swim there."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 11,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Is there someone who can move that truck?",
+                "segments": [
+                  "Is there someone who",
+                  "can move that truck?"
+                ],
+                "errata": [
+                  "E16"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some of the big trucks are not here now.",
+                "segments": [
+                  "Some of the big trucks",
+                  "are not here now."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 12,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man is saying, \"Which one is jumping? I do not want you doing that.\"",
+                "segments": [
+                  "The man is saying, \"Which one is jumping?",
+                  "I do not want you",
+                  "doing that.\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The girl is saying, \"You are a baby. I am not a baby.\"",
+                "segments": [
+                  "The girl is saying,",
+                  "\"You are a baby.",
+                  "I am not a baby.\""
+                ]
+              }
+            ]
+          },
+          {
+            "session": 13,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Those girls want to stop swimming now.",
+                "segments": [
+                  "Those girls want to stop",
+                  "swimming now."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Is someone stopping that truck? It is not moving.",
+                "segments": [
+                  "Is someone stopping",
+                  "that truck?",
+                  "It is not moving."
+                ],
+                "errata": [
+                  "E12"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 14,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Frogs swim in water by moving their legs.",
+                "segments": [
+                  "Frogs swim in water",
+                  "by moving their legs."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Yes, it looks like something is in the water.",
+                "segments": [
+                  "Yes, it looks like",
+                  "something is in the water."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 15,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Some rockets can do many things, but those rockets cannot.",
+                "segments": [
+                  "Some rockets can do",
+                  "many things,",
+                  "but those rockets cannot."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Are those planes moving this way?",
+                "segments": [
+                  "Are those planes",
+                  "moving this way?"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "sessions": [
+          {
+            "session": 1,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That frog could swim, but it was not swimming.",
+                "segments": [
+                  "That frog could swim,",
+                  "but it was not swimming."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Was someone moving this truck?",
+                "segments": [
+                  "Was someone",
+                  "moving this truck?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 2,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "All the kids wanted to hop, but only two of them could do that.",
+                "segments": [
+                  "All the kids wanted to hop,",
+                  "but only two of them",
+                  "could do that."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Both babies could walk and they did that all the time.",
+                "segments": [
+                  "Both babies could walk",
+                  "and they did that all the time."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 3,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The bug could not hop where it wanted. Something was in its way.",
+                "segments": [
+                  "The bug could not hop",
+                  "where it wanted.",
+                  "Something was in its way."
+                ],
+                "errata": [
+                  "E5a"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That kid has some pets, but where are they? They are not here.",
+                "segments": [
+                  "That kid has some pets,",
+                  "but where are they?",
+                  "They are not here."
+                ],
+                "errata": [
+                  "E5"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 4,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The boy thinks some rocks in the water hurt his puppy.",
+                "segments": [
+                  "The boy thinks",
+                  "some rocks in the water",
+                  "hurt his puppy."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Do you think that some of the girls look very sad?",
+                "segments": [
+                  "Do you think",
+                  "that some of the girls",
+                  "look very sad?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 5,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The girl was crying and she would not play with anyone.",
+                "segments": [
+                  "The girl was crying",
+                  "and she would not play",
+                  "with anyone."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Someone played near those trucks, but they are not there now.",
+                "segments": [
+                  "Someone played near those trucks,",
+                  "but they are not there now."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 6,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "He was happy, but his face did not look that way.",
+                "segments": [
+                  "He was happy,",
+                  "but his face did not",
+                  "look that way."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Those are planes, but you cannot fly in them.",
+                "segments": [
+                  "Those are planes,",
+                  "but you cannot fly in them."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 7,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The boy likes his pets. He likes to be with them all the time.",
+                "segments": [
+                  "The boy likes his pets.",
+                  "He likes to be with them",
+                  "all the time."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "All the kids were happy to see their pets.",
+                "segments": [
+                  "All the kids were happy",
+                  "to see their pets."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 8,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That man was saying, \"Do not push the dirt near here.\"",
+                "segments": [
+                  "That man was saying,",
+                  "\"Do not push",
+                  "the dirt near here.\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man wanted someone to move that big rock out of the way?",
+                "segments": [
+                  "The man wanted someone",
+                  "to move that big rock",
+                  "out of the way?"
+                ],
+                "errata": [
+                  "E7"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 9,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Those mice stayed in the hole all that time.",
+                "segments": [
+                  "Those mice stayed in the hole",
+                  "all that time."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The girls were placing some rocks in the bags.",
+                "segments": [
+                  "The girls were placing",
+                  "some rocks in the bags."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 10,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "They think those places are not very clean for their pets.",
+                "segments": [
+                  "They think those places",
+                  "are not very clean",
+                  "for their pets."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The boy said, \"Yes, there are some mice there, but they do not hurt anyone.\"",
+                "segments": [
+                  "The boy said,",
+                  "\"Yes, there are",
+                  "some mice there,",
+                  "but they do not hurt anyone.\""
+                ],
+                "errata": [
+                  "E11"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 11,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "A cat was still near the bird and the bird did not like it.",
+                "segments": [
+                  "A cat was still near the bird",
+                  "and the bird did not like it."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The baby could walk then, but she still could not run.",
+                "segments": [
+                  "The baby could walk then,",
+                  "but she still could not run."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 12,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man said, \"Did you find any dirty things in that place?\"",
+                "segments": [
+                  "The man said,",
+                  "\"Did you find any",
+                  "dirty things in that place?\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "All of those dolls have two arms and two legs.",
+                "segments": [
+                  "All of those dolls",
+                  "have two arms and two legs."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 13,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That boy wanted two pets, but he could not have that many.",
+                "segments": [
+                  "That boy wanted two pets,",
+                  "but he could not have that many."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Most of us do not like anything dirty to be near us.",
+                "segments": [
+                  "Most of us do not like",
+                  "anything dirty to be near us."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 14,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That boy likes to clean, but most kids do not.",
+                "segments": [
+                  "That boy likes to clean,",
+                  "but most kids do not."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "They cleaned all the dirty things and put them away.",
+                "segments": [
+                  "They cleaned all the dirty things",
+                  "and put them away."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 15,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The girl said she would be on time, but she is not here.",
+                "segments": [
+                  "The girl said",
+                  "she would be on time,",
+                  "but she is not here."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Do you think they would both like to swim in the pool now?",
+                "segments": [
+                  "Do you think they would",
+                  "both like to swim",
+                  "in the pool now?"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 4,
+        "sessions": [
+          {
+            "session": 1,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That baby animal did not like seeing any people.",
+                "segments": [
+                  "That baby animal",
+                  "did not like seeing any people."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Which of those two animals did they say needs help?",
+                "segments": [
+                  "Which of those two animals",
+                  "did they say needs help?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 2,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Why did all those kids want to go to another place?",
+                "segments": [
+                  "Why did all those kids",
+                  "want to go to another place?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The girl wanted to swim one more time, but she couldn't.",
+                "segments": [
+                  "The girl wanted to swim one more time,",
+                  "but she couldn't."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 3,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Did anything happen to the people when they were in the park?",
+                "segments": [
+                  "Did anything happen",
+                  "to the people",
+                  "when they were in the park?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Those boys are not sad. They just happen to look that way.",
+                "segments": [
+                  "Those boys are not sad.",
+                  "They just happen",
+                  "to look that way."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 4,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Just about this time, a mother bird pushes her babies out of their nest.",
+                "segments": [
+                  "Just about this time,",
+                  "a mother bird pushes",
+                  "her babies out of their nest."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That girl looks sad. She seems about to cry.",
+                "segments": [
+                  "That girl looks sad.",
+                  "She seems about to cry."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 5,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Each one of the kids wants to go on those swings.",
+                "segments": [
+                  "Each one of the kids",
+                  "wants to go on those swings."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "No one wants to go to that place again. It was not nice.",
+                "segments": [
+                  "No one wants to go",
+                  "to that place again.",
+                  "It was not nice."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 6,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Each of these toys can fly, but no one is here to get them to do that.",
+                "segments": [
+                  "Each of these toys can fly,",
+                  "but no one is here",
+                  "to get them to do that."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "When the two boys jumped, they hurt their legs. Now they don't want to jump again.",
+                "segments": [
+                  "When the two boys jumped,",
+                  "they hurt their legs.",
+                  "Now they don't want to jump again."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 7,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "When those kids saw a rainbow, they were very happy.",
+                "segments": [
+                  "When those kids",
+                  "saw a rainbow,",
+                  "they were very happy."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Each of the kids in that group is a good worker.",
+                "segments": [
+                  "Each of the kids in that group is a good worker."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 8,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Don't you think that rainbows are very nice things to see?",
+                "segments": [
+                  "Don't you think",
+                  "that rainbows are",
+                  "very nice things to see?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Who worked to fix these swings? They are good to play on now.",
+                "segments": [
+                  "Who worked to fix these swings?",
+                  "They are good to play on now."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 9,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Did those boys walk together because it was safer that way?",
+                "segments": [
+                  "Did those boys",
+                  "walk together",
+                  "because it was safer that way?"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man said that all those kids had to work together to get things moving.",
+                "segments": [
+                  "The man said that",
+                  "all those kids had to work",
+                  "together to get things moving."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 10,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "One of the groups of kids still wants to go swimming in the pool.",
+                "segments": [
+                  "One of the groups",
+                  "of kids still",
+                  "wants to go swimming in the pool."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man put all the plants into two groups when he planted them in the ground.",
+                "segments": [
+                  "The man put all the plants",
+                  "into two groups when",
+                  "he planted them in the ground."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 11,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man said, \"It's not good to drink any water when it is dirty.\"",
+                "segments": [
+                  "The man said,",
+                  "\"It's not good to drink",
+                  "any water when it is dirty.\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That day, the boy was drinking lots of water because he needed it.",
+                "segments": [
+                  "That day, the boy",
+                  "was drinking lots of water",
+                  "because he needed it."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 12,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That puppy isn't near his mother. She is looking for her baby.",
+                "segments": [
+                  "That puppy isn't",
+                  "near his mother.",
+                  "She is looking for her baby."
+                ],
+                "errata": [
+                  "E4"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The girl's mother said that the water in the pool looked cold.",
+                "segments": [
+                  "The girl's mother",
+                  "said that the water",
+                  "in the pool looked cold."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 13,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That small baby can't eat many foods because she doesn't have any teeth.",
+                "segments": [
+                  "That small baby can't eat",
+                  "many foods because",
+                  "she doesn't have any teeth."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can you think of an animal that has no teeth?",
+                "segments": [
+                  "Can you think of an animal that has no teeth?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 14,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The people who were here did not want to stay and they didn't.",
+                "segments": [
+                  "The people who were here",
+                  "did not want to stay",
+                  "and they didn't."
+                ],
+                "errata": [
+                  "E1"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Lots of people wanted to see this rocket fly, but they could not get here.",
+                "segments": [
+                  "Lots of people wanted",
+                  "to see this rocket fly,",
+                  "but they could not get here."
+                ],
+                "errata": [
+                  "E1"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 15,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Those baby birds cannot fly until they are bigger than they are now.",
+                "segments": [
+                  "Those baby birds cannot fly",
+                  "until they are bigger",
+                  "than they are now."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The kids had to stay in the house until it stopped raining.",
+                "segments": [
+                  "The kids had to stay",
+                  "in the house until",
+                  "it stopped raining."
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 5,
+        "sessions": [
+          {
+            "session": 1,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "It was scary to see that big animal when it started to run.",
+                "segments": [
+                  "It was scary to see",
+                  "that big animal when it started to run."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "That dog looked very hungry but she wasn't. She just had some food.",
+                "segments": [
+                  "That dog looked very hungry",
+                  "but she wasn't.",
+                  "She just had some food."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 2,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Why were these birds hungry after they ate so much food?",
+                "segments": [
+                  "Why were these birds hungry",
+                  "after they ate so much food?"
+                ],
+                "errata": [
+                  "E6"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Nothing scares that small dog as much as people who yell.",
+                "segments": [
+                  "Nothing scares that small dog",
+                  "as much as people who yell."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 3,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Whoever went with the group of kids to the waterfall was lucky.",
+                "segments": [
+                  "Whoever went with",
+                  "the group of kids to",
+                  "the waterfall was lucky."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The kids became scared when they went to that place.",
+                "segments": [
+                  "The kids became scared",
+                  "when they went to that place."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 4,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man told that boy how much time it would take to fix his truck.",
+                "segments": [
+                  "The man told that boy",
+                  "how much time it would",
+                  "take to fix his truck."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man said, \"For now, we have as much sand as we need for the work.\"",
+                "segments": [
+                  "The man said,",
+                  "\"For now, we have as much sand",
+                  "as we need for the work.\""
+                ],
+                "errata": [
+                  "E11"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 5,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That girl knows how to float, but she really likes swimming more.",
+                "segments": [
+                  "That girl knows how",
+                  "to float, but she really",
+                  "likes swimming more."
+                ],
+                "errata": [
+                  "E15"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The kids have such nice puppies and they try to play with them whenever they can.",
+                "segments": [
+                  "The kids have such nice puppies",
+                  "and they try to play with them",
+                  "whenever they can."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 6,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "One of the kids asked, \"What is it like to float in the sea?\"",
+                "segments": [
+                  "One of the kids asked,",
+                  "\"What is it like to float",
+                  "in the sea?\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some people wanted to see a rainbow, but they had no such luck.",
+                "segments": [
+                  "Some people wanted to see",
+                  "a rainbow, but they had no such luck."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 7,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The mother asked, \"Where did you put your things this time?\"",
+                "segments": [
+                  "The mother asked,",
+                  "\"Where did you put",
+                  "your things this time?\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Some names have only two letters, but most have more than that.",
+                "segments": [
+                  "Some names have only two letters,",
+                  "but most have more than that."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 8,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man said, \"I have fixed your rocket. Now it is working better.\"",
+                "segments": [
+                  "The man said,",
+                  "\"I have fixed your rocket.",
+                  "Now it is working better.\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Can you name some animals that have only three letters in their names?",
+                "segments": [
+                  "Can you name some animals",
+                  "that have only three letters",
+                  "in their names?"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 9,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Once the baby got some good food, she started smiling.",
+                "segments": [
+                  "Once the baby got some good food,",
+                  "she started smiling."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Those boys think it's safe to go up the cliffs.",
+                "segments": [
+                  "Those boys think it's safe to go up the cliffs."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 10,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The man said, \"Those cliffs are big and it's not good to run there.\"",
+                "segments": [
+                  "The man said,",
+                  "\"Those cliffs are big",
+                  "and it's not good to run there.\""
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Many animals eat three times a day, but some eat only once a day.",
+                "segments": [
+                  "Many animals eat",
+                  "three times a day,",
+                  "but some eat only once a day."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 11,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "He changed his computer because the one he had wasn't working.",
+                "segments": [
+                  "He changed his computer",
+                  "because the one he had",
+                  "wasn't working."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The boy said, \"It's much too cold to sleep now. Can we make it hotter?\"",
+                "segments": [
+                  "The boy said,",
+                  "\"It's much too cold to sleep now.",
+                  "Can we make it hotter?\""
+                ],
+                "errata": [
+                  "E3"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 12,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The people were not happy because they had to change from one plane to another.",
+                "segments": [
+                  "The people were not happy",
+                  "because they had to change",
+                  "from one plane to another."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Two kids were slower than the others, but they all got up the cliff.",
+                "segments": [
+                  "Two kids were slower than the others,",
+                  "but they all got up the cliff."
+                ]
+              }
+            ]
+          },
+          {
+            "session": 13,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "Every man had to stop working when it started to rain.",
+                "segments": [
+                  "Every man had to stop working",
+                  "when it started to rain."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man said, \"Once the truck slows down, people could get on.\"",
+                "segments": [
+                  "The man said,",
+                  "\"Once the truck slows down,",
+                  "people could get on.\""
+                ],
+                "errata": [
+                  "E14"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 14,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "The people who were here did not want to stay and they didn't.",
+                "segments": [
+                  "The people who were here",
+                  "did not want to stay",
+                  "and they didn't."
+                ],
+                "errata": [
+                  "E1"
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "Lots of people wanted to see this rocket fly, but they could not get here.",
+                "segments": [
+                  "Lots of people wanted",
+                  "to see this rocket fly,",
+                  "but they could not get here."
+                ],
+                "errata": [
+                  "E1"
+                ]
+              }
+            ]
+          },
+          {
+            "session": 15,
+            "portions": [
+              {
+                "portion": 1,
+                "display": "That girl never wanted to do anything by herself even when she could.",
+                "segments": [
+                  "That girl never wanted",
+                  "to do anything by herself",
+                  "even when she could."
+                ]
+              },
+              {
+                "portion": 2,
+                "display": "The man was never as scared as the time he saw a bear near him.",
+                "segments": [
+                  "The man was never as scared",
+                  "as the time he saw a bear near him."
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "skills_assessment": {
+    "purpose": "Placement test for children NOT already placed via the reading program (source pp. 92-95). Dictation: adult/app reads each sentence aloud; child writes it without seeing it; no guidance during the test.",
+    "scoring_rules": [
+      "A word is correct only if it contains no errors: no omitted letters, no added letters, no misplaced letters.",
+      "Each word counts at most one error (e.g., 'rocket' written 'rokit' = 1 error).",
+      "Capitals and punctuation are scored as separate units, per the table.",
+      "Score per level = correct words + correct capitals + correct punctuation."
+    ],
+    "flow": [
+      "Administer Level 1 set; score it (child takes a short break).",
+      "If score >= criterion: advance to the next level's set.",
+      "If score < criterion: STOP. Placement = the level of the set just failed (pass L1, fail L2 -> start program at Level 2).",
+      "If the child passes Level 5: skills exceed Memory Master; offer maintenance mode or exit.",
+      "Usually one sitting with breaks; may be split over two sessions."
+    ],
+    "levels": [
+      {
+        "level": 1,
+        "criterion": 15,
+        "max_units": 20,
+        "sentences": [
+          {
+            "text": "The kid is not a girl.",
+            "units": {
+              "words": 6,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          },
+          {
+            "text": "Some rockets are flying.",
+            "units": {
+              "words": 4,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          },
+          {
+            "text": "Can this robot jump?",
+            "units": {
+              "words": 4,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "criterion": 16,
+        "max_units": 20,
+        "sentences": [
+          {
+            "text": "Frogs use their legs for moving in water.",
+            "units": {
+              "words": 8,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          },
+          {
+            "text": "Is one of their pets a big bird?",
+            "units": {
+              "words": 8,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "criterion": 19,
+        "max_units": 23,
+        "sentences": [
+          {
+            "text": "The mice would not move out of the hole.",
+            "units": {
+              "words": 9,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          },
+          {
+            "text": "Which of the two kids pushed the rocks out here?",
+            "units": {
+              "words": 10,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          }
+        ]
+      },
+      {
+        "level": 4,
+        "criterion": 19,
+        "max_units": 24,
+        "sentences": [
+          {
+            "text": "Until a short time ago, people could not get to the moon.",
+            "units": {
+              "words": 12,
+              "capitals": 1,
+              "punctuation": 2
+            }
+          },
+          {
+            "text": "How do some animals use their claws?",
+            "units": {
+              "words": 7,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          }
+        ]
+      },
+      {
+        "level": 5,
+        "criterion": 21,
+        "max_units": 26,
+        "sentences": [
+          {
+            "text": "When the computer went down, the girl really started to yell.",
+            "units": {
+              "words": 11,
+              "capitals": 1,
+              "punctuation": 2
+            }
+          },
+          {
+            "text": "That boy was never scared to go out by himself.",
+            "units": {
+              "words": 10,
+              "capitals": 1,
+              "punctuation": 1
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
