@@ -84,7 +84,39 @@ Status: DONE.
 
 ## PHASE 2 — Rules engine (`src/lib/memoryMaster.js`)
 
-Status: NOT STARTED.
+Status: DONE.
+
+Pure, zero-import module (no other repo imports, no DOM/I/O) following the
+`masteryCalibration.js`/`starKeeper.js`/`checkinEligibility.js` pattern.
+Content (portions, assessment levels) is passed in as explicit function
+arguments rather than imported, keeping the engine content-agnostic and
+independently testable.
+
+- **Answer checking (§6):** `normalize`, `isCorrect`, `classifyError` (parent/
+  analytics only, returns `null`/`word_spelling`/`word_missing`/`word_extra`/
+  `word_order`/`capitalization`/`punctuation`).
+- **Placement:** `UNIT_TO_MM_LEVEL` (`[PROPOSED - OQ1]`, mirrors the mockup's
+  placeholder breakpoint table verbatim), `scoreDictation` (`[PROPOSED]`,
+  words+caps+punctuation unit scoring), `createAssessmentState` +
+  `submitDictationAnswer` + `assessmentStep` (pass/fail/exceeds_program flow).
+- **Write-phase reducer (R5-R9):** `createPortionState`, `submitSegment`
+  (correct -> next segment/portion_complete; error -> attempt+1, clear work,
+  restart at segment 0), `exitCopyMode`. Named constants
+  `COPY_MODE_AT_ATTEMPT = 4` / `COPY_MODE_AT_ATTEMPT_GUIDED = 3`
+  (`[PROPOSED]`, guided ships OFF) / `FIVE_TRY_STOP_ATTEMPT = 6`.
+- **Session scoring + advancement (R10-R14):** `isPortionFirstTryClean`,
+  `sessionCheckmark`, `createSessionProgress`, `completeSession`,
+  `advanceCheck` (R10 checked first matching the mockup's `afterSession()`
+  order, then R12, then R13; R14 program-complete once advancing past Level
+  5). Constants `CRITERION_WINDOW=5`, `CRITERION_COUNT=4`,
+  `MAX_SESSIONS_PER_LEVEL=15`, `LEVEL_DOWN_FAIL_SESSIONS=5`, `MAX_LEVEL=5`.
+
+Manually traced (before writing the formal suite) a run of 5 consecutive
+segment errors on the same portion: attempt/status sequence was
+`2 writing -> 3 writing -> 4 copy_mode -> 5 writing -> 6 session_stopped` --
+matches T3 (copy mode after the 3rd failed attempt, resumes at attempt 4) and
+T4 (5th failed attempt ends the session) exactly. Every rule has an
+`// Rn (p. X)` source comment in the file.
 
 ## PHASE 3 — Acceptance tests (T1–T14)
 
