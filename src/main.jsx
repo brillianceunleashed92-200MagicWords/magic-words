@@ -37,6 +37,13 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService.jsx'))
 const UpdatePassword = lazy(() => import('./pages/UpdatePassword.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+// MEMORY_MASTER_R1 Phase 4 -- env-gated dev route, default OFF (see the
+// component's own VITE_MEMORY_MASTER_ENABLED check). No home tile, no nav
+// entry, no link from anywhere else -- reachable by direct URL only. A
+// sibling of /app, not nested inside it, same reasoning as /update-password
+// above: it must render standalone, not through CandyGalaxyShell's
+// AuthGuard/bottom-nav.
+const MemoryMasterDevRoute = lazy(() => import('./screens/memorymaster/MemoryMasterDevRoute.jsx'))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -59,6 +66,7 @@ createRoot(document.getElementById('root')).render(
                   (including the recovery session this route depends on) as
                   "signed in" and would otherwise route straight to Home. */}
               <Route path="/update-password" element={<UpdatePassword />} />
+              <Route path="/memory-master-dev" element={<MemoryMasterDevRoute />} />
               <Route path="/app/*" element={<CandyGalaxyShell />} />
               {/* Prompt 10: the pre-Candy-Galaxy tree (App.jsx) is deleted —
                   any stale bookmark/deep-link to it redirects to the real app
