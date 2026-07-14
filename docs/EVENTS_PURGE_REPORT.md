@@ -78,7 +78,43 @@ Added a fourth test identity (`D`), signed in under its own JWT (not reusing A/B
 
 ## Phase 4 — Pre-push gates + documented failure
 
-STATUS: IN PROGRESS
+STATUS: DONE
+
+1. `npm run build` — clean (no app code touched this run, only tests/migration/scripts, so this is expected but re-verified rather than assumed).
+2. `npm run check:no-emoji` — clean.
+3. **Full Playwright suite against the un-migrated production DB** (`set -a; source .env.local; set +a; npx playwright test --workers=1`, 132 tests / 35 files, 18.6 minutes): **128 passed, 4 failed.**
+   - **The expected, desired failure**: `events-deletion-cascade.spec.js`'s bypass test (`deletion that bypasses application code entirely...`) — this IS the DB-level reproduction the non-negotiables ask for. Full failure output (pasted in Phase 3 above) shows the exact surviving rows: `placement_started`, `placement_completed` (with real `per_word` detail), `scaffold_down` — all attributable to an already-deleted user.
+   - **3 other failures, triaged against unmodified `origin/main`** (worktree `fix-story-quality`, confirmed clean and at `origin/main`'s SHA before running):
+     - `placement-checkin.spec.js:153` ("Check-In: eligible card visible...") — **passed** in isolation on unmodified `origin/main` (34.5s) — the same pre-existing `checkin_completed` fire-and-forget positive-twin flake already documented multiple times in this codebase's history (most recently `STAR_CHECK_R1`), not caused by this diff.
+     - `placement-checkin.spec.js:203` ("never-regress...") — **failed identically** on unmodified `origin/main` (same 120s timeout, same location) — a genuine pre-existing bug/flake, reproduces with zero code changes, unrelated to this run.
+     - `story-time-chrome.spec.js:72` ("Story Time: exit mid-story...") — **passed** in isolation on unmodified `origin/main` (18.5s) — transient flakiness under the full suite's sustained load, not caused by this diff.
+   - **Net verdict**: exactly the one new, expected, DB-level-reproducing failure is attributable to this branch. Nothing else.
+4. **Diff review** (`git diff --stat origin/main..HEAD`): **exactly 5 files** — the one migration file, the one new test spec, `MIGRATIONS.md`, `scripts/idor-proof.mjs`, and this report. **Zero application code touched** (confirmed: `api/delete-account.js` deliberately left alone per Phase 2's decision — its own purge code isn't broken, the FK is the fix). Nothing else in the diff.
+
+```
+ docs/EVENTS_PURGE_REPORT.md                                    | 101 ++++++++++
+ scripts/idor-proof.mjs                                         |  35 ++++
+ supabase/migrations/0040_product_events_deletion_integrity.sql |  45 +++++
+ supabase/migrations/MIGRATIONS.md                              |  21 ++-
+ tests/events-deletion-cascade.spec.js                          | 181 +++++++++++++
+ 5 files changed, 379 insertions(+), 4 deletions(-)
+```
+
+## APPROVAL STOP 1 — supabase db push
+
+STATUS: DONE — awaiting explicit approval
+
+**Root cause** (full detail in Phase 1): `product_events` has zero FK/cascade of any kind (confirmed via `pg_constraint` — only a PK and the event_type CHECK exist). `api/delete-account.js`'s existing app-level purge (from a prior workstream) works correctly for its own one path, even under adversarial timing in most cases, but two failure modes leak past it: a narrow, live-reproduced fire-and-forget write race, and — the dominant, deterministic cause of 96% of this table's rows (737 of 768) — every test/admin-script deletion this whole codebase's history has ever used bypasses that endpoint entirely via the raw Supabase Admin API.
+
+**Orphan census (current production state, before this migration runs)**: `orphan_by_user_id: 737`, `orphan_by_child_id: 606`, `total_rows: 768`, `user_id_still_valid: 31` (only 31 of 768 rows belong to a currently-existing account).
+
+**The migration, verbatim**: `supabase/migrations/0040_product_events_deletion_integrity.sql` (pasted in full in Phase 2 above) — purges the 737 orphans, then adds `product_events_user_id_fkey` (`user_id -> auth.users(id) ON DELETE CASCADE`) and `product_events_child_id_fkey` (`child_id -> child_profiles(id) ON DELETE CASCADE`).
+
+**The failing test** (DB-level reproduction, pasted in full above): `events-deletion-cascade.spec.js`'s bypass test, failing with the exact orphaned rows a bypass-deletion produces today.
+
+**Diff stat**: 5 files, 379 insertions / 4 deletions (pasted above) — exactly the migration, the new test spec, `MIGRATIONS.md`, the `idor-proof.mjs` addition, and this report. No application code touched.
+
+**Approval covers exactly one command**: `supabase db push` applying `0040_product_events_deletion_integrity.sql` to production.
 
 ## APPROVAL STOP 1 — supabase db push
 
