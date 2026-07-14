@@ -115,13 +115,16 @@ function MemoryMasterModule() {
     setAssessTyped('');
     setAssessShift(false);
     if (next.status === 'in_progress') return;
-    // 'placed' or 'exceeds_program' -- resolved on the placement screen.
+    // 'placed' or 'exceeds_program' -- a DIFFERENT screen from the initial
+    // auto-placement offer (found via the Phase 6 live walk: reusing
+    // 'place' here showed the auto-placement copy/button regardless of the
+    // actual assessment outcome -- a real bug, not a design choice).
     if (next.status === 'placed') {
       const p = createSessionProgress(next.placementLevel, 1);
       setProgress(p);
       setPlaced(true);
     }
-    setScreen('place');
+    setScreen('assess-result');
   }
 
   function startPortion(idx = 0) {
@@ -252,6 +255,17 @@ function MemoryMasterModule() {
             onSubmit={submitAssessAnswer}
             speak={speak}
           />
+        )}
+
+        {screen === 'assess-result' && assessState.status === 'exceeds_program' && (
+          <CardScreen icon={<StarIcon color={colors.ink} />} iconBg={colors.sun} title="Skills check complete" buttonLabel="Back to the galaxy" onButton={() => setScreen('home')}>
+            This child passed every level of the skills check &mdash; their writing already exceeds Memory Master. We would offer maintenance or skip the program rather than enroll them.
+          </CardScreen>
+        )}
+        {screen === 'assess-result' && assessState.status === 'placed' && (
+          <CardScreen icon={<BookIcon color={colors.ink} />} iconBg={colors.mint} title="Finding this child's level" buttonLabel={`Start at Level ${assessState.placementLevel}`} onButton={() => startPortion(0)}>
+            Skills check done. This child scored <b>{assessState.lastLevelScore}</b> on Level {assessState.placementLevel} (needed {assessLevels[assessState.levelIdx].criterion}), so Memory Master starts at <b>Level {assessState.placementLevel}</b> &mdash; the level they just missed.
+          </CardScreen>
         )}
 
         {screen === 'read' && portion && (
