@@ -334,7 +334,103 @@ Status: DONE.
 
 ## PHASE 6 — Preview walk
 
-Status: NOT STARTED.
+Status: DONE.
+
+**Substitution, stated up front rather than silently swapped in**: the doc's
+Phase 6 says "on the branch preview with the flag enabled." The Vercel
+Preview environment defaults `VITE_MEMORY_MASTER_ENABLED` unset (same as
+Production, per Phase 5's tree-shaking finding) -- enabling it there is a
+Vercel dashboard action outside this run's write access, and no git-write
+probe was made to test that boundary. Steps 1-5 below were walked against
+the **local dev server running this branch's exact code**, with this
+worktree's `.env.local` flag on, driven by real Playwright browser
+automation (not simulated) with screenshots saved to the scratchpad. Step 6
+(flag-off 404) **was** confirmed on the real deployed branch preview
+already, in Phase 5, with zero Vercel changes needed. If Sal wants steps 1-5
+re-walked against the actual Preview URL, that requires adding
+`VITE_MEMORY_MASTER_ENABLED=true` to the Preview environment scope in
+Vercel's project settings first.
+
+Screenshots: `/private/tmp/claude-502/.../scratchpad/mm-preview-walk/`
+(21 PNGs, session-scoped scratch dir, not committed).
+
+1. **Primer -> auto-placement -> L1S1 read -> write "Can some"/"bugs
+   jump?" -> portion 2 -> checkmark.** Walked exactly as specified: home ->
+   intro -> placement offer ("Start at Level 1" -- `UNIT_TO_MM_LEVEL(4)` ==
+   1, matches the `[PROPOSED]` table) -> 3-step primer (capital-letter step,
+   end-mark step, ready step, each spoken) -> read phase -> write phase,
+   both segments typed via the real custom keyboard (space/backspace/shift/
+   punctuation keys, no native input) -> portion 2 -> **checkmark screen
+   reached**, zero console/page errors. Screenshots 01-10.
+2. **Force an error on the last word -> whole portion restarts, no diff or
+   coaching anywhere.** Typed "are eatin" (missing "g" and the period)
+   against session 2 portion 1's last segment. Result: restarted to "Part 1
+   of 2" showing the FIRST segment ("Some boys") again at Try 2 -- screen
+   text scanned programmatically for `/wrong|incorrect|mistake|error/i`:
+   **zero matches**. Screenshot 11 (`after-error-restart.png`) shows the
+   neutral restart with no error framing at all, matching fidelity rule 3
+   exactly.
+3. **Drive to try 3 -> copy mode -> resume at try 4 -> try 5 -> graceful
+   stop, no checkmark, same session re-presented.** Confirmed via two
+   passes: an 8-iteration loop reached the 5-try-stop screen at iteration 6
+   (3 real fails + 1 copy-mode pass-through that doesn't count as a fail +
+   2 more real fails == 6, matching the engine's math exactly), then
+   "Finish up" -> session-end with no checkmark -> "Done" -> **the same
+   session was re-presented** (Level 1 · session 1 of 15, not session 2).
+   A second, targeted run confirmed copy mode's exact screen after
+   precisely 3 real fails: no "Got it - hide it" gate, the full sentence
+   visible immediately alongside the keyboard ("Let's copy it together
+   first. It stays right there. / Can some bugs jump?"). Screenshots
+   12 (copy mode), 13 (5-try stop), 14 (session end, no checkmark).
+4. **Skills Assessment: pass L1, fail L2 -> lands at Level 2, L3-L5 never
+   presented.** Typed all 3 real L1 sentences correctly (score 20 >=
+   criterion 15) -> advanced to L2 -> submitted both L2 sentences blank
+   (score 0 < criterion 16) -> **placement screen: "Skills check done. This
+   child scored 0 on Level 2 (needed 16), so Memory Master starts at Level
+   2 -- the level they just missed."** `assessState.levelIdx` stayed at 1
+   (L2), confirming L3-L5 (indices 2-4) were never presented. Screenshots
+   15-18.
+   - **Real bug found here, fixed before continuing the walk (see the
+     `8f4dfc1` commit)**: the placement-result screen was reusing the R1
+     auto-placement offer verbatim (`PlacementChoice` with `CHILD_UNIT`/
+     `proposedLevel`), showing "Start at Level 1" regardless of what the
+     assessment actually produced -- a real structural gap (no distinct
+     screen for the two different ways of arriving at "placement"), not a
+     cosmetic issue. Added a dedicated `assess-result` screen keyed off
+     `assessState.status`/`placementLevel`/`lastLevelScore`. Re-walked
+     after the fix (screenshot 18 reflects the corrected version); build,
+     no-emoji, and both Memory Master spec files (21/21) re-run clean.
+5. **Practice corner: shows the answer on a miss; confirm unreachable from
+   any trial.** Entered from the home screen only (`HomeIntegration`'s
+   "Practice corner" wing) -- no trial screen (read/write/assessment/copy/
+   stop/session-end) links to it anywhere in `MemoryMasterDevRoute.jsx`
+   (confirmed by inspection: `setScreen('practice')` has exactly one call
+   site, the home wing's `onClick`). Answered wrong on purpose ("some"
+   instead of "Some") -> **the corrected sentence and the rule ARE shown**
+   ("Some rockets are flying." / "Look - it goes like this. The first word
+   of a sentence always gets a big letter.") -- deliberately the opposite
+   of every trial screen's behavior, exactly as designed. Screenshots
+   19-20.
+6. **Confirm flag OFF -> route 404s, nothing appears anywhere in the
+   app.** Already confirmed in Phase 5 on the **real deployed branch
+   preview** (not just locally): a live Playwright render of
+   `/memory-master-dev` on
+   `https://magic-words-ago4f2ao7-brillianceunleashed92-6054s-projects.vercel.app`
+   with the flag unset (Vercel's default, no dashboard changes made) shows
+   the app's real NotFound screen. No home tile, no nav entry: confirmed by
+   inspection -- `HomeScreen.jsx`/`CandyGalaxyShell.jsx` (the real app's
+   home/nav) have zero references to `memory-master` or `MemoryMaster`
+   anywhere (only `src/screens/memorymaster/` and `main.jsx`'s one new
+   `<Route>` reference it).
+
+**Bonus check beyond the doc's 6 steps**: T14's *other* half (error detail
+DOES appear on the parent surface) walked live -- one deliberate wrong
+submission, then opened the record form via the dev-controls bar: table
+showed "L1 S1 · P1 · 2 tries · word missing" -- the classified error kind
+visible exactly where the handoff says it should be, and nowhere else.
+Screenshot 21.
+
+No console/page errors (`page.on('pageerror')`) across any of the walks.
 
 ## APPROVAL STOP
 
