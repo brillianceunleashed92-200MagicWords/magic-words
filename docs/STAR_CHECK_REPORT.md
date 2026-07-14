@@ -224,8 +224,51 @@ Live walk on `https://magic-words-8pfypguzv-brillianceunleashed92-6054s-projects
 
 ## Phase 8 — After approval
 
-STATUS: NOT STARTED (post-approval)
+STATUS: DONE
+
+1. **Merged `--no-ff`, pushed `main`.** `main` was checked out at `.claude/worktrees/fix-story-quality`, confirmed clean and up to date with `origin/main` (`632d63d`) before merging. `git merge --no-ff origin/feat/star-check-r1` — clean merge, no conflicts, 16 files changed / 2476 insertions / 137 deletions. Pushed: `632d63d..42c2493 main -> main`. Production deploy verified via GitHub commit-status API (never Vercel MCP): polled to `Vercel: success` after 3 polls, then `curl -o /dev/null -w '%{http_code}' https://200magicwordsapp.com/app` → `200`.
+2. **Production walk** — one fresh disposable account (`starcheckprod`), the Phase 7 scenario end to end on `https://200magicwordsapp.com`:
+   - Warm-up passed, Level 1 completed clean (kid/girl/boys/eat/rest), level-lift interstitial rendered, Level 2 reached.
+   - Forced a two-miss floor at Level 2 (`baby` meaning-probe miss, `good` look-alike miss) — measurement exception reconfirmed live on production itself (the wrong tap on "gold" got the identical teal correct-flash glow and neutral "Let's try another!" message).
+   - Result screen scoreless: "You found your starting star! / Unit 4 is ready to go!"
+   - **DB-verified on production** (`scripts/db-query.mjs`): `child_profiles.placement_unit=4, measured_unit=4`; `product_events` shows `placement_started` (`mode:star_check_v1`) then `placement_completed` with the full expected `per_word` array (Level 1's 5 words `known:true`; `baby`/`good` `known:false`; `duck`/`move`/`water` `skipped:true`), `raw_unit:4, floor_level:2, applied_unit:4` — byte-for-byte the same shape verified on the branch preview in Phase 7.
+   - Account deleted (`scripts/admin-user.mjs delete`); `child_profiles` cascade-verified clean (`0` orphan rows). The same pre-existing `product_events`-orphan pattern documented in Phase 7 reappeared for this account too (2 rows) — manually cleaned up, consistent with that finding being a general, pre-existing gap rather than anything specific to the preview environment.
+3. **Docs updated** (`docs/200MW_Master_Project_Doc_v5.md`): added changelog item **25** (censused as the next number after 24, `DESIGN_BRIEF_V2_R1`) covering the merge, the two live-found-and-fixed bugs, the preview+production verification, and the `product_events` cascade finding; updated the KEY REFERENCE placement line with the new architecture (item bank location, signing context, rate-limit bucket) and Gates line; updated the FRESH CENSUS table's Playwright (101→**129**) and `idor-proof.mjs` (29→**37**) rows, both re-measured fresh against the merged `main` worktree, not recalled; added 3 new bullets to OPEN ITEMS → New this cycle (the `product_events` cascade gap, and STAR_CHECK_R1's own deferred list).
 
 ## FINAL STATUS
 
-STATUS: NOT STARTED
+STATUS: DONE
+
+Proof-of-artifact triplet (executed and pasted, not narrated):
+
+```
+$ ls -la docs/STAR_CHECK_REPORT.md docs/design/mockups/mockup-O-blank-assessment.html src/lib/starCheckBank.js
+-rw-r--r--  1 f00517z  staff  51941 Jul 13 23:08 docs/design/mockups/mockup-O-blank-assessment.html
+-rw-r--r--  1 f00517z  staff  51703 Jul 13 23:08 docs/STAR_CHECK_REPORT.md
+-rw-r--r--  1 f00517z  staff   6805 Jul 13 23:08 src/lib/starCheckBank.js
+
+$ git log -1 --stat
+commit 42c24937276e89df072ff69bd6ba9a0d55d168fc
+Merge: 632d63d 612d955
+Author: brillianceunleashed92-200MagicWords <brillianceunleashed92@gmail.com>
+Date:   Mon Jul 13 23:08:01 2026 -0400
+
+    Merge feat/star-check-r1: The Star Check (Dr. Blank's 25-word placement)
+
+    Replaces Placement Adventure v1 as the child-creation/retake placement
+    entry point with The Star Check (mockup O). v1 stays in the tree,
+    unrouted, as a rollback affordance. Zero migrations.
+
+    Two real bugs found via live testing against the branch preview and
+    fixed before merge: starCheckMode's own protocol could exceed the shared
+    session-generator rate limit (given its own 40/min bucket); a wrong
+    warm-up tap could permanently disable its tile (fixed, no visual
+    distinction between hit/miss preserved).
+
+    Full detail: docs/STAR_CHECK_REPORT.md.
+
+$ git log origin/main -1 --oneline
+42c2493 Merge feat/star-check-r1: The Star Check (Dr. Blank's 25-word placement)
+```
+
+**Docs push completed after the production walk: YES — `42c2493` (production merge commit); docs commit follows this report update, pushed to `origin/main` in the same batch as this FINAL STATUS entry.**
