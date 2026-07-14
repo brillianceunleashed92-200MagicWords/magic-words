@@ -155,7 +155,7 @@ Not a STOP-with-approval-note per the Phase-1-style rules (no migration/schema c
    - Running the **entire file sequentially** (30 tests, unit + all 5 live), the `product_events` positive-twin test intermittently fails — 0 rows found even after a 30s poll. **Root-caused, not dismissed**: isolated via three separate standalone scripts hitting the preview directly that the finalize write (`child_profiles`) and the `logProductEvent` fire-and-forget insert are both correct and land with the right payload shape every time when run standalone or in a short sequence (2 tests) — the failure only manifests after all 4 heavier live tests (one of which drives 37 real round-trips) have already run in the same worker, consistent with the preview deployment's own infrastructure having a lower concurrency/latency ceiling than production under sustained real load. This matches an already-documented pattern in this codebase (master doc's "Suite reliability debt" item, and the existing check-in positive-twin's own comment about an "observed... marginal" fixed-wait needing to become a poll) — not new behavior introduced by this branch's code.
    - `scripts/idor-proof.mjs`'s equivalent positive-twin check (`product_events: C's own Star Check completion...`) showed the same intermittent pattern across repeated runs (failed once, passed on retries after widening its own poll from 6×500ms to 20×1500ms) — same root cause, same conclusion.
    - **Not treated as a blocking regression**: the write itself is proven correct (verified directly via `product_events` queries showing the exact expected `{mode:'star_check_v1', floor_level, per_word}` shape); the flakiness is in how fast a fire-and-forget insert becomes queryable under heavy sequential preview load, an existing category of pre-existing test-reliability debt in this repo, not a Star Check-specific defect. Phase 7's live walk (single fresh account, no prior load) is the operationally-relevant verification and is expected to be reliable.
-7. **`node scripts/idor-proof.mjs` against the branch preview**: 37 checks, all passing on a clean run (`ALL CHECKS PASSED`) after the polling-window widening in item 6 above.
+7. **`node scripts/idor-proof.mjs` against the branch preview**: 37 checks, all passing on a clean run (`ALL CHECKS PASSED`) after the polling-window widening in item 6 above. **Re-run several times across this session for confirmation** (final re-runs after the warm-up fix, see Phase 7): intermittently one check fails — and critically, on one such run it was the **pre-existing `checkin_completed` positive-twin check** (not touched by this branch at all) that failed alongside the new star-check one, which is decisive confirmation this is a shared, pre-existing fire-and-forget-write-timing flakiness pattern in the script's own established convention, not a defect introduced by this branch.
 
 STATUS: DONE
 
@@ -190,7 +190,37 @@ Deleted both accounts (`starcheckwalk2`, `starcheckwalk3`) via `scripts/admin-us
 
 ## APPROVAL STOP
 
-STATUS: IN PROGRESS
+STATUS: DONE — awaiting explicit approval
+
+### Diff stat (measured, `git diff --stat origin/main..HEAD`)
+**16 files changed, 2446 insertions(+), 137 deletions(-)** — origin/main SHA `632d63d64f032941d677b4b30ba5a574fc24f474`, this branch's HEAD `bf48432` (`feat/star-check-r1`).
+
+New files: `api/_lib/starCheckBank.js`, `api/_lib/starCheckLadder.js`, `scripts/extract-star-check-icons.mjs`, `src/lib/starCheckBank.js`, `src/lib/starCheckIcons.js`, `src/components/candy/StarCheckProbe.jsx`, `src/components/candy/StarCheckWarmup.jsx`, `src/screens/StarCheckScreen.jsx`, `tests/star-check.spec.js`, `docs/design/mockups/mockup-O-blank-assessment.html`, `docs/STAR_CHECK_REPORT.md` (this file).
+Modified: `api/session-generator.js` (+161/-…, new `starCheckMode` dispatch + its own rate-limit bucket), `src/CandyGalaxyShell.jsx` (entry-point swap only), `scripts/idor-proof.mjs` (+139, new third test identity + 8 new checks), `docs/design/mockups/README.md` (+1 row), `tests/placement-adventure.spec.js` (3 UI tests replaced with a comment-only stub).
+**Untouched, confirmed by inspection**: `PlacementProbe.jsx`, `CheckInScreen.jsx`, `StarCheckInCard.jsx`, `checkinEligibility.js`, `api/_lib/placementLadder.js`, any migration file, `api/track.js`'s allowlist, `feat/quick-wins`.
+
+### Gate results
+- `npm run build` — clean (6 sync checks + vite build), verified multiple times across the run.
+- `npm run check:no-emoji` — clean.
+- Full Playwright suite (128→**129 tests, 34 files**, measured via `--list`, not recalled): zero regressions attributable to this branch (the 4 non-star-check failures on the first full run were verified pre-existing/flaky — one reproduces identically on unmodified `origin/main`, the other 3 passed cleanly on a correctly-attributed isolated rerun). `tests/star-check.spec.js` itself: **31/31 passing** on the final run against the current preview.
+- `scripts/idor-proof.mjs`: 29→**37 checks**. Passes cleanly on most runs; intermittently one fire-and-forget `product_events` positive-twin check is slow to become queryable under load — confirmed pre-existing (not this branch's defect) by observing the **existing, untouched `checkin_completed` check fail with the identical symptom** on one run.
+
+### Preview-walk evidence (Phase 7, full detail above)
+Live walk on `https://magic-words-8pfypguzv-brillianceunleashed92-6054s-projects.vercel.app`: warm-up → Level 1 clean with pictures visibly rendering → measurement exception confirmed visually (a deliberate miss renders pixel-identical to a hit) → forced two-miss floor at Level 2 → scoreless result screen → DB-verified `child_profiles`/`product_events` shapes. Separate check confirms the free-tier cap (`raw_unit:16, applied_unit:5` on a clean sweep). Second account confirms the skip path. Both accounts deleted; `child_profiles` cascade-deleted cleanly.
+
+### Bugs found live and fixed this run (not in the original spec, discovered via actual testing)
+1. **`starCheckMode`'s own protocol could exceed the shared 10/min rate limit** within a single session (up to 37 calls) — gave it a separate 40/min bucket (`'session-generator-starcheck'`), user-approved choice among 3 options presented.
+2. **Warm-up wrong-tap soft-lock** — a wrong tray tap permanently disabled its tile; since each letter appears once, this could strand a child. Fixed to only disable on a successful fill; added a regression test.
+
+### Deferred / found-in-passing, not fixed (documented, out of scope)
+- **`product_events` has no cascade/FK to `auth.users`** and no delete trigger anywhere in the migrations — account deletion doesn't purge it, contradicting the master doc's own claim. Confirmed widespread and pre-existing (spans the whole test suite's history), not introduced by this branch. This run's own 3 orphaned rows were manually cleaned up; the broader fix is out of scope (COPPA-adjacent, needs a deliberate decision).
+- All items already listed in the spec's own **Deferred list** (below) remain deferred, untouched.
+
+### Test-count deltas (measured)
+- Playwright: **101 → 129** total tests, 34 files unchanged (`placement-adventure.spec.js` dropped from the counted-files total since it now has zero `test()` calls; `star-check.spec.js` is new).
+- `idor-proof.mjs`: **29 → 37** checks.
+
+**Approval covers** (per the run's own scope): `--no-ff` merge into `main` from `main`'s actual checkout (`.claude/worktrees/fix-story-quality`), `git push origin main`, and the post-production-walk docs push. Nothing else — no `supabase db push` in this run (zero migrations).
 
 ## Phase 8 — After approval
 
