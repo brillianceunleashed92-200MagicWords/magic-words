@@ -219,16 +219,27 @@ export function completeSession(progress, { checkmark, aborted }) {
   return { ...progress, checkHist, failSessions };
 }
 
-// R10 (checked first, matching the mockup's afterSession() order) -> R12 ->
-// R13 -> otherwise continue to the next session. R14: advancing past Level 5
-// is program_complete instead of level_up.
-export function advanceCheck(progress) {
+// R10 (checked first, matching the mockup's afterSession() order) -> R9 (an
+// aborted/5-try-stop sitting repeats the same session, no criterion
+// evaluation) -> R12 -> R13 -> otherwise continue to the next session. R14:
+// advancing past Level 5 is program_complete instead of level_up.
+//
+// Deviation from mockup-P's literal afterSession(), noted deliberately: that
+// script runs R12/R13 and increments S.session even after a 5-try-stop,
+// which contradicts R9's written rule ("the same session content repeats")
+// and fails T4 if followed literally. This function follows the written
+// rule (handoff §5 R9, acceptance test T4) over the mockup's code path.
+export function advanceCheck(progress, { aborted = false } = {}) {
   if (progress.failSessions >= LEVEL_DOWN_FAIL_SESSIONS) {
     if (progress.level === 1) {
       return { action: 'pause_program', nextProgress: progress };
     }
     const nextLevel = progress.level - 1;
     return { action: 'level_down', nextLevel, nextProgress: createSessionProgress(nextLevel, 1) };
+  }
+
+  if (aborted) {
+    return { action: 'retry_session', nextProgress: progress };
   }
 
   const last5 = progress.checkHist.slice(-CRITERION_WINDOW);

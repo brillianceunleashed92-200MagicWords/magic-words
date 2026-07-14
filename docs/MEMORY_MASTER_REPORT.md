@@ -120,7 +120,40 @@ T4 (5th failed attempt ends the session) exactly. Every rule has an
 
 ## PHASE 3 — Acceptance tests (T1–T14)
 
-Status: NOT STARTED.
+Status: DONE.
+
+`tests/memory-master-engine.spec.js` -- 17 tests: T1-T14 (one each, named for
+its test ID), the content-tiling invariant over all 150 real portions, a
+no-autocapitalization test, and a `scoreDictation` unit-table sanity check.
+Uses real content from `src/content/memorymaster_content.json` wherever a
+concrete portion/sentence made the test more faithful (T1/T2/T3/T4/T10/T11/
+T13/no-autocap/scoreDictation); synthetic fixtures where the rule is best
+isolated from content specifics (T5-T9, T12, T14). `.env.local` copied into
+this worktree (untracked -- `git worktree add` doesn't carry it) so the
+Playwright webServer boots; every command prefixed
+`set -a; source .env.local; set +a` per the standing convention.
+
+**Found and fixed a real spec bug via T4, before it could ship**: the source
+mockup's `afterSession()` runs R12/R13's criterion check and increments the
+session counter even after a 5-try-stop (R9) -- contradicting R9's own
+written rule ("the same session content repeats at the next sitting") and
+would fail T4 if followed literally. `advanceCheck` now takes an explicit
+`{ aborted }` flag: R10 is still checked first (matching the mockup's order
+and needed for T8), but an aborted sitting short-circuits straight to a
+`retry_session` action with the session number unchanged, skipping R12/R13
+evaluation entirely -- the written rule wins over the mockup's literal code
+path, as MEMORY_MASTER_R1.md's Phase 2 instructions anticipated ("mirror its
+semantics, not necessarily its structure"). Documented inline in
+`memoryMaster.js`'s `advanceCheck` comment.
+
+Result: `npx playwright test tests/memory-master-engine.spec.js --workers=1`
+-> **17/17 passed** on the first full run (no fix-up iterations needed
+beyond the T4 design decision above, made before running, not after a
+failure).
+
+Full-suite census (`npx playwright test --list`): **146 tests in 35 files**
+(was 129 per the doc's own baseline note -- 129 + this run's 17 new = 146,
+confirms no other spec file changed count).
 
 ## PHASE 4 — Flagged dev route
 
