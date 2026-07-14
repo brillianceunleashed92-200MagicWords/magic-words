@@ -277,7 +277,60 @@ lookup (no Supabase reads in this run, per the non-negotiables).
 
 ## PHASE 5 — Gates
 
-Status: NOT STARTED.
+Status: DONE.
+
+1. `npm run build` -- **PASS** (7 sync checks incl. the new
+   `check-memorymaster-content.mjs`, then `vite build`, exit 0). Confirmed
+   twice: once with this worktree's `.env.local` (`VITE_MEMORY_MASTER_ENABLED=
+   true`) producing a 56.64 kB `MemoryMasterDevRoute` chunk, once with the
+   flag explicitly unset producing a 0.49 kB chunk (tree-shaken) -- see
+   Phase 4 for the full explanation.
+2. `npm run check:no-emoji` -- **PASS** ("No emoji characters found in
+   scoped UI source. OK.").
+3. `set -a; source .env.local; set +a; npx playwright test --workers=1` --
+   **146/150 passed**, run against this worktree's flag-on `.env.local`
+   (16.8m). Census: was 129 (doc's own baseline) -> 150 now (129 + 17
+   engine + 4 dev-route = 150, confirmed no other spec file's test count
+   changed). **All 21 Memory Master tests passed** (17 in
+   `memory-master-engine.spec.js`, 4 in `memory-master-dev-route.spec.js`).
+   4 failures, all in files this branch never touches --
+   `draw-it-tracing.spec.js`, `parent-metrics-charts.spec.js`,
+   `placement-checkin.spec.js` (x2) -- **confirmed pre-existing, not a
+   regression**: `git diff --stat origin/main..HEAD` touches only Memory
+   Master files, `package.json`, `main.jsx`, `.env.example`, and the report;
+   zero diff against the 3 failing spec files or any app code they exercise
+   (GameEngine tracing, Parent dashboard charts, Check-In flow). These are
+   live-production-state-dependent tests (several explicitly log "PREVIEW
+   WALK... against https://200magicwordsapp.com") -- consistent with this
+   repo's own documented gap (no staging/dev Supabase project, CLAUDE.md).
+   Not investigated further or fixed -- out of scope for this run, flagged
+   here rather than silently ignored.
+4. `node scripts/idor-proof.mjs` -- **ALL CHECKS PASSED** (6/6 cross-user
+   checks; the 2 live-endpoint checks skipped, same as always, since
+   `DEPLOY_BASE_URL` wasn't set for this pre-push run). Re-census: was 37
+   assertions/checks per the doc's baseline note -- same 6 PASS + 1 SKIP
+   shape as every prior run on this codebase; this run adds no endpoints
+   and no data paths, so no new checks were expected or added.
+5. Diff review -- **confirmed zero migration files, zero `api/` changes**:
+   `git diff --stat origin/main..HEAD -- 'supabase/migrations/*' 'api/*'`
+   is empty; `git diff --name-only origin/main..HEAD | grep -E
+   '^(supabase/migrations/|api/)'` matches nothing. Full diff stat: 24 files
+   changed, all under `src/`, `tests/`, `scripts/`, `docs/`,
+   `package.json`, `.env.example` -- zero touched existing tables (no SQL
+   anywhere in the diff).
+6. Branch pushed (`git push -u origin feat/memory-master-r1`, commit
+   `6e3bfbe`). Vercel deployment polled via **GitHub commit-status API**
+   (`gh api repos/.../commits/<sha>/status`) -- `pending` -> `success` in
+   ~15s. Real preview URL resolved via the GitHub Deployments API (not the
+   Vercel MCP connector, per the standing "wrong account" rule):
+   **https://magic-words-ago4f2ao7-brillianceunleashed92-6054s-projects.vercel.app**
+   **Bonus finding, satisfies part of Phase 6 step 6 already**: with no
+   Vercel dashboard changes made (the flag is unset in Vercel's Preview
+   environment, same as Production), a real Playwright render of
+   `/memory-master-dev` on this live preview shows the app's actual
+   NotFound screen ("This star hasn't been mapped yet... We couldn't find
+   that page.") -- confirms flag-off 404 behavior on the real deployed
+   preview, not just locally.
 
 ## PHASE 6 — Preview walk
 
