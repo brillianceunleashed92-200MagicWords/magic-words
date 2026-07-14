@@ -161,7 +161,32 @@ STATUS: DONE
 
 ## Phase 7 — Preview walk
 
-STATUS: IN PROGRESS
+STATUS: DONE
+
+All walks against the latest preview (post rate-limit and warm-up fixes): **`https://magic-words-8pfypguzv-brillianceunleashed92-6054s-projects.vercel.app`**.
+
+### Account 1 (`starcheckwalk2` → `WalkKid2`) — full scenario 1
+1. Warm-up: tapped `c` then `a` correctly, screenshotted, rendered exactly per mockup.
+   - **Bug found live, fixed**: a wrong tray tap (tested deliberately on the SECOND walkthrough attempt, account `starcheckwalk1`) permanently disabled that tile. Each tray letter (a/c/o/t) appears exactly once, so a wrong tap on the tray's only "a" left no way to ever complete the sample "c, a" — a real soft-lock. Root-caused live (not from reading the code), fixed in `StarCheckWarmup.jsx` (a wrong tap no longer marks its tile used), redeployed, and added a Playwright regression test (`tests/star-check.spec.js`, "warm-up -- a wrong tray tap does not permanently disable its tile") — passes on the new preview.
+2. Level 1: all 5 words (kid/girl/boys/eat/rest) answered correctly. **Pictures visibly rendering** — screenshotted the meaning probe for "kid" showing 4 distinct illustrated tiles (dog/bird/kid/man), tapped tile got the teal correct-flash glow. Level-lift interstitial ("Level star found! Up we float — new stars ahead!") rendered correctly, climb-rungs indicator showed Level 1 lit after "Keep going."
+3. **Measurement exception confirmed live, not just in the mockup/code**: on Level 2's first word ("baby"), deliberately tapped the WRONG tile (`man` instead of `baby`) — the tapped tile got the exact SAME teal correct-flash glow and the exact same neutral "Let's try another!" message as every correct tap before it. No visual difference between a hit and a miss.
+4. Forced the second miss on word 2 ("good," print-only) by tapping a wrong tile — reached the two-miss floor at Level 2.
+5. **Result screen scoreless**: "You found your starting star! / Unit 4 is ready to go! / Let's fly!" — no digits beyond the unit number, no percentages, no pass/fail language, screenshotted.
+6. **DB verification** (`scripts/db-query.mjs`): `child_profiles.placement_unit=4, measured_unit=4` (Level 2 → `LEVEL_UNIT_MAP[2]`, no cap applies since 4 < `FREE_TIER_MAX_UNIT=5`, consistent). `product_events`: `placement_started` (`mode:star_check_v1`) then `placement_completed` with the exact expected shape — `per_word` shows all 5 Level-1 words `known:true`, `baby`/`good` `known:false` (matching the deliberate misses), `duck`/`move`/`water` correctly `skipped:true`; `raw_unit:4, floor_level:2, applied_unit:4`.
+7. **`PlacementReportCard` / Grown-Ups verification**: the Grown-Ups hold-gate resists Claude-in-Chrome synthetic clicks (a known limitation from prior sessions, not attempted further) — verified the underlying data directly via `db-query.mjs` instead (above), which is what the card itself reads; no code changes needed there (confirmed in Phase 4).
+
+### Free-tier cap verification (L4+), separate focused check
+Account 1's scenario floors at Level 2 (unit 4), which is under the free cap (5) and so can't itself prove capping. Drove a dedicated account through a full clean sweep via direct authenticated API calls (same `starCheckMode` contract the UI uses, same JWT-based auth) to reach `floorLevel:'clean'`:
+- Response: `{"done":true,"placementUnit":5,"trueMeasuredUnit":16,"floorLevel":"clean"}`.
+- `product_events` payload: `raw_unit:16, applied_unit:5, floor_level:"clean"`.
+- `child_profiles`: `placement_unit:5, measured_unit:16`.
+- **Confirms exactly what Phase 7 requires**: a fresh free-plan account measured at L4+ shows `applied` capped at Unit 5 while the event (and `measured_unit`) logs the true raw value. Account deleted immediately after.
+
+### Account 2 (`starcheckwalk3` → `SkipKid3`) — skip path
+Clicked "Skip for now" on the intro screen. Landed at Home showing "Unit 1, cat" (the default start). DB verification: `child_profiles` row for this child is entirely `null` (no placement write), `product_events` shows exactly one row: `placement_skipped` with `payload:{mode:"star_check_v1"}`.
+
+### Cleanup + cascade verification
+Deleted both accounts (`starcheckwalk2`, `starcheckwalk3`) via `scripts/admin-user.mjs delete`. `child_profiles` cascade-deleted correctly (0 orphan rows). **Found in passing, not fixed (pre-existing, not caused by this branch)**: `product_events.user_id` has no foreign key to `auth.users` at all (confirmed by reading `0032_placement_adventure.sql`'s schema — plain `uuid` column, no `REFERENCES`, no `ON DELETE CASCADE`) and no delete-trigger exists in any migration — so the 3 rows these two accounts generated were NOT purged by account deletion, contradicting the master doc's own claim ("`product_events` purged on account deletion," item 10 of `200MW_Master_Project_Doc_v5.md`). A broader orphan check (`product_events` rows whose `user_id` no longer exists in `auth.users`) turned up far more than these 3 — a pre-existing, widespread gap spanning this whole test suite's history (idor-proof.mjs runs, every Playwright spec that self-provisions accounts), not something this branch introduced or meaningfully worsened. Manually deleted this run's own 3 rows (a scoped, responsible cleanup of what was created this session) rather than attempting a wider fix, which is out of scope and needs its own dedicated investigation (COPPA-adjacent — deserves a deliberate decision, not a side-effect fix).
 
 ## APPROVAL STOP
 
