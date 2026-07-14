@@ -225,6 +225,48 @@ async function passWarmup(page) {
   await page.locator("[data-word] button").first().waitFor({ state: "attached", timeout: 10000 });
 }
 
+test("Star Check: warm-up -- a wrong tray tap does not permanently disable its tile (regression)", async ({ page }) => {
+  // Found live: each tray letter (a/c/o/t) appears exactly once. A first
+  // implementation marked ANY tapped tile "used" (right or wrong), so a
+  // wrong tap on the tray's only "a" left the child with no way to ever
+  // complete the sample "c, a" -- a real soft-lock, caught by an actual
+  // live walkthrough, not by reading the code. This drives a wrong tap
+  // first (tap "o" instead of "c"), then confirms the correct sequence
+  // still completes.
+  test.skip(!SERVICE_KEY, "requires SUPABASE_SERVICE_ROLE_KEY");
+  test.setTimeout(60000);
+  const { email, userId } = await provisionAccount("mwstarwarmup");
+  try {
+    await signInAndOnboard(page, email, "WarmupKid");
+    await page.getByRole("button", { name: /Let Nova find their level/i }).click();
+    await expect(page.getByText("Find your starting star")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "Let's go, Nova!" }).click();
+    await expect(page.getByText("Copy me")).toBeVisible({ timeout: 15000 });
+
+    // Wrong tap first (o instead of c) -- must not disable "o" or "c".
+    await page.getByRole("button", { name: "Tap o" }).click();
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("button", { name: "Tap o" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Tap c" })).toBeEnabled();
+
+    // Now complete the real sequence -- must still be possible.
+    const responsePromise = page.waitForResponse(
+      (res) => res.url().includes('/api/session-generator') && res.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    await page.getByRole("button", { name: "Tap c" }).click();
+    await page.waitForTimeout(200);
+    await page.getByRole("button", { name: "Tap a" }).click();
+    await responsePromise;
+    await page.locator("[data-word] button").first().waitFor({ state: "attached", timeout: 10000 });
+    // One miss only (below the 2-miss struggle threshold) -- reaches a
+    // real Level 1 probe, not the warmup_flag floor.
+    await expect(page.getByText(/Level 1/)).toBeVisible({ timeout: 10000 });
+  } finally {
+    await deleteAccount(userId);
+  }
+});
+
 // Taps a tile (the word's own target if `correct`, otherwise whichever
 // tile is NOT it -- guaranteed wrong), then drives the round-trip off the
 // REAL /api/session-generator response body rather than guessed sleeps.

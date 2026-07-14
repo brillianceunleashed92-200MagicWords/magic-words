@@ -36,8 +36,13 @@ export default function StarCheckWarmup({ onDone }) {
       setFilled(nextFilled);
       if (nextFilled >= SAMPLE.length) setTimeout(() => onDone(misses >= 2), 550);
     } else {
+      // A wrong tap must NOT disable its tile -- each tray letter appears
+      // only once, so permanently consuming it on a miss could soft-lock
+      // the child out of ever completing the correct sequence (found via
+      // a live walkthrough: a wrong tap on the tray's only "a" left no
+      // way to ever fill the second slot). Only a tile that successfully
+      // fills a slot gets marked used.
       const nextMisses = misses + 1;
-      setUsedIdx((u) => [...u, idx]);
       setMisses(nextMisses);
       if (nextMisses >= 2) setTimeout(() => onDone(true), 550);
     }
