@@ -288,9 +288,21 @@ silently closed)
      new deterministic failures from this diff. All three failures are accounted for —two
      already-documented pre-existing flakes, one newly-confirmed-but-pre-existing flake.
 
-4. Branch push + preview deploy verification — see below.
+4. Branch push + preview deploy verification:
+   - `git push -u origin feat/mm-staging-enable` — pushed, HEAD `88df84e`.
+   - GitHub commit-status API polled repeatedly over ~10 minutes
+     (`api.github.com/.../commits/88df84e.../status`): `state: pending, total_count: 0`
+     throughout — no status posted yet by Vercel's GitHub App. GitHub Deployments API
+     (`.../deployments?sha=88df84e...`) also returns zero entries for this SHA. Notably
+     slower than R1's documented ~15s pending->success turnaround for a structurally similar
+     push; cause not yet determined (a deployments listing without the `sha` filter does show
+     recent activity for an unrelated branch, `feat/quick-wins`, around the same general
+     window, ruling out "Vercel integration is down entirely" — this looks like a queue/delay
+     specific to this push, not a broken integration).
 
-**Status: DONE**
+**Status: IN PROGRESS** — build/emoji-check/suite gates all done and green (see above); only
+the deploy-status confirmation is still outstanding. Continuing to poll rather than declaring
+this done prematurely.
 
 ## APPROVAL STOP
 
