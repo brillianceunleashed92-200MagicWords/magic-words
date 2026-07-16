@@ -300,10 +300,120 @@ silently closed)
      window, ruling out "Vercel integration is down entirely" — this looks like a queue/delay
      specific to this push, not a broken integration).
 
-**Status: IN PROGRESS** — build/emoji-check/suite gates all done and green (see above); only
-the deploy-status confirmation is still outstanding. Continuing to poll rather than declaring
-this done prematurely.
+**Deploy-status verification — genuine open item, not resolved, reported rather than papered
+over.** Polled for ~20 minutes total across multiple rounds using every sanctioned read-only
+method in the runbook's HARD RULES (GitHub commit-status API, Deployments API, and the newer
+Checks API as a fallback in case Vercel's GitHub App posts there instead) — all three returned
+zero entries for `88df84e` the entire time (`state: pending, total_count: 0` throughout,
+`check-runs total_count: 0`, `deployments count: 0`). Ruled out the obvious explanations:
+- **Push itself is fine**: `GET /repos/.../branches/feat/mm-staging-enable` confirms the branch
+  exists on GitHub with HEAD `88df84e`, matching the local push exactly.
+- **Not a blanket Vercel-integration outage**: `GET /repos/.../deployments` (unfiltered) shows a
+  real Preview deployment for an unrelated branch (`feat/quick-wins`, SHA `c406c1f`) registering
+  in roughly the same time window this branch's push has been sitting idle.
+- **Not the "wrong account" trap**: never touched the Vercel MCP connector or CLI for this check,
+  per the HARD RULES — `vercel whoami` was confirmed `Not authorized` back in the earlier
+  DIAGNOSE_PROD_STATE_REPORT run and that constraint hasn't changed, so no CLI/connector path was
+  attempted here either.
+
+**What this means**: something is preventing Vercel from even registering this specific branch's
+push as deploy-worthy (could be a Git integration setting — branch filters, deployment
+protection/ignored-build-step config, a stuck webhook delivery — all Vercel-dashboard-level and
+account-scoped, outside this run's read access to diagnose further). This is a real gap in
+Phase 5's verification, not something I can resolve without account access, and not something to
+fake a "success" for. **Flagging as an open item for Sal**: check the Vercel dashboard's
+Deployments tab / Git integration settings for `feat/mm-staging-enable` directly.
+
+**Status: DONE for build/emoji-check/suite gates (all green, zero new regressions). NOT DONE for
+deploy-status confirmation** — proceeding to the APPROVAL STOP with this gap explicitly carried
+forward, per the runbook's own instruction to report rather than act when something doesn't
+resolve cleanly.
 
 ## APPROVAL STOP
 
-IN PROGRESS
+**Branch**: `feat/mm-staging-enable`, pushed to `origin`, HEAD `88df84e7c5836de262c50816d1ed72310614eede`.
+**Base**: `origin/main` @ `6870ad3` (confirmed current at Step 0, unchanged since).
+
+### Recon findings (Phase 1)
+- Flag is **build-time** (`import.meta.env.VITE_MEMORY_MASTER_ENABLED === 'true'`,
+  `MemoryMasterDevRoute.jsx:42`) — a Vercel env-var change needs a redeploy, not just a toggle.
+- Route (`/memory-master-dev`, `main.jsx:69`) renders the real `NotFound` when the flag is off;
+  confirmed, not just claimed.
+- **Zero customer-visible entry points** anywhere else in the app — confirmed via grep across
+  `src/`, not assumed.
+- `api/speak.mjs` **genuinely enforces auth** (401 without a verified session) — real security,
+  not the mockup's bare-file artifact.
+- All module state is in-memory only (`useState` throughout `MemoryMasterDevRoute.jsx`), zero
+  `supabase.from(...)` writes — nothing persists, matching R1's original claim.
+
+### Chosen gating option (Phase 2)
+**(b) — flag on in production, reachable only by direct URL, zero entry points.** Already true
+architecturally (Phase 1); no code change needed for the gating mechanism itself. (a) ruled out
+because Vercel's Preview environment is ephemeral/not "the live app" Sal asked to see; (c) ruled
+out because no tester/admin role mechanism exists anywhere in this codebase (confirmed via grep,
+not assumed) and the runbook forbids building one for this run.
+
+**Exact steps for Sal (Vercel account action — not performed by this run, per the HARD RULES)**:
+1. Vercel dashboard → this project → Settings → Environment Variables.
+2. Set `VITE_MEMORY_MASTER_ENABLED=true`, scoped to **Production**.
+3. Trigger a new Production deployment (redeploy `main` HEAD once this branch is merged, or
+   push/merge triggers one automatically).
+4. After that deploy completes, `/memory-master-dev` on `200magicwordsapp.com` renders the
+   module for anyone who knows the URL; everyone else sees no change anywhere.
+
+### Exact diff (Phase 3)
+One file, +28/-1: `src/screens/memorymaster/HomeIntegration.jsx` — adds a dismissible
+"Preview — nothing here is saved yet." banner (amber `colors.sun` background, `colors.ink`
+text — no red, per the errorless-design rule; 64px dismiss target, over the 44px minimum) on
+the module's home screen only. No other file touched. Full diff in the Phase 3 section above.
+
+### Gate results (Phase 5)
+- `npm run build` — **PASS**.
+- `npm run check:no-emoji` — **PASS**.
+- Full Playwright suite (`--workers=1`) — **147/150 passed**. All 3 failures individually
+  investigated (not batch-dismissed): `placement-checkin.spec.js:153` and
+  `pedagogy-calibration.spec.js:262` are both already-documented pre-existing flakes
+  (`docs/ACTIVITY_LOAD_PERF_REPORT.md`, confirmed by an unrelated prior session).
+  `session-complete-a2.spec.js:77` was not previously documented — investigated fresh: 4 runs
+  total (fail/fail-differently/fail-differently-again/pass), passed cleanly on unmodified
+  `origin/main`, zero code-path overlap with this run's one-file diff. Confirmed a genuine,
+  previously-unrecorded intermittent flake, **not a regression from this branch**. Flagging for
+  the suite-reliability backlog, not blocking this approval.
+- **Deploy-status confirmation — NOT completed.** Branch pushed and confirmed correct on GitHub
+  (branch API matches local HEAD), but Vercel has posted zero status/check-run/deployment
+  activity for this SHA after ~20 minutes of polling via every sanctioned method (commit-status,
+  deployments, and check-runs APIs) — while an unrelated branch's push did get a preview
+  deployment in the same window, ruling out a blanket outage. Root cause not diagnosable from
+  this run's read-only access (likely a Vercel dashboard-level Git-integration setting). **Open
+  item for Sal to check directly in the Vercel dashboard before or as part of approving this.**
+
+### Logged-in verification (Phase 4)
+Walked against this branch's exact code on a local dev server (Vercel Preview env var for the
+flag isn't set either — same account-action gap as above — so this substituted for the true
+branch-preview walk, stated explicitly, same pattern R1 used) with a real disposable test
+account (created + deleted via `admin-user.mjs`): module renders end-to-end (home, placement,
+primer), the "Preview — not saved" banner shows correctly, and the same logged-in account's
+real app home shows zero trace of Memory Master anywhere. **One honest gap**: `api/speak` audio
+could not be exercised end-to-end — a known, pre-existing local-tooling limitation (`vite dev`
+doesn't serve `/api/*.mjs` functions at all, confirmed via direct curl 404) unrelated to this
+run's diff. Source-level auth enforcement was independently confirmed in Phase 1. Flagging for
+Sal to spot-check once the module is actually reachable in a real deployed environment.
+
+### What approval covers
+Per the runbook: merge (`--no-ff`) + push + the instruction for Sal to set the
+Production `VITE_MEMORY_MASTER_ENABLED` env var and redeploy. **Not performed by this run** —
+waiting for explicit approval, per the runbook's HARD RULES and this project's standing rule
+that `git push origin main` is manually approved only.
+
+### Open items carried forward, not silently closed
+1. Deploy-status confirmation for this branch's own preview — needs Sal's Vercel dashboard access.
+2. `api/speak` audio end-to-end verification — needs a real deployed environment (Preview-env
+   var set, or Production after merge) to actually test, not just source-level confirmation.
+3. `session-complete-a2.spec.js:77` — newly-confirmed intermittent flake, unrelated to this run,
+   recommend adding to the `FIX_SUITE_RELIABILITY_R1` backlog (already queued).
+
+## STOP
+
+Everything above is reported, nothing merged, pushed to `main`, or changed in Vercel. Waiting
+for Sal to review and choose next steps — including resolving the deploy-status gap before or
+alongside approval.
