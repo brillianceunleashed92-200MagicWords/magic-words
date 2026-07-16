@@ -57,9 +57,9 @@ export default function PlayScreen({ focusWord, initialGameType = null, onExit }
   const { minutesToday, limitReached } = useSessionTimeLimit(childId, parentSettingsQ.data?.daily_minutes_limit);
 
   const {
-    sessionPlan, planLoading, planError, generatePlanForWord,
+    sessionPlan, planLoading, planError,
     reviewSessionPlan, reviewPlanLoading, generateReviewPlan,
-  } = useSessionPlan(user, childId, plan, activeChild?.placement_unit);
+  } = useSessionPlan(user, childId, plan, activeChild?.placement_unit, focusWord?.word);
   const queryClient = useQueryClient();
 
   // Quiz Boss (Prompt 6 Part 4) draws its own server-authoritative
@@ -74,12 +74,10 @@ export default function PlayScreen({ focusWord, initialGameType = null, onExit }
   const activeSessionPlan = isQuizBoss ? reviewSessionPlan : sessionPlan;
   const activePlanLoading = isQuizBoss ? reviewPlanLoading : planLoading;
 
-  // A word tapped directly on the Home path/Galaxy map should drive the
-  // session, not whatever the default sequencing would pick.
-  useEffect(() => {
-    if (focusWord?.word) generatePlanForWord(focusWord.word);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusWord?.word]);
+  // A word tapped directly on the Home path/Galaxy map drives the session
+  // via useSessionPlan's own focusWord-aware mount effect (PERF_ACTIVITY_LOAD_R1
+  // consolidated this from a separate effect here to remove a duplicate-fetch
+  // race — see useSessionPlan.js's header comment).
 
   const saveWordProgress = useSaveWordProgressMutation(user?.id, childId);
   const saveXP = useSaveXPMutation(user?.id, childId);

@@ -10,7 +10,15 @@ import GalaxyScreen from './screens/GalaxyScreen';
 import GrownUpsScreen from './screens/GrownUpsScreen';
 import ChildOnboardingScreen from './screens/ChildOnboardingScreen';
 import PlacementChoiceScreen from './screens/PlacementChoiceScreen';
-import PlacementAdventureScreen from './screens/PlacementAdventureScreen';
+// PlacementAdventureScreen (v1) is UNROUTED from here but its file stays
+// in src/screens/ untouched (STAR_CHECK_R1 non-negotiable: v1 stays in
+// the tree as a rollback affordance) -- the 'adventure' placementFlow
+// value now renders StarCheckScreen (v2, mockup O) instead. Not imported
+// here to avoid an unused-import lint warning; reverting is a one-line
+// import + render swap back to PlacementAdventureScreen if ever needed.
+// See StarCheckScreen.jsx's own header comment for why it's a different
+// surface from CheckInScreen's "Star Check-In".
+import StarCheckScreen from './screens/StarCheckScreen';
 import CheckInScreen from './screens/CheckInScreen';
 import StoryScreen from './screens/StoryScreen';
 import UpgradeResultScreen from './screens/UpgradeResultScreen';
@@ -139,7 +147,7 @@ function CandyGalaxyInner({ childrenQ, activeChild, navTab, setNavTab, speak, qu
 
   if (placementFlow === 'adventure') {
     return (
-      <PlacementAdventureScreen
+      <StarCheckScreen
         childId={placementChildId}
         onComplete={() => { clearPlacementFlow(); setNavTab('home'); }}
         onExit={() => { clearPlacementFlow(); setNavTab('home'); }}

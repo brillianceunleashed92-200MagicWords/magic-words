@@ -22,6 +22,10 @@ const { createClient } = require('@supabase/supabase-js');
 const { requireAuthAndRateLimit, logSecurityEvent } = require('./_lib/security');
 const { RUNGS, signLadderState, verifyLadderState, pickRungWords } = require('./_lib/placementLadder');
 const { logProductEvent } = require('./_lib/productEvents');
+const {
+  TOTAL_LEVELS, WORDS_PER_LEVEL, wordsForLevel, voFor, isWordKnown, levelProgress, startingUnitForFloor,
+} = require('./_lib/starCheckBank');
+const { signStarCheckState, verifyStarCheckState } = require('./_lib/starCheckLadder');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -253,17 +257,17 @@ async function fetchChildContext(admin, childId, userId) {
     .maybeSingle();
   if (childErr || !childRow || childRow.parent_id !== userId) return null;
 
-  const { data: sub } = await admin
-    .from('subscriptions')
-    .select('plan, status')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // PERF_ACTIVITY_LOAD_R1 — subscriptions and word_progress are both
+  // independent of each other (one keyed by userId, one by childId) and
+  // neither depends on the other's result, only on the ownership check
+  // above having already passed. Previously two sequential awaits; now
+  // one round trip's worth of latency instead of two. Identical data,
+  // identical return shape -- only the fetch is concurrent instead of serial.
+  const [{ data: sub }, { data: progress }] = await Promise.all([
+    admin.from('subscriptions').select('plan, status').eq('user_id', userId).maybeSingle(),
+    admin.from('word_progress').select('word, mastery, attempt_count, correct_count, last_seen, next_review_at').eq('child_id', childId),
+  ]);
   const plan = sub?.plan === 'family' && sub?.status === 'active' ? 'family' : 'free';
-
-  const { data: progress } = await admin
-    .from('word_progress')
-    .select('word, mastery, attempt_count, correct_count, last_seen, next_review_at')
-    .eq('child_id', childId);
 
   return {
     plan,
@@ -687,6 +691,144 @@ async function handleCheckin(req, res, admin, verifiedUser, childId, plan, measu
 
 // FEAT_PLACEMENT_CHECKIN_R1: growth-line history for the Parent Portal.
 // product_events stays service-role-only/no-client-RLS (unchanged
+// STAR_CHECK_R1: The Star Check (Dr. Marion Blank's 25-word placement
+// screener). Same signed-stateless-token shape as placementMode/
+// checkinMode, but under its OWN signing context ('star-check-v1', see
+// api/_lib/starCheckLadder.js) so a token from this flow can never verify
+// against those modes' contexts or vice versa. No Anthropic call — the
+// bank is fixed, so this mode must be fast and free. One probe (one
+// boolean answer) per round-trip, unlike the unit-ladder's paired-word
+// rungs, because each of the bank's 25 words administers up to two
+// SEQUENTIAL probes (meaning, then look-alike) rather than one.
+async function handleStarCheck(req, res, admin, verifiedUser, childId, plan, placementCompletedAt) {
+  // Same "abandoned/declined" logging-only branch as handlePlacement's
+  // own skip path — no child_profiles write, mirrored exactly.
+  if (req.body?.skip === true) {
+    await logProductEvent(admin, 'placement_skipped', { userId: verifiedUser.id, childId, payload: { mode: 'star_check_v1' } });
+    return res.status(200).json({ ok: true });
+  }
+
+  const startEventType = placementCompletedAt ? 'placement_retaken' : 'placement_started';
+
+  function issueProbe(state, extra) {
+    const entry = wordsForLevel(state.levelIndex + 1)[state.wordIndex];
+    const options = state.phase === 'A' ? entry.meaningA : entry.lookalikeB;
+    return res.status(200).json({
+      starCheck: {
+        done: false,
+        level: entry.level,
+        wordNumber: state.wordIndex + 1,
+        totalWords: WORDS_PER_LEVEL,
+        mechanic: state.phase === 'A' ? 'meaning' : 'lookalike',
+        word: entry.word,
+        options: shuffled(options),
+        vo: voFor(entry, state.phase),
+        ladderState: signStarCheckState(state),
+        ...extra,
+      },
+    });
+  }
+
+  // Finalize writes through the SAME child_profiles shape and free-tier
+  // cap as handlePlacement's own finalize (Math.min(..., FREE_TIER_MAX_UNIT))
+  // — not re-implemented, literally the same expression.
+  async function finalize(floorLevel, perWordLog, warmupFlag) {
+    const trueMeasuredUnit = startingUnitForFloor(floorLevel);
+    const placementUnit = plan === 'family' ? trueMeasuredUnit : Math.min(trueMeasuredUnit, FREE_TIER_MAX_UNIT);
+    const { error } = await admin.from('child_profiles').update({
+      placement_unit: placementUnit,
+      measured_unit: trueMeasuredUnit,
+      placement_completed_at: new Date().toISOString(),
+    }).eq('id', childId);
+    if (error) console.error('[star-check] finalize write failed:', error.message);
+    logProductEvent(admin, 'placement_completed', {
+      userId: verifiedUser.id, childId,
+      payload: {
+        placementUnit, trueMeasuredUnit,
+        raw_unit: trueMeasuredUnit, applied_unit: placementUnit, floor_level: floorLevel,
+        warmup_flag: warmupFlag, mode: 'star_check_v1', per_word: perWordLog,
+      },
+    });
+    return res.status(200).json({ starCheck: { done: true, placementUnit, trueMeasuredUnit, floorLevel } });
+  }
+
+  const ladderStateRaw = typeof req.body?.ladderState === 'string' ? req.body.ladderState : null;
+
+  // First call: no token yet — start fresh at Level 1, word 1. A struggle
+  // on the client-only warm-up sequencing gate routes straight to
+  // floorLevel 1 with warmup_flag, never administering a single probe.
+  if (!ladderStateRaw) {
+    logProductEvent(admin, startEventType, { userId: verifiedUser.id, childId, payload: { mode: 'star_check_v1' } });
+    if (req.body?.warmupStruggled === true) return finalize(1, [], true);
+    const firstEntry = wordsForLevel(1)[0];
+    return issueProbe({
+      childId, levelIndex: 0, wordIndex: 0, phase: firstEntry.meaningA ? 'A' : 'B',
+      pendingMeaning: undefined, levelKnownResults: [], perWordLog: [], warmupFlag: false,
+    });
+  }
+
+  const state = verifyStarCheckState(ladderStateRaw, childId);
+  if (!state) {
+    // Bad/forged/expired/wrong-context token (including a placement or
+    // check-in token replayed here — different signing context, so it
+    // never verifies) — treated as a fresh start, same as v1's own
+    // never-trust-a-bad-token behavior.
+    logSecurityEvent('star_check_invalid_token', { userId: verifiedUser.id, endpoint: 'session-generator:starcheck' });
+    logProductEvent(admin, startEventType, { userId: verifiedUser.id, childId, payload: { mode: 'star_check_v1' } });
+    const firstEntry = wordsForLevel(1)[0];
+    return issueProbe({
+      childId, levelIndex: 0, wordIndex: 0, phase: firstEntry.meaningA ? 'A' : 'B',
+      pendingMeaning: undefined, levelKnownResults: [], perWordLog: [], warmupFlag: false,
+    });
+  }
+
+  if (typeof req.body?.answer !== 'boolean') {
+    return res.status(400).json({ error: 'answer must be a boolean' });
+  }
+  const answer = req.body.answer;
+  const entry = wordsForLevel(state.levelIndex + 1)[state.wordIndex];
+
+  if (state.phase === 'A') {
+    // Meaning probe answered — always administer the look-alike probe
+    // next for the same word, carrying the meaning result forward.
+    return issueProbe({ ...state, phase: 'B', pendingMeaning: answer });
+  }
+
+  // Look-alike probe answered — the word is now complete.
+  const meaningCorrect = entry.meaningA ? state.pendingMeaning : null;
+  const known = isWordKnown(meaningCorrect, answer);
+  const levelKnownResults = [...state.levelKnownResults, known];
+  const perWordLog = [...state.perWordLog, { word: entry.word, level: entry.level, meaning: meaningCorrect, lookalike: answer, known }];
+  const progress = levelProgress(levelKnownResults);
+
+  if (progress.outcome === 'floor') {
+    // Two misses within this level: place here, log the rest of this
+    // level's not-yet-administered words as skipped (mirrors the
+    // mockup's own behavior), never touch another level.
+    const remaining = wordsForLevel(state.levelIndex + 1).slice(state.wordIndex + 1)
+      .map((w) => ({ word: w.word, level: w.level, meaning: null, lookalike: null, known: false, skipped: true }));
+    return finalize(entry.level, [...perWordLog, ...remaining], state.warmupFlag);
+  }
+
+  if (progress.outcome === 'pass') {
+    if (state.levelIndex >= TOTAL_LEVELS - 1) return finalize('clean', perWordLog, state.warmupFlag);
+    const nextLevelIndex = state.levelIndex + 1;
+    const nextEntry = wordsForLevel(nextLevelIndex + 1)[0];
+    return issueProbe({
+      childId, levelIndex: nextLevelIndex, wordIndex: 0, phase: nextEntry.meaningA ? 'A' : 'B',
+      pendingMeaning: undefined, levelKnownResults: [], perWordLog, warmupFlag: state.warmupFlag,
+    }, { levelUp: true, levelReached: nextLevelIndex + 1 });
+  }
+
+  // continue: next word, same level
+  const nextWordIndex = state.wordIndex + 1;
+  const nextEntry = wordsForLevel(state.levelIndex + 1)[nextWordIndex];
+  return issueProbe({
+    childId, levelIndex: state.levelIndex, wordIndex: nextWordIndex, phase: nextEntry.meaningA ? 'A' : 'B',
+    pendingMeaning: undefined, levelKnownResults, perWordLog, warmupFlag: state.warmupFlag,
+  });
+}
+
 // invariant — see PLACEMENT_ADVENTURE_REPORT.md's "events-home verdict"),
 // so this is the one ownership-verified read path that projects out only
 // what the chart needs — never raw rows, never other event types.
@@ -721,7 +863,22 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const verifiedUser = await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
+  // STAR_CHECK_R1: starCheckMode gets its OWN rate-limit bucket (a
+  // distinct `endpoint` key, not a distinct URL -- checkRateLimit buckets
+  // purely by that string) and a higher ceiling, sized for its own wire
+  // shape. Every other mode's 10/min budget is completely unchanged.
+  // Discovered live, not assumed: a real preview-deployment walkthrough
+  // showed the shared 10/min cap gets hit mid-check (one round-trip per
+  // probe, up to 37 for a full 25-word/5-level clean sweep, at least
+  // 6-10+ even for an early two-miss floor) well before a single Star
+  // Check session finishes, silently bouncing the child to Home via the
+  // client's own "never strand the child" degrade-to-error path -- not a
+  // cross-mode contention issue (the existing documented trap), the
+  // mode's OWN normal usage pattern exceeded its own shared budget.
+  const starCheckModePreParse = req.body?.starCheckMode === true;
+  const verifiedUser = starCheckModePreParse
+    ? await requireAuthAndRateLimit(req, res, 'session-generator-starcheck', 40, 1)
+    : await requireAuthAndRateLimit(req, res, 'session-generator', 10, 1);
   if (!verifiedUser) return;
 
   const rawChildId = req.body?.childId;
@@ -731,6 +888,7 @@ module.exports = async function handler(req, res) {
   const reviewOnly = req.body?.reviewOnly === true;
   const placementMode = req.body?.placementMode === true;
   const checkinMode = req.body?.checkinMode === true;
+  const starCheckMode = starCheckModePreParse;
   const historyMode = req.body?.historyMode === true;
 
   if (!childId) return res.status(400).json({ error: 'childId is required' });
@@ -743,6 +901,7 @@ module.exports = async function handler(req, res) {
 
   if (placementMode) return handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
   if (checkinMode) return handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit);
+  if (starCheckMode) return handleStarCheck(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
   if (historyMode) return handleHistory(req, res, admin, childId);
 
   const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly, placementUnit);

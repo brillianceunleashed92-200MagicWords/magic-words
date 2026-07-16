@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Direction F: Word Journey (one-word ladder)</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    /* Locked candy tokens — identical to mockup-D / mockup-E2 */
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160;
+    --display:'Baloo 2',sans-serif; --body:'Quicksand',sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16);
+    --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+    /* Locked animal palette — verbatim from mockup-E2 */
+    --dog-fill:#FFB84D; --dog-outline:#A66A1B; --dog-inner:#FFF1D6;
+    --elephant-fill:#B8B4E8; --elephant-outline:#6B63B5; --elephant-inner:#E8E6FF;
+    --cat-fill:#FF8A4C; --cat-outline:#B35A28; --cat-inner:#FFD9BE;
+    --bird-fill:#5EC8F2; --bird-outline:#2E86AB; --bird-inner:#CDEFFF;
+    --blush:#FF8FA8; --dot:#2A2160;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);overflow-x:hidden;min-height:100vh;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 55%,var(--sky-night) 100%)}
+
+  .stage{position:relative;max-width:780px;margin:0 auto;padding:24px 22px 120px;z-index:1}
+
+  /* ── screens ── */
+  .screen{display:none}
+  .screen.on{display:block;animation:fadeUp .35s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* ── top bar: map button + 7 stage segments + speaker ── */
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+  .icon-btn{width:44px;height:44px;border-radius:16px;background:rgba(255,255,255,.14);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;
+    transition:transform .15s,background .15s;border:none}
+  .icon-btn:hover{background:rgba(255,255,255,.22)}
+  .icon-btn:active{transform:translateY(2px)}
+  .icon-btn svg{width:20px;height:20px}
+  .icon-btn.pulsing{animation:spk .5s ease 2}
+  @keyframes spk{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}
+
+  .star-progress{flex:1;display:flex;gap:7px}
+  .seg{flex:1;height:13px;border-radius:100px;background:rgba(255,255,255,.16);position:relative;overflow:visible}
+  .seg .fill{position:absolute;inset:0;border-radius:100px;background:linear-gradient(90deg,var(--sun),#FFDD7A);
+    width:0%;transition:width .6s cubic-bezier(.2,.9,.3,1.3)}
+  .seg.lit .fill{width:100%}
+  .seg .ignite{position:absolute;right:-3px;top:50%;transform:translateY(-50%) scale(0);width:20px;height:20px;
+    transition:transform .4s cubic-bezier(.3,1.7,.4,1)}
+  .seg.lit .ignite{transform:translateY(-50%) scale(1)}
+  .seg .ignite svg{width:100%;height:100%;filter:drop-shadow(0 0 6px rgba(255,197,49,.9))}
+
+  /* ── Nova porthole + speech bubble (verbatim construction from E2) ── */
+  .nova-row{display:flex;align-items:center;gap:14px;margin:10px 0 18px}
+  .porthole{width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7A6BF0,var(--sky-deep) 70%);
+    border:5px solid rgba(255,255,255,.9);box-shadow:var(--chunk-sm);position:relative;overflow:hidden;flex:0 0 auto}
+  .nova{position:absolute;inset:10%;transition:transform .4s cubic-bezier(.3,1.6,.4,1)}
+  .nova.celebrate{animation:novaBounce .6s cubic-bezier(.3,1.6,.4,1)}
+  @keyframes novaBounce{0%{transform:scale(1) translateY(0)}35%{transform:scale(1.12) translateY(-8px)}100%{transform:scale(1) translateY(0)}}
+  .n-core{position:absolute;inset:8%;border-radius:50% 50% 46% 54%/56% 50% 50% 44%;
+    background:radial-gradient(circle at 36% 30%,#FFF6D8,var(--sun) 55%,#F09A12 100%)}
+  .n-eye{position:absolute;top:34%;width:11%;height:16%;border-radius:50%;background:var(--ink)}
+  .n-eye.l{left:30%}.n-eye.r{right:30%}
+  .n-eye::after{content:'';position:absolute;top:15%;left:15%;width:42%;height:42%;border-radius:50%;background:#fff}
+  .n-smile{position:absolute;top:56%;left:50%;transform:translateX(-50%);width:22%;height:11%;
+    border-radius:0 0 40px 40px;background:var(--ink)}
+  .nova.celebrate .n-smile{width:30%;height:16%;border-radius:0 0 50px 50px}
+
+  .bub{background:var(--cloud);color:var(--ink);border-radius:22px 22px 22px 4px;padding:12px 18px;
+    font-family:var(--display);font-weight:700;font-size:.98rem;box-shadow:var(--chunk-sm);min-height:44px;
+    display:flex;align-items:center}
+
+  .eyebrow{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:6px}
+  .prompt{font-family:var(--display);font-weight:800;font-size:1.55rem;text-align:center;margin:6px 0 26px;line-height:1.25}
+  .prompt .target{color:var(--sun)}
+
+  /* ══ MAP (M1 — the signature surface) ══ */
+  .map-head{background:var(--cloud);color:var(--ink);border-radius:30px;padding:18px 22px;box-shadow:var(--chunk);
+    display:flex;align-items:center;gap:16px;margin-bottom:8px}
+  .map-head .art-mini{width:64px;height:64px;flex:0 0 auto}
+  .map-head .art-mini svg{width:100%;height:100%}
+  .map-head .k{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8B84BD}
+  .map-head .w{font-family:var(--display);font-weight:800;font-size:2.3rem;line-height:1;color:var(--ink)}
+  .map-head .meta{margin-left:auto;text-align:right}
+  .chip{display:inline-block;background:var(--sky);color:#fff;font-family:var(--display);font-weight:800;
+    font-size:.72rem;padding:7px 14px;border-radius:100px;box-shadow:0 4px 0 rgba(0,0,0,.14)}
+  .chip.mint{background:var(--mint);color:#00543E}
+
+  .map-zone{position:relative;width:300px;height:720px;margin:14px auto 0}
+  .map-svg{position:absolute;inset:0;overflow:visible}
+  .p-base{fill:none;stroke:rgba(255,255,255,.18);stroke-width:12;stroke-linecap:round;stroke-dasharray:.1 24}
+  .p-lit{fill:none;stroke:var(--sun);stroke-width:12;stroke-linecap:round;
+    filter:drop-shadow(0 0 10px rgba(255,197,49,.7));transition:stroke-dashoffset .9s ease}
+  .mnode{position:absolute;width:84px;height:84px;border-radius:50%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    font-family:var(--display);font-weight:800;cursor:pointer;text-align:center;
+    box-shadow:0 7px 0 rgba(0,0,0,.18);transition:transform .2s}
+  .mnode:active{transform:translateY(4px)}
+  .mnode .nm{font-size:.7rem;line-height:1.05}
+  .mnode .tr{font-size:.55rem;font-weight:800;opacity:.75;margin-top:2px}
+  .mnode.done{background:var(--sun);color:#5C4200}
+  .mnode.done .badge{position:absolute;top:-9px;right:-4px;width:22px;height:22px;filter:drop-shadow(0 3px 0 rgba(0,0,0,.2))}
+  .mnode.current{background:var(--bubble);color:#fff;animation:pump 1.8s ease-in-out infinite}
+  @keyframes pump{0%,100%{box-shadow:0 7px 0 rgba(0,0,0,.18),0 0 0 0 rgba(255,111,165,.5)}
+    50%{box-shadow:0 7px 0 rgba(0,0,0,.18),0 0 0 15px rgba(255,111,165,0)}}
+  .mnode.locked{background:rgba(255,255,255,.16);color:rgba(255,255,255,.65);
+    box-shadow:0 7px 0 rgba(0,0,0,.1);border:3px dashed rgba(255,255,255,.35);cursor:default}
+
+  .nova-map{position:absolute;width:64px;height:64px;z-index:6;pointer-events:none;
+    transition:transform .9s cubic-bezier(.3,1.2,.4,1)}
+  .nova-map .n-core{box-shadow:0 5px 0 rgba(0,0,0,.16),0 0 26px rgba(255,197,49,.85)}
+  .nova-map .n-tail{position:absolute;right:-24%;top:38%;width:56%;height:20%;border-radius:60px;
+    background:linear-gradient(90deg,rgba(255,197,49,.95),rgba(255,197,49,0));filter:blur(2px);transform:rotate(-14deg)}
+
+  /* ══ MEET IT (M2) ══ */
+  .wordcard-wrap{display:flex;justify-content:center;margin:34px 0 10px;perspective:900px}
+  .wordcard{background:var(--cloud);color:var(--ink);border-radius:34px;padding:44px 64px;box-shadow:var(--chunk);
+    font-family:var(--display);font-weight:800;font-size:4.4rem;line-height:1;cursor:pointer;position:relative;
+    animation:cardGlow 2s ease-in-out infinite;transition:transform .15s}
+  .wordcard:active{transform:translateY(5px)}
+  @keyframes cardGlow{0%,100%{box-shadow:var(--chunk),0 0 0 0 rgba(255,197,49,.0)}
+    50%{box-shadow:var(--chunk),0 0 0 8px rgba(255,197,49,.28),0 0 34px rgba(255,197,49,.5)}}
+  .wordcard.tuck{animation:tuck .8s cubic-bezier(.4,0,.7,.4) forwards}
+  @keyframes tuck{40%{transform:rotateY(180deg) scale(.9);opacity:1}
+    100%{transform:rotateY(180deg) scale(.06) translateY(-900px);opacity:0}}
+  .tuck-star{position:absolute;left:50%;top:-4px;width:34px;height:34px;transform:translateX(-50%) scale(0)}
+  .tuck-star.pop{animation:starPop .5s cubic-bezier(.3,1.7,.4,1) forwards}
+  @keyframes starPop{to{transform:translateX(-50%) scale(1)}}
+  .hint-line{text-align:center;font-family:var(--display);font-weight:800;font-size:.8rem;color:rgba(255,255,255,.7);
+    animation:hop 1.6s ease-in-out infinite}
+  @keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  /* ══ shared tiles ══ */
+  .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:560px;margin:0 auto}
+  .tile-grid.n3{grid-template-columns:repeat(3,1fr);max-width:560px}
+  .tile-grid.n2{grid-template-columns:1fr 1fr;max-width:400px}
+  .tile{background:var(--cloud);border-radius:32px;padding:22px 14px 16px;box-shadow:var(--chunk);
+    cursor:pointer;text-align:center;position:relative;
+    transition:transform .3s cubic-bezier(.2,.9,.3,1.5),opacity .35s,box-shadow .2s,filter .35s}
+  .tile:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 14px 0 rgba(0,0,0,.18)}
+  .tile:active,.tile.pressed{transform:translateY(6px) scale(.98) !important;box-shadow:0 2px 0 rgba(0,0,0,.16) !important}
+  .tile .art{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+  .tile .art svg{width:88%;height:88%}
+  .tile .label{font-family:var(--display);font-weight:800;color:var(--ink);font-size:1.05rem;margin-top:6px}
+  .ttile{background:var(--cloud);color:var(--ink);border-radius:26px;padding:26px 12px;box-shadow:var(--chunk);
+    cursor:pointer;text-align:center;font-family:var(--display);font-weight:800;font-size:1.7rem;
+    transition:transform .25s cubic-bezier(.2,.9,.3,1.5),opacity .35s,box-shadow .2s,filter .35s;letter-spacing:.03em}
+  .ttile:hover{transform:translateY(-5px) scale(1.02)}
+  .ttile:active{transform:translateY(5px) scale(.98) !important;box-shadow:0 2px 0 rgba(0,0,0,.16) !important}
+  .ttile .fillin{color:var(--tang)}
+
+  .hint-glow{box-shadow:var(--chunk),0 0 0 5px rgba(62,224,184,.55),0 0 26px rgba(62,224,184,.6) !important;
+    animation:hintPulse 1.4s ease-in-out infinite}
+  @keyframes hintPulse{0%,100%{box-shadow:var(--chunk),0 0 0 5px rgba(62,224,184,.4),0 0 22px rgba(62,224,184,.45)}
+    50%{box-shadow:var(--chunk),0 0 0 8px rgba(62,224,184,.65),0 0 34px rgba(62,224,184,.7)}}
+  .glow-big{transform:scale(1.05)}
+  .wiggle{animation:wiggle .45s ease}
+  @keyframes wiggle{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-6px) rotate(-2deg)}
+    40%{transform:translateX(5px) rotate(2deg)}60%{transform:translateX(-4px) rotate(-1.5deg)}80%{transform:translateX(3px) rotate(1deg)}}
+  .soften{filter:saturate(.55);opacity:.55}
+  .fadeout{opacity:.14 !important;transform:scale(.92) !important;filter:saturate(.3);pointer-events:none}
+  .correct-flash{box-shadow:var(--chunk),0 0 0 6px rgba(62,224,184,.75),0 0 30px rgba(62,224,184,.8) !important}
+
+  /* ══ BUILD IT (M3) ══ */
+  .slots{display:flex;gap:14px;justify-content:center;margin:26px 0 8px}
+  .slot{width:88px;height:88px;border-radius:22px;border:3px dashed rgba(255,255,255,.4);
+    background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:800;font-size:2.6rem;color:var(--ink);position:relative;transition:all .25s}
+  .slot .ghost{color:rgba(255,255,255,.35);position:absolute}
+  .slot.filled{background:var(--cloud);border:3px solid var(--cloud);box-shadow:var(--chunk-sm);animation:slotPop .35s cubic-bezier(.3,1.7,.4,1)}
+  @keyframes slotPop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+  .slot.glowdone{box-shadow:var(--chunk-sm),0 0 0 5px rgba(62,224,184,.6),0 0 24px rgba(62,224,184,.65)}
+  .tray{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .ltile{width:66px;height:66px;border-radius:20px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:2rem;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--chunk-sm);cursor:pointer;transition:transform .15s,opacity .3s}
+  .ltile:active{transform:translateY(4px)}
+  .ltile.used{opacity:.18;pointer-events:none;transform:scale(.9)}
+  .scaffold-tag{text-align:center;margin-top:18px;font-size:.72rem;font-weight:700;color:rgba(255,255,255,.6)}
+
+  /* ══ USE IT ══ */
+  .cloze{background:var(--cloud);color:var(--ink);border-radius:30px;padding:30px 26px;box-shadow:var(--chunk);
+    max-width:560px;margin:0 auto;text-align:center;font-family:var(--display);font-weight:800;font-size:2rem;line-height:1.5}
+  .cloze .gap{display:inline-block;min-width:110px;border-bottom:5px dashed #C9C4EF;margin:0 6px;color:var(--sky);transition:all .3s}
+  .cloze .gap.done{border-bottom-color:var(--mint);animation:slotPop .35s cubic-bezier(.3,1.7,.4,1)}
+  .cloze.glow{box-shadow:var(--chunk),0 0 0 6px rgba(62,224,184,.5),0 0 26px rgba(62,224,184,.55)}
+  .bank{display:flex;gap:14px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+  .bank .ttile{padding:16px 30px;font-size:1.5rem}
+
+  /* ══ STORY ══ */
+  .storycard{background:var(--cloud);color:var(--ink);border-radius:30px;padding:30px 28px;box-shadow:var(--chunk);
+    max-width:560px;margin:0 auto;font-family:var(--display);font-weight:700;font-size:1.75rem;line-height:1.9;text-align:center}
+  .storycard .w{padding:2px 5px;border-radius:10px}
+  .storycard .findme{cursor:pointer;transition:all .2s}
+  .storycard .findme:hover{background:#F1EFFB}
+  .storycard .findme.lit{background:var(--sun);color:#5C4200;box-shadow:0 3px 0 rgba(0,0,0,.14);animation:slotPop .35s cubic-bezier(.3,1.7,.4,1)}
+  .qblock{max-width:560px;margin:26px auto 0;display:none}
+  .qblock.show{display:block;animation:fadeUp .4s ease}
+
+  /* ══ MASTERED ══ */
+  .mast{min-height:62vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+  .bigstar{width:150px;height:150px;filter:drop-shadow(0 0 30px rgba(255,197,49,.85));animation:bigstar .8s cubic-bezier(.3,1.6,.4,1)}
+  @keyframes bigstar{0%{transform:scale(0) rotate(-40deg)}100%{transform:scale(1) rotate(0)}}
+  .mast .word{font-family:var(--display);font-weight:800;font-size:4rem;line-height:1}
+  .mast .sub{font-family:var(--display);font-weight:800;font-size:1.25rem;color:rgba(255,255,255,.85)}
+  .mast .body{font-weight:600;font-size:.9rem;color:rgba(255,255,255,.65);max-width:400px}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--cloud);color:var(--ink);
+    font-family:var(--display);font-weight:800;font-size:1rem;padding:14px 30px;border-radius:100px;border:none;
+    cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.15);transition:transform .15s;margin-top:14px}
+  .btn:active{transform:translateY(5px)}
+  .btn.mint{background:var(--mint);color:#00432F}
+  .btn.ghosty{background:rgba(255,255,255,.16);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.1)}
+  .btn-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+  /* ── pretest ── */
+  .pre-head{text-align:center;margin:26px 0 6px}
+  .pre-head .k{font-family:var(--display);font-weight:800;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.65)}
+  .pre-head .w{font-family:var(--display);font-weight:800;font-size:3.4rem;color:var(--sun);line-height:1.1}
+
+  /* ── confetti (verbatim mechanics from E2) ── */
+  .confetti-layer{position:fixed;inset:0;pointer-events:none;z-index:40}
+  .confetti-star{position:absolute;width:18px;height:18px;opacity:0;animation:confettiPop .9s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes confettiPop{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.4)}
+    100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(1.1)}}
+
+  /* ── demo controls (mockup only) ── */
+  .demo-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:50;width:min(96%,760px);
+    background:var(--cloud);border-radius:22px;padding:9px 12px;box-shadow:0 10px 0 rgba(0,0,0,.2);
+    display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .demo-btn{font-family:var(--display);font-weight:700;font-size:.68rem;color:var(--ink);background:#EFEDFA;
+    border:none;border-radius:100px;padding:8px 12px;cursor:pointer}
+  .demo-btn:active{transform:translateY(2px)}
+  .demo-btn.hot{background:var(--sky);color:#fff}
+  .note{margin-top:34px;text-align:center;color:rgba(255,255,255,.55);font-size:.68rem;font-weight:600}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <path id="starp" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/>
+    <!-- DOG / CAT / ELEPHANT / BIRD — verbatim locked art from mockup-E2 -->
+    <g id="art-dog">
+      <ellipse cx="60" cy="100" rx="30" ry="7" fill="rgba(0,0,0,.12)"/>
+      <path d="M28 66c-10-8-14-24-2-28 6-2 10 4 10 4" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M92 66c10-8 14-24 2-28-6-2-10 4-10 4" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="60" cy="62" r="38" fill="var(--dog-fill)" stroke="var(--dog-outline)" stroke-width="4"/>
+      <ellipse cx="60" cy="78" rx="18" ry="14" fill="var(--dog-inner)"/>
+      <circle cx="46" cy="56" r="6.5" fill="var(--dot)"/><circle cx="48.2" cy="53.6" r="2" fill="#fff"/>
+      <circle cx="74" cy="56" r="6.5" fill="var(--dot)"/><circle cx="76.2" cy="53.6" r="2" fill="#fff"/>
+      <ellipse cx="60" cy="76" rx="7" ry="5.5" fill="var(--dog-outline)"/>
+      <path d="M50 88q10 8 20 0" fill="none" stroke="var(--dog-outline)" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="38" cy="70" rx="7" ry="4.5" fill="var(--blush)" opacity=".8"/>
+      <ellipse cx="82" cy="70" rx="7" ry="4.5" fill="var(--blush)" opacity=".8"/>
+    </g>
+    <g id="art-cat">
+      <ellipse cx="60" cy="100" rx="30" ry="7" fill="rgba(0,0,0,.12)"/>
+      <path d="M34 42l-6-22 20 14z" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M86 42l6-22-20 14z" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M40 34l-2-9 9 6z" fill="var(--cat-inner)"/>
+      <path d="M80 34l2-9-9 6z" fill="var(--cat-inner)"/>
+      <circle cx="60" cy="64" r="36" fill="var(--cat-fill)" stroke="var(--cat-outline)" stroke-width="4"/>
+      <ellipse cx="60" cy="80" rx="17" ry="13" fill="var(--cat-inner)"/>
+      <circle cx="47" cy="60" r="6" fill="var(--dot)"/><circle cx="49" cy="57.8" r="1.8" fill="#fff"/>
+      <circle cx="73" cy="60" r="6" fill="var(--dot)"/><circle cx="75" cy="57.8" r="1.8" fill="#fff"/>
+      <path d="M60 74l-5 5h10z" fill="var(--cat-outline)"/>
+      <ellipse cx="38" cy="74" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+      <ellipse cx="82" cy="74" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+    </g>
+    <g id="art-elephant">
+      <ellipse cx="60" cy="102" rx="34" ry="7" fill="rgba(0,0,0,.12)"/>
+      <circle cx="24" cy="60" r="24" fill="var(--elephant-fill)" stroke="var(--elephant-outline)" stroke-width="4"/>
+      <circle cx="24" cy="60" r="13" fill="var(--elephant-inner)"/>
+      <circle cx="96" cy="60" r="24" fill="var(--elephant-fill)" stroke="var(--elephant-outline)" stroke-width="4"/>
+      <circle cx="96" cy="60" r="13" fill="var(--elephant-inner)"/>
+      <circle cx="60" cy="58" r="40" fill="var(--elephant-fill)" stroke="var(--elephant-outline)" stroke-width="4"/>
+      <path d="M50 82q-4 20 0 30q6 6 12 0" fill="none" stroke="var(--elephant-outline)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="47" cy="54" r="6" fill="var(--dot)"/><circle cx="49" cy="51.8" r="1.8" fill="#fff"/>
+      <circle cx="73" cy="54" r="6" fill="var(--dot)"/><circle cx="75" cy="51.8" r="1.8" fill="#fff"/>
+      <ellipse cx="38" cy="66" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+      <ellipse cx="82" cy="66" rx="6.5" ry="4.2" fill="var(--blush)" opacity=".8"/>
+    </g>
+    <g id="art-bird">
+      <ellipse cx="60" cy="102" rx="26" ry="6" fill="rgba(0,0,0,.12)"/>
+      <ellipse cx="60" cy="76" rx="34" ry="28" fill="var(--bird-fill)" stroke="var(--bird-outline)" stroke-width="4"/>
+      <path d="M30 80q-14-2-16-14q10 0 20 6z" fill="var(--bird-fill)" stroke="var(--bird-outline)" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="66" cy="42" r="26" fill="var(--bird-fill)" stroke="var(--bird-outline)" stroke-width="4"/>
+      <path d="M90 42l14 6-14 6z" fill="var(--sun)" stroke="var(--bird-outline)" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="74" cy="36" r="5.5" fill="var(--dot)"/><circle cx="76" cy="34" r="1.6" fill="#fff"/>
+      <ellipse cx="52" cy="46" rx="6" ry="4" fill="var(--blush)" opacity=".8"/>
+      <ellipse cx="46" cy="86" rx="14" ry="10" fill="var(--bird-inner)"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="stage">
+
+  <!-- shared top bar (hidden on pretest + mastered) -->
+  <div class="topbar" id="topbar">
+    <button class="icon-btn" aria-label="Back to journey map" onclick="goMap()">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.6" fill="#fff"/><circle cx="18" cy="12" r="2.6" fill="#fff"/><circle cx="8" cy="19" r="2.6" fill="#fff"/><path d="M8 7.5L16 11M16.5 14L10 17.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="star-progress" id="segs"></div>
+    <button class="icon-btn" id="spk" aria-label="Hear it again">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#fff"/><path d="M16 8.5a5 5 0 010 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <!-- ═══ M6 · PRETEST ═══ -->
+  <section class="screen" id="s-pretest">
+    <div class="pre-head">
+      <div class="k">New word today</div>
+      <div class="w">dog</div>
+    </div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-pre"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-pre">Show me what you know — can you build dog?</div>
+    </div>
+    <div class="slots" id="slots-pre"></div>
+    <div class="tray" id="tray-pre"></div>
+    <div class="scaffold-tag">Pretest — unassisted, one try per letter. Pass = skip the whole journey (logged, never re-taught).</div>
+    <div style="text-align:center"><button class="btn ghosty" onclick="goMap()">Nova, teach me!</button></div>
+    <div class="note">M6 · Is It Known? gate · source: Blank pretest ("write dog" → skip if correct)</div>
+  </section>
+
+  <!-- ═══ M1 · JOURNEY MAP ═══ -->
+  <section class="screen" id="s-map">
+    <div class="map-head">
+      <div class="art-mini"><svg viewBox="0 0 120 120"><use href="#art-dog"/></svg></div>
+      <div>
+        <div class="k">Today's word journey</div>
+        <div class="w">dog</div>
+      </div>
+      <div class="meta">
+        <span class="chip">7 stops</span><br/>
+        <span class="chip mint" style="margin-top:6px">about 10 min</span>
+      </div>
+    </div>
+    <div class="map-zone" id="mapzone">
+      <svg class="map-svg" viewBox="0 0 300 720" preserveAspectRatio="none">
+        <path id="mbase" class="p-base" d="M150 56 C 70 92, 40 122, 70 158 C 100 196, 200 214, 230 252 C 258 290, 110 312, 70 348 C 32 384, 200 406, 230 444 C 258 482, 110 504, 70 540 C 36 576, 106 612, 150 640"/>
+        <path id="mlit" class="p-lit" d="M150 56 C 70 92, 40 122, 70 158 C 100 196, 200 214, 230 252 C 258 290, 110 312, 70 348 C 32 384, 200 406, 230 444 C 258 482, 110 504, 70 540 C 36 576, 106 612, 150 640"/>
+      </svg>
+      <div class="nova-map" id="novamap">
+        <div class="n-tail"></div><div class="n-core" style="position:absolute;inset:12%"></div>
+        <div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div>
+      </div>
+    </div>
+    <div class="note">M1 · Word Journey map — the session IS one word. Tap the glowing stop. Nova flies as stops complete.</div>
+  </section>
+
+  <!-- ═══ M2 · MEET IT ═══ -->
+  <section class="screen" id="s-meet">
+    <div class="eyebrow" id="eb-meet">Stop 1 of 7 · Meet It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-meet"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-meet">This is dog!</div>
+    </div>
+    <div class="wordcard-wrap" style="position:relative">
+      <svg class="tuck-star" id="tuckstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+      <div class="wordcard" id="wordcard">dog</div>
+    </div>
+    <div class="hint-line" id="meethint">tap the card to tuck it away</div>
+    <div id="meetcheck" style="display:none">
+      <div class="prompt">Tap the word you saw!</div>
+      <div class="tile-grid n3" id="grid-meet"></div>
+    </div>
+    <div class="note">M2 · Meet It — model + cover ("This is dog" · index card) → first retrieval from memory</div>
+  </section>
+
+  <!-- ═══ SPOT IT ═══ -->
+  <section class="screen" id="s-spot">
+    <div class="eyebrow">Stop 2 of 7 · Spot It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-spot"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-spot">Find dog!</div>
+    </div>
+    <div class="prompt">Tap <span class="target">dog</span></div>
+    <div class="tile-grid n2" id="grid-spot"></div>
+    <div class="note" id="note-spot">Spot It — engineered look-alikes (dog · dot · dig · bog), 2 choices widening to 4 · source: Word Scanner / Savvy Sounds</div>
+  </section>
+
+  <!-- ═══ KNOW IT (+ M5 demo) ═══ -->
+  <section class="screen" id="s-know">
+    <div class="eyebrow">Stop 3 of 7 · Know It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-know"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-know">Which one is a dog?</div>
+    </div>
+    <div class="prompt">Tap the picture of <span class="target">dog</span></div>
+    <div class="tile-grid" id="grid-know"></div>
+    <div style="text-align:center"><button class="btn ghosty" style="font-size:.8rem;padding:10px 20px" onclick="demoGuided()">Demo: watch guided completion (M5)</button></div>
+    <div class="note">Know It — meaning (existing WordMatch) · miss 1 = wiggle + glow · miss 2 = guided completion: foils fade, Nova models, success guaranteed</div>
+  </section>
+
+  <!-- ═══ M4 · ALMOST IT ═══ -->
+  <section class="screen" id="s-almost">
+    <div class="eyebrow">Stop 4 of 7 · Almost It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-almost"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-almost">One of these can become dog…</div>
+    </div>
+    <div class="prompt">Which one can become <span class="target">dog</span>?</div>
+    <div class="tile-grid" id="grid-almost"></div>
+    <div class="note">M4 · Almost It — pick the frame that can become the word (dead frames included) · source: RK "walk" trial / Find 'n Fill</div>
+  </section>
+
+  <!-- ═══ M3 · BUILD IT ═══ -->
+  <section class="screen" id="s-build">
+    <div class="eyebrow">Stop 5 of 7 · Build It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-build"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-build">Build dog with the letter tiles!</div>
+    </div>
+    <div class="slots" id="slots-build"></div>
+    <div class="tray" id="tray-build"></div>
+    <div class="scaffold-tag">Trial 3 of 5 — first letter still ghosted. Scaffolding shrinks each trial; the last build is unassisted. Wrong tiles bounce back — errorless by construction. Tiles are silent; the whole word speaks on completion (no letter sounds, ever).</div>
+    <div class="note">M3 · Build It — the new production primitive · source: Letter In / Find 'n Fill / RK typing</div>
+  </section>
+
+  <!-- ═══ USE IT ═══ -->
+  <section class="screen" id="s-use">
+    <div class="eyebrow">Stop 6 of 7 · Use It</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-use"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-use">Finish the sentence!</div>
+    </div>
+    <div class="cloze" id="cloze">The <span class="gap" id="gap">&nbsp;</span> can run.</div>
+    <div class="bank" id="bank"></div>
+    <div class="note">Use It — carrier sentences built only from words this child already owns (the / can / run) · source: Replace the Space · compositional review</div>
+  </section>
+
+  <!-- ═══ STORY ═══ -->
+  <section class="screen" id="s-story">
+    <div class="eyebrow">Stop 7 of 7 · Story</div>
+    <div class="nova-row">
+      <div class="porthole"><div class="nova" id="nv-story"><div class="n-core"></div><div class="n-eye l"></div><div class="n-eye r"></div><div class="n-smile"></div></div></div>
+      <div class="bub" id="bb-story">Tap every dog you can find!</div>
+    </div>
+    <div class="storycard" id="storycard"></div>
+    <div class="qblock" id="qblock">
+      <div class="prompt" style="margin-top:8px">What can the <span class="target">dog</span> do?</div>
+      <div class="tile-grid n3" id="grid-q"></div>
+    </div>
+    <div class="note">Story — tap-the-word inside the read-along (Detect 'n Select) + the shipped comprehension question (Book N)</div>
+  </section>
+
+  <!-- ═══ MASTERED ═══ -->
+  <section class="screen" id="s-mastered">
+    <div class="mast">
+      <svg class="bigstar" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>
+      <div class="word">dog</div>
+      <div class="sub" id="mast-sub">Star ignited!</div>
+      <div class="body" id="mast-body">Met it, spotted it, built it, used it, read it — one word, owned for real.</div>
+      <span class="chip" style="font-size:.85rem;padding:9px 18px">88 / 200 stars</span>
+      <div class="btn-row">
+        <button class="btn mint" onclick="renderMap();go('s-map')">Back to the map</button>
+        <button class="btn ghosty" onclick="resetDemo()">Reset demo</button>
+      </div>
+    </div>
+    <div class="note">Word Mastered — the per-word celebration stays this size; unit-complete keeps the bigger, rarer treatment (CLAUDE.md: mastery is the reward)</div>
+  </section>
+
+</div>
+
+<div class="confetti-layer" id="confetti"></div>
+
+<div class="demo-bar" id="demobar"></div>
+
+<script>
+  var $=function(s){return document.querySelector(s)};
+  var STAGES=[
+    {id:'meet',  name:'Meet It',  tr:'2 taps'},
+    {id:'spot',  name:'Spot It',  tr:'6 finds'},
+    {id:'know',  name:'Know It',  tr:'4 taps'},
+    {id:'almost',name:'Almost It',tr:'4 picks'},
+    {id:'build', name:'Build It', tr:'5 builds'},
+    {id:'use',   name:'Use It',   tr:'4 fills'},
+    {id:'story', name:'Story',    tr:'read + find'}
+  ];
+  var NODE_XY=[[150,56],[70,158],[230,252],[70,348],[230,444],[70,540],[150,640]];
+  var done=0, busy=false;
+
+  /* segments */
+  var segs=$('#segs');
+  STAGES.forEach(function(){ var d=document.createElement('div');d.className='seg';
+    d.innerHTML='<div class="fill"></div><div class="ignite"><svg viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg></div>';
+    segs.appendChild(d);});
+  function updateSegs(){ [].forEach.call(segs.children,function(s,i){ s.classList.toggle('lit', i<done); }); }
+
+  function speak(){ var b=$('#spk'); b.classList.remove('pulsing'); void b.offsetWidth; b.classList.add('pulsing'); }
+
+  /* screens */
+  function go(id){
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on')});
+    $('#'+id).classList.add('on');
+    $('#topbar').style.display=(id==='s-pretest'||id==='s-mastered')?'none':'flex';
+    updateSegs(); window.scrollTo(0,0);
+  }
+  function goMap(){ renderMap(); go('s-map'); }
+
+  /* confetti — E2 mechanics */
+  function burstConfetti(el){
+    var layer=$('#confetti'), r=el?el.getBoundingClientRect():null;
+    var cx=r?r.left+r.width/2:innerWidth/2, cy=r?r.top+r.height/2:innerHeight/2.4;
+    var colors=['var(--sun)','var(--mint)','var(--bubble)','var(--tang)'];
+    for(var i=0;i<14;i++){
+      var s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      s.setAttribute('viewBox','0 0 24 24'); s.classList.add('confetti-star');
+      var ang=Math.random()*Math.PI*2, dist=90+Math.random()*140;
+      s.style.setProperty('--dx',Math.cos(ang)*dist+'px');
+      s.style.setProperty('--dy',Math.sin(ang)*dist+'px');
+      s.style.setProperty('--rot',(Math.random()*360-180)+'deg');
+      s.style.left=cx+'px'; s.style.top=cy+'px';
+      s.style.animationDelay=(Math.random()*.15)+'s';
+      s.innerHTML='<path fill="'+colors[i%4]+'" d="M12 1l3.09 6.26L22 8.27l-5 4.87L18.18 20 12 16.77 5.82 20 7 13.14 2 8.27l6.91-1.01z"/>';
+      layer.appendChild(s); setTimeout(function(n){return function(){n.remove()}}(s),980);
+    }
+  }
+
+  /* ══ MAP ══ */
+  function renderMap(){
+    var zone=$('#mapzone');
+    zone.querySelectorAll('.mnode').forEach(function(n){n.remove()});
+    STAGES.forEach(function(st,i){
+      var n=document.createElement('div');
+      var state=i<done?'done':(i===done?'current':'locked');
+      n.className='mnode '+state;
+      n.style.left=(NODE_XY[i][0]-42)+'px'; n.style.top=(NODE_XY[i][1]-42)+'px';
+      n.innerHTML='<div class="nm">'+st.name+'</div><div class="tr">'+(state==='locked'?'soon':st.tr)+'</div>'+
+        (state==='done'?'<svg class="badge" viewBox="0 0 24 24"><use href="#starp" fill="var(--sun)"/></svg>':'');
+      if(state!=='locked') n.onclick=function(){launchStage(i)};
+      zone.appendChild(n);
+    });
+    var lit=$('#mlit'), total=lit.getTotalLength();
+    lit.style.strokeDasharray=total;
+    var f=Math.min(done,6)/6;
+    lit.style.strokeDashoffset=total*(1-f);
+    var pt=$('#mbase').getPointAtLength(total*f);
+    $('#novamap').style.transform='translate('+(pt.x-32)+'px,'+(pt.y-32)+'px)';
+  }
+
+  function launchStage(i){
+    if(i>=7) return;
+    var id=STAGES[i].id;
+    if(id==='meet')initMeet(); if(id==='spot')initSpot(); if(id==='know')initKnow();
+    if(id==='almost')initAlmost(); if(id==='build')initBuild(false); if(id==='use')initUse();
+    if(id==='story')initStory();
+    go('s-'+id);
+  }
+  function finishStage(i){
+    done=Math.max(done,i+1); updateSegs();
+    setTimeout(function(){
+      if(done>=7){ showMastered(false); } else { goMap(); }
+    },1000);
+  }
+
+  /* ══ shared choice engine (miss1 = wiggle+glow · miss2 = guided completion M5) ══ */
+  function makeTiles(grid, items, cls){
+    grid.innerHTML='';
+    items.forEach(function(it){
+      var t=document.createElement('div'); t.className=cls; t.dataset.v=it.v; t.innerHTML=it.html;
+      grid.appendChild(t);
+    });
+  }
+  function armChoice(grid, correct, ui, onDone){
+    var misses=0, locked=false;
+    var tiles=[].slice.call(grid.children);
+    tiles.forEach(function(t){
+      t.onclick=function(){
+        if(locked||busy) return;
+        if(t.dataset.v===correct){
+          locked=true;
+          if(ui.decorate) ui.decorate(t);
+          t.classList.remove('hint-glow','glow-big');
+          t.classList.add('correct-flash');
+          ui.nova.classList.add('celebrate');
+          ui.bubble.textContent=ui.praise; speak();
+          burstConfetti(t);
+          setTimeout(function(){ui.nova.classList.remove('celebrate'); onDone(misses>=2);},900);
+        } else {
+          misses++;
+          t.classList.add('wiggle','soften');
+          setTimeout(function(){t.classList.remove('wiggle')},480);
+          var ct=tiles.filter(function(x){return x.dataset.v===correct})[0];
+          if(misses===1){
+            ct.classList.add('hint-glow');
+            ui.bubble.textContent='Not quite — try the glowing one!';
+          } else {
+            /* M5 · guided completion: foils fade, Nova models, target remains */
+            tiles.forEach(function(x){ if(x!==ct){ x.classList.add('fadeout'); x.onclick=null; }});
+            ct.classList.add('hint-glow','glow-big');
+            ui.bubble.textContent=ui.model; speak();
+          }
+        }
+      };
+    });
+  }
+
+  /* ══ MEET IT ══ */
+  function initMeet(){
+    $('#wordcard').className='wordcard'; $('#wordcard').style.display='block';
+    $('#tuckstar').classList.remove('pop');
+    $('#meethint').style.display='block';
+    $('#meetcheck').style.display='none';
+    $('#bb-meet').textContent='This is dog!'; speak();
+    $('#wordcard').onclick=function(){
+      this.onclick=null; this.classList.add('tuck');
+      $('#tuckstar').classList.add('pop');
+      $('#meethint').style.display='none';
+      $('#bb-meet').textContent='Now — where did dog go?';
+      var self=this;
+      setTimeout(function(){
+        self.style.display='none';
+        $('#meetcheck').style.display='block';
+        var g=$('#grid-meet');
+        makeTiles(g,[{v:'sun',html:'sun'},{v:'dog',html:'dog'},{v:'big',html:'big'}],'ttile');
+        armChoice(g,'dog',{nova:$('#nv-meet'),bubble:$('#bb-meet'),praise:'You found dog!',model:'This is dog — tap dog!'},
+          function(){ finishStage(0); });
+      },850);
+    };
+  }
+
+  /* ══ SPOT IT — 2 rounds, widening look-alikes ══ */
+  function initSpot(){
+    var g=$('#grid-spot');
+    g.className='tile-grid n2';
+    $('#bb-spot').textContent='Find dog!'; speak();
+    makeTiles(g,[{v:'dot',html:'dot'},{v:'dog',html:'dog'}],'ttile');
+    armChoice(g,'dog',{nova:$('#nv-spot'),bubble:$('#bb-spot'),praise:'That says dog!',model:'This is dog — tap dog!'},
+      function(){
+        $('#bb-spot').textContent='Again — trickier this time!';
+        g.className='tile-grid';
+        setTimeout(function(){
+          makeTiles(g,[{v:'dig',html:'dig'},{v:'bog',html:'bog'},{v:'dog',html:'dog'},{v:'dot',html:'dot'}],'ttile');
+          armChoice(g,'dog',{nova:$('#nv-spot'),bubble:$('#bb-spot'),praise:'Dog again — sharp eyes!',model:'This is dog — tap dog!'},
+            function(){ finishStage(1); });
+        },550);
+      });
+  }
+
+  /* ══ KNOW IT — E2 art grid ══ */
+  function initKnow(){
+    var g=$('#grid-know');
+    $('#bb-know').textContent='Which one is a dog?'; speak();
+    makeTiles(g,[
+      {v:'dog',html:'<div class="art"><svg viewBox="0 0 120 120"><use href="#art-dog"/></svg></div><div class="label">dog</div>'},
+      {v:'cat',html:'<div class="art"><svg viewBox="0 0 120 120"><use href="#art-cat"/></svg></div><div class="label">cat</div>'},
+      {v:'elephant',html:'<div class="art"><svg viewBox="0 0 120 120"><use href="#art-elephant"/></svg></div><div class="label">elephant</div>'},
+      {v:'bird',html:'<div class="art"><svg viewBox="0 0 120 120"><use href="#art-bird"/></svg></div><div class="label">bird</div>'}
+    ],'tile');
+    armChoice(g,'dog',{nova:$('#nv-know'),bubble:$('#bb-know'),praise:"That's right! Dog!",model:'This is dog — tap dog!'},
+      function(){ finishStage(2); });
+  }
+  function demoGuided(){
+    initKnow();
+    var g=$('#grid-know'), tiles=[].slice.call(g.children);
+    var cat=tiles.filter(function(t){return t.dataset.v==='cat'})[0];
+    var ele=tiles.filter(function(t){return t.dataset.v==='elephant'})[0];
+    setTimeout(function(){cat.click()},500);
+    setTimeout(function(){ele.click()},1600);
+    /* the glowing dog is left for you to tap — success is always the child's tap */
+  }
+
+  /* ══ ALMOST IT ══ */
+  function initAlmost(){
+    var g=$('#grid-almost');
+    $('#bb-almost').textContent='One of these can become dog…'; speak();
+    makeTiles(g,[
+      {v:'cp',html:'c _ p'},{v:'dg',html:'d _ g'},{v:'bll',html:'b _ l l'},{v:'fsh',html:'f _ s h'}
+    ],'ttile');
+    armChoice(g,'dg',{
+      nova:$('#nv-almost'),bubble:$('#bb-almost'),
+      praise:'d-o-g — it became dog!',model:'This one can become dog — tap it!',
+      decorate:function(t){ t.innerHTML='d<span class="fillin">o</span>g'; }
+    }, function(){ finishStage(3); });
+  }
+
+  /* ══ BUILD IT (shared engine: teach mode + pretest mode) ══ */
+  function buildEngine(slotsEl, trayEl, ghostFirst, onComplete, novaEl, bubEl){
+    var target=['d','o','g'], idx=0;
+    slotsEl.innerHTML=''; trayEl.innerHTML='';
+    target.forEach(function(L,i){
+      var s=document.createElement('div'); s.className='slot';
+      if(ghostFirst&&i===0) s.innerHTML='<span class="ghost">d</span>';
+      slotsEl.appendChild(s);
+    });
+    var letters=['g','a','d','t','o'];
+    letters.forEach(function(L){
+      var t=document.createElement('div'); t.className='ltile'; t.textContent=L;
+      t.onclick=function(){
+        if(t.classList.contains('used')) return;
+        if(L===target[idx]){
+          var slot=slotsEl.children[idx];
+          slot.textContent=L; slot.classList.add('filled');
+          t.classList.add('used'); idx++;
+          if(idx===3){
+            [].forEach.call(slotsEl.children,function(s){s.classList.add('glowdone')});
+            novaEl.classList.add('celebrate');
+            bubEl.textContent='dog!'; speak(); burstConfetti(slotsEl);
+            setTimeout(function(){ novaEl.classList.remove('celebrate'); onComplete(); },950);
+          }
+        } else {
+          t.classList.add('wiggle');
+          setTimeout(function(){t.classList.remove('wiggle')},480);
+          bubEl.textContent='That tile bounced back — find the next letter of dog!';
+        }
+      };
+      trayEl.appendChild(t);
+    });
+  }
+  function initBuild(){ 
+    $('#bb-build').textContent='Build dog with the letter tiles!'; speak();
+    buildEngine($('#slots-build'),$('#tray-build'),true,function(){ finishStage(4); },$('#nv-build'),$('#bb-build'));
+  }
+  function initPretest(){
+    $('#bb-pre').textContent='Show me what you know — can you build dog?'; speak();
+    buildEngine($('#slots-pre'),$('#tray-pre'),false,function(){ showMastered(true); },$('#nv-pre'),$('#bb-pre'));
+  }
+
+  /* ══ USE IT ══ */
+  function initUse(){
+    var gap=$('#gap'); gap.className='gap'; gap.innerHTML='&nbsp;';
+    $('#cloze').classList.remove('glow');
+    $('#bb-use').textContent='Finish the sentence!'; speak();
+    var b=$('#bank');
+    makeTiles(b,[{v:'big',html:'big'},{v:'dog',html:'dog'},{v:'sun',html:'sun'}],'ttile');
+    armChoice(b,'dog',{nova:$('#nv-use'),bubble:$('#bb-use'),praise:'The dog can run!',model:'dog finishes it — tap dog!',
+      decorate:function(){ gap.textContent='dog'; gap.classList.add('done'); $('#cloze').classList.add('glow'); }},
+      function(){ finishStage(5); });
+  }
+
+  /* ══ STORY ══ */
+  function initStory(){
+    var sc=$('#storycard'); $('#qblock').classList.remove('show');
+    $('#bb-story').textContent='Tap every dog you can find!'; speak();
+    var words=[['The'],['dog','findme'],['can'],['run.'],['The'],['dog','findme'],['is'],['big.']];
+    sc.innerHTML=words.map(function(w){
+      return '<span class="w '+(w[1]||'')+'">'+w[0]+'</span>';
+    }).join(' ');
+    var found=0, targets=sc.querySelectorAll('.findme');
+    targets.forEach(function(t){
+      t.onclick=function(){
+        if(t.classList.contains('lit')) return;
+        t.classList.add('lit'); found++;
+        if(found===2){
+          $('#bb-story').textContent='Both dogs found! Now — one question…'; speak();
+          setTimeout(function(){
+            $('#qblock').classList.add('show');
+            var g=$('#grid-q');
+            makeTiles(g,[{v:'sleep',html:'sleep'},{v:'run',html:'run'},{v:'fly',html:'fly'}],'ttile');
+            armChoice(g,'run',{nova:$('#nv-story'),bubble:$('#bb-story'),praise:'Yes — the dog can run!',model:'The dog can run — tap run!'},
+              function(){ finishStage(6); });
+          },600);
+        }
+      };
+    });
+  }
+
+  /* ══ MASTERED ══ */
+  function showMastered(pretest){
+    if(pretest){
+      $('#mast-sub').textContent='You already knew dog!';
+      $('#mast-body').textContent='Pretest passed — no re-teaching, ever. Logged for your grown-ups; straight to the galaxy.';
+      done=0;
+    } else {
+      $('#mast-sub').textContent='Star ignited!';
+      $('#mast-body').textContent='Met it, spotted it, built it, used it, read it — one word, owned for real.';
+    }
+    go('s-mastered'); burstConfetti(null);
+    setTimeout(function(){burstConfetti(null)},420);
+  }
+
+  /* ══ demo bar ══ */
+  var JUMPS=[
+    ['Pretest',function(){initPretest();go('s-pretest')}],
+    ['Map',function(){goMap()}],
+    ['1 Meet',function(){done=0;initMeet();go('s-meet')}],
+    ['2 Spot',function(){done=1;initSpot();go('s-spot')}],
+    ['3 Know',function(){done=2;initKnow();go('s-know')}],
+    ['4 Almost',function(){done=3;initAlmost();go('s-almost')}],
+    ['5 Build',function(){done=4;initBuild();go('s-build')}],
+    ['6 Use',function(){done=5;initUse();go('s-use')}],
+    ['7 Story',function(){done=6;initStory();go('s-story')}],
+    ['Mastered',function(){done=7;showMastered(false)}],
+    ['Reset',function(){resetDemo()}]
+  ];
+  var bar=$('#demobar');
+  JUMPS.forEach(function(j,i){
+    var b=document.createElement('button'); b.className='demo-btn'+(i===0?' hot':''); b.textContent=j[0];
+    b.onclick=j[1]; bar.appendChild(b);
+  });
+  function resetDemo(){ done=0; initPretest(); go('s-pretest'); }
+
+  /* start */
+  resetDemo();
+</script>
+</body>
+</html>

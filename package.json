@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-wordart-sync.mjs && node scripts/check-stroke-coverage.mjs && node scripts/check-findtheword-sync.mjs && node scripts/check-activitydefs-sync.mjs && node scripts/check-mastery-predicate-sync.mjs && node scripts/check-blank-engine-weighting-sync.mjs && vite build",
+    "build": "node scripts/check-wordart-sync.mjs && node scripts/check-stroke-coverage.mjs && node scripts/check-findtheword-sync.mjs && node scripts/check-activitydefs-sync.mjs && node scripts/check-mastery-predicate-sync.mjs && node scripts/check-blank-engine-weighting-sync.mjs && node scripts/check-memorymaster-content.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
@@ -13,7 +13,8 @@
     "check:activitydefs-sync": "node scripts/check-activitydefs-sync.mjs",
     "check:findtheword-sync": "node scripts/check-findtheword-sync.mjs",
     "check:mastery-predicate-sync": "node scripts/check-mastery-predicate-sync.mjs",
-    "check:blank-engine-weighting-sync": "node scripts/check-blank-engine-weighting-sync.mjs"
+    "check:blank-engine-weighting-sync": "node scripts/check-blank-engine-weighting-sync.mjs",
+    "check:memorymaster-content": "node scripts/check-memorymaster-content.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
