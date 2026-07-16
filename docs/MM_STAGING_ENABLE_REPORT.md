@@ -185,7 +185,59 @@ Committed: `503ac8f feat(mm-staging-enable): Phase 3 -- dismissible 'Preview - n
 
 ## Phase 4 — Verify logged-in behavior
 
-IN PROGRESS
+**Substitution, stated up front (same pattern R1 used, not silently swapped in)**: the runbook
+says "on the branch preview." As confirmed in Phase 1, the flag is build-time, and the Vercel
+Preview environment does not have `VITE_MEMORY_MASTER_ENABLED` set (same as Production) —
+enabling it there is a Vercel dashboard action outside this run's write access, and per the
+runbook's own HARD RULES no git-write/account-action probe was made to test that boundary.
+Steps 1-4 below were walked against **this branch's exact code on the local dev server**
+(`npm run dev -- --port 5183`, this worktree, `.env.local` copied from the `memory-master-r1`
+worktree with `VITE_MEMORY_MASTER_ENABLED="true"` already set from that prior run), driven by
+real Claude-in-Chrome browser automation (not simulated), logged in as a real disposable
+account created via `scripts/admin-user.mjs create mm-staging-test` and deleted afterward via
+`admin-user.mjs delete`. Confirmed no other Claude/Chrome tab-group contention before starting
+(`tabs_context_mcp` returned "No tab group exists").
+
+1. **Module renders** — reached `/memory-master-dev` after logging in through the real `/app`
+   auth flow (child-profile onboarding completed once, as any fresh account would). Home
+   screen (the module's own "integration proof" home, three wings: Word Journey / Memory
+   Master / Practice corner), placement offer ("Start at Level 1"), and the primer's first two
+   steps all rendered correctly. Screenshotted at each step.
+
+2. **Audio / `api/speak` auth — real finding, reported not papered over**: the primer's
+   `useEffect`-driven `speak()` call hit `/api/speak` and got **503**, not the 401 the runbook
+   worried about (the mockup's "Failed to login" artifact). Investigated rather than assumed:
+   a direct `curl -X POST http://localhost:5183/api/speak` (bypassing the app) returned **404**.
+   This is a **known, pre-existing environment gap unrelated to Memory Master or this run**:
+   plain `vite dev` does not serve `/api/*.mjs` Vercel serverless functions at all (no dev-server
+   proxy/middleware for them) — this was already true before this change and affects every
+   feature that calls `/api/*`, not something this run introduced. `vercel dev` would serve them
+   locally but requires the Vercel CLI authenticated to the project's account, which Phase 2's
+   recon already established is not the case here (`vercel whoami` → `Not authorized`) — and per
+   the runbook's HARD RULES, deploy/account checks must go through the commit-status API, never
+   a Vercel connector/CLI session on the wrong account. **Net: audio could not be exercised
+   end-to-end in this substitution.** What IS confirmed: Phase 1's source read shows
+   `api/speak.mjs` unconditionally requires `getVerifiedUser(req)` and 401s without it — that
+   auth wiring is unchanged by this run's diff (which touched only `HomeIntegration.jsx`) and
+   runs for real once deployed (as a real Vercel serverless function, not under bare `vite`).
+   This gap should be re-tested once the Preview-environment env var is set (same account action
+   needed for the rest of this verification) or after Production is live — flagging as an open
+   item for Sal's post-approval check, not blocking this run's own gates.
+
+3. **"Preview — not saved" banner** — confirmed rendering exactly as built: amber banner,
+   "Preview — nothing here is saved yet.", dismiss (×) button, positioned above the Nova
+   greeting on the module home. Screenshotted.
+
+4. **Ordinary account sees nothing** — the same logged-in test account's real app home
+   (`/app`, actual production Home/Play/Galaxy/Grown-ups screen) was screenshotted: zero
+   reference to Memory Master anywhere in the nav, tiles, or copy. Structural confirmation from
+   Phase 1 (zero cross-references in the codebase) matches what actually renders.
+
+Cleanup: dev server killed (`pkill -f "vite --port 5183"`), test account
+(`fe9d461f-075b-49b5-b395-597392023e60`) deleted via `admin-user.mjs delete`, confirmed 200.
+
+**Status: DONE** (with the audio-verification gap above carried forward as an open item, not
+silently closed)
 
 ## Phase 5 — Gates
 
