@@ -1,4 +1,5 @@
-import { colors, fonts, shadows } from './mmTokens';
+import { useState } from 'react';
+import { colors, fonts, shadows, touchTarget } from './mmTokens';
 import { BookIcon, TargetIcon } from './icons';
 import NovaBubble from './NovaBubble';
 
@@ -31,12 +32,38 @@ function Wing({ icon, iconBg, title, sub, onClick, progress }) {
   );
 }
 
+// MM_STAGING_ENABLE_R1 -- the one UI addition this run allows. Testers
+// reaching this route in production must never be misled into thinking a
+// session saves (it doesn't -- the whole module is in-memory only, no
+// mm_* tables exist yet, see docs/MM_STAGING_ENABLE_REPORT.md Phase 1.5).
+// Dismissible per session (local component state, not persisted) so it
+// doesn't nag on every screen -- shown on the module's home only, per the
+// runbook.
+function PreviewBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div style={{ background: colors.sun, color: colors.ink, borderRadius: 16, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, fontFamily: fonts.body, fontWeight: 700, fontSize: '.82rem' }}>
+      <span style={{ flex: 1 }}>Preview &mdash; nothing here is saved yet.</span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        style={{ width: touchTarget, height: touchTarget, minWidth: 32, minHeight: 32, border: 'none', background: 'rgba(42,33,96,.12)', borderRadius: 10, color: colors.ink, fontFamily: fonts.display, fontWeight: 800, fontSize: '1rem', cursor: 'pointer', flex: '0 0 auto' }}
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
 export default function HomeIntegration({ placed, level, sessionNum, onEnterMM, onPractice }) {
   return (
     <div>
       <div style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: '.7rem', letterSpacing: '.13em', textTransform: 'uppercase', color: colors.mutedInkLight, marginBottom: 14 }}>
         200 Magic Words &middot; home (integration proof)
       </div>
+      <PreviewBanner />
       <NovaBubble text="Two wings of the galaxy. Where to?" />
       <Wing icon={<StarPath />} iconBg={colors.sun} title="Word Journey" sub="Unit 4 &middot; today's word: water" onClick={() => {}} progress={46} />
       <Wing
