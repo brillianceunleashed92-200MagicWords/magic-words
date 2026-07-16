@@ -125,7 +125,63 @@ persistence.
 
 ## Phase 3 — Apply the chosen gating
 
-IN PROGRESS
+No code change was needed for the gating mechanism itself (option (b) is already true today —
+zero entry points exist, confirmed Phase 1). The only code change is the one UI addition the
+runbook allows: a dismissible "Preview — not saved" banner on the module's home
+(`src/screens/memorymaster/HomeIntegration.jsx`), so a tester can never mistake the flow for a
+persisting session.
+
+Diff (1 file, +28/-1):
+```diff
+--- a/src/screens/memorymaster/HomeIntegration.jsx
++++ b/src/screens/memorymaster/HomeIntegration.jsx
+@@ -1,4 +1,5 @@
+-import { colors, fonts, shadows } from './mmTokens';
++import { useState } from 'react';
++import { colors, fonts, shadows, touchTarget } from './mmTokens';
+ import { BookIcon, TargetIcon } from './icons';
+ import NovaBubble from './NovaBubble';
+
+@@ -31,12 +32,38 @@ function Wing({ icon, iconBg, title, sub, onClick, progress }) {
+   );
+ }
+
++function PreviewBanner() {
++  const [dismissed, setDismissed] = useState(false);
++  if (dismissed) return null;
++  return (
++    <div style={{ background: colors.sun, color: colors.ink, borderRadius: 16, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, fontFamily: fonts.body, fontWeight: 700, fontSize: '.82rem' }}>
++      <span style={{ flex: 1 }}>Preview &mdash; nothing here is saved yet.</span>
++      <button
++        type="button"
++        onClick={() => setDismissed(true)}
++        aria-label="Dismiss"
++        style={{ width: touchTarget, height: touchTarget, minWidth: 32, minHeight: 32, border: 'none', background: 'rgba(42,33,96,.12)', borderRadius: 10, color: colors.ink, fontFamily: fonts.display, fontWeight: 800, fontSize: '1rem', cursor: 'pointer', flex: '0 0 auto' }}
++      >
++        &times;
++      </button>
++    </div>
++  );
++}
++
+ export default function HomeIntegration({ placed, level, sessionNum, onEnterMM, onPractice }) {
+   return (
+     <div>
+       <div style={{ ... }}>
+         200 Magic Words &middot; home (integration proof)
+       </div>
++      <PreviewBanner />
+       <NovaBubble text="Two wings of the galaxy. Where to?" />
+```
+
+Design-rule compliance checked directly (not assumed): uses `colors.sun` (amber, `#FFC531`) not
+red — matches the errorless-design "no red/X" rule; dismiss button is `touchTarget` (64px, well
+over the 44px minimum); `fonts.body`/`fonts.display` are the module's existing token imports,
+no new fonts introduced.
+
+Committed: `503ac8f feat(mm-staging-enable): Phase 3 -- dismissible 'Preview - not saved' banner on module home`.
+
+**Status: DONE**
 
 ## Phase 4 — Verify logged-in behavior
 
