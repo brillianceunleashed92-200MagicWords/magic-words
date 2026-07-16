@@ -72,7 +72,56 @@ enabling the route.
 
 ## Phase 2 — Decide the gating mechanism
 
-IN PROGRESS
+Evaluated all three options against what actually exists in the codebase/infra, before
+changing anything:
+
+**(a) Env flag on preview/staging only — NOT VIABLE as "the live app."**
+`vercel.json` (repo root) has one config, no staging-specific settings; there is no separate
+staging *domain* — only Vercel's standard per-branch/per-PR Preview Deployments, which are
+ephemeral (a new URL per push, tied to a branch) and not `200magicwordsapp.com`. Vercel does
+let env vars be scoped to its "Preview" environment distinct from "Production," which is a
+real platform feature and not something to build — but scoping the flag there would only make
+the module reachable on a rotating preview URL, not on the live production domain. The
+runbook's own framing is "Sal wants to SEE the module **in the live app**" — a preview link
+doesn't satisfy that. Ruled out for this run's actual goal, not because the mechanism doesn't
+exist, but because it doesn't produce the requested outcome.
+
+**(c) Gated by tester allowlist — NOT VIABLE, no existing mechanism.**
+`grep -rln "tester\|is_admin\|isAdmin\|role.*admin\|allowlist" src/` found exactly two hits,
+both unrelated (a server-side event-type allowlist in `PlayScreen.jsx`, and a paywall-surface
+allowlist comment in `UpgradeBanner.jsx` — neither is a user/tester role system). No
+internal/admin/tester role exists anywhere in the codebase. Per the runbook's own constraint
+("use only if the mechanism already exists; do NOT build a new auth system for this"), this
+is ruled out.
+
+**(b) Flag on in production, route reachable only by direct URL — RECOMMENDED.**
+This is architecturally already true today, confirmed in Phase 1: zero entry points exist
+(no home tile, no nav link, nothing references `/memory-master-dev` anywhere else in the app).
+Turning `VITE_MEMORY_MASTER_ENABLED` on in production doesn't add an entry point — it only
+stops that one already-unlinked URL from rendering `NotFound`. Per the runbook, this is
+"Acceptable ONLY because nothing writes to the DB and no child data is involved" — confirmed
+in Phase 1.5 (zero persistence, all in-memory state). Since the flag is build-time
+(`import.meta.env`, inlined at build — Phase 1 finding), enabling it requires a Vercel
+**Production** environment-variable change + a redeploy, not a code change alone. That env-var
+step is an account action for Sal to perform by hand (per the runbook's own instruction not to
+do this directly) — exact steps below.
+
+**Decision: (b).** No code change is needed to the gating mechanism itself (it already
+satisfies "no customer entry point"); the only code change in Phase 3 is the one UI addition
+the runbook allows — the "Preview — not saved" banner — so a tester is never misled about
+persistence.
+
+**Exact steps for Sal (Vercel account action, not performed by this run):**
+1. Vercel dashboard → this project → Settings → Environment Variables.
+2. Add/edit `VITE_MEMORY_MASTER_ENABLED` = `true`, scoped to **Production** only (leave
+   Preview/Development as-is, or set the same if useful — irrelevant to this run's goal).
+3. Trigger a new Production deployment (redeploy the current `main` HEAD, or push/merge this
+   branch — a fresh build is required since the flag is inlined at build time).
+4. After the new deployment completes, `/memory-master-dev` on `200magicwordsapp.com` renders
+   the module for anyone who knows the URL; everyone else still sees no reference to it
+   anywhere in the app.
+
+**Status: DONE**
 
 ## Phase 3 — Apply the chosen gating
 
