@@ -417,3 +417,28 @@ that `git push origin main` is manually approved only.
 Everything above is reported, nothing merged, pushed to `main`, or changed in Vercel. Waiting
 for Sal to review and choose next steps — including resolving the deploy-status gap before or
 alongside approval.
+
+## Phase 6 — After approval (merge + push + deploy verification)
+
+**Approved by Sal**, after independently confirming the earlier stalled branch-preview deploy
+status via the Vercel dashboard directly (this run's own attempt was correctly blocked — the
+only Chrome-accessible Vercel session belongs to a different account with no visibility into
+`brillianceunleashed92-6054s-projects`).
+
+1. **Merge** — `git merge --no-ff feat/mm-staging-enable` in the `main` worktree
+   (`.claude/worktrees/fix-story-quality`), after confirming it was clean and `main`/`origin/main`
+   were both still at `6870ad3` immediately beforehand. Merge commit summary: 2 files changed
+   (`docs/MM_STAGING_ENABLE_REPORT.md` create, `src/screens/memorymaster/HomeIntegration.jsx`
+   +28/-1) — matches this run's diff exactly, nothing extra picked up.
+2. **Push** — `git push origin main`: `6870ad3..19e8f6f  main -> main`.
+   **New `main` HEAD: `19e8f6f2a5be258172bc4c95799760907fea53b5`.**
+3. **Deploy verification** (GitHub commit-status API + curl, never the Vercel MCP connector):
+   polled `.../commits/19e8f6f.../status` — `pending` (2 attempts) -> **`success`**
+   ("Deployment has completed", Vercel context) in under a minute, resolving far faster than the
+   earlier branch-preview stall did — confirms that stall was an isolated artifact, not a
+   integration-wide problem. `curl -sI https://200magicwordsapp.com/` -> `HTTP/2 200`,
+   `age: 0` (fresh from this exact deploy). `/memory-master-dev` still serves the SPA shell with
+   the flag OFF, as expected (env var not yet set).
+
+**Status: DONE.** Stopping here per Sal's instruction — env var is an account action, not
+performed by this run.
