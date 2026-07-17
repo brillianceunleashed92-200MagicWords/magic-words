@@ -1,10 +1,10 @@
 # 200 Magic Words - Consolidated Word List (100 content + 100 non-content)
 
-Consolidated from Dr. Blank's two source docs (List of content/non-content words, Nov 2024; Potential 200+ Words, Mar 27 2026). Counts are HEADWORDS.
+Consolidated from Dr. Blank's two source docs (Nov 2024 + Mar 27 2026). Counts are HEADWORDS.
 
-**TEACHING RULE (Dr. Blank, non-negotiable):** every word is taught WITH all its forms - plural (kid/kids), tenses & conjugations (help/helps/helping/helped), and other versions - counted as ONE word but all taught. The Forms column is load-bearing: the data schema must store a forms array per word, and the ladder must include form-vs-form discrimination (e.g. Spot It: hop vs hopping vs hops).
+**TEACHING RULE (Dr. Blank, non-negotiable):** every word is taught WITH all its forms - plural (kid/kids), tenses & conjugations (help/helps/helping/helped), irregulars included (get/got, have/had) - counted as ONE word but all taught. The Forms column is load-bearing: the schema stores a forms array per word, and the ladder includes form-vs-form discrimination (Spot It: hop vs hopping vs hops).
 
-Gold source = reinstated from Nov list. * = irregular form folded into its base. Full method, cut list, and open questions in the xlsx (tab: Method, Cuts & Flags).
+Gold source = reinstated from Nov list. * = irregular form. Full method, cuts, and open questions in the xlsx (tab: Method, Cuts & Flags).
 
 ## Content Words (100)
 
@@ -64,7 +64,7 @@ Gold source = reinstated from Nov list. * = irregular form folded into its base.
 | 52 | 16 | hole | hole, holes | March 2026 list |
 | 53 | 16 | find | find, finds, finding | March 2026 list |
 | 54 | 16 | mice | mice | March 2026 list |
-| 55 | 16 | get | get, gets, getting | March 2026 list |
+| 55 | 16 | get | get, gets, getting, got* | March 2026 list |
 | 56 | 17 | park | park, parks, parked, parking | March 2026 list |
 | 57 | 17 | nice | nice | March 2026 list |
 | 58 | 17 | place | place, places, placed | March 2026 list |
@@ -150,7 +150,7 @@ Gold source = reinstated from Nov list. * = irregular form folded into its base.
 | 33 | 9 | now |  | March 2026 list |
 | 34 | 10 | of |  | March 2026 list |
 | 35 | 10 | yes |  | March 2026 list |
-| 36 | 10 | have | have, has | March 2026 list |
+| 36 | 10 | have | have, has, had* | March 2026 list |
 | 37 | 10 | he |  | March 2026 list |
 | 38 | 11 | my |  | March 2026 list |
 | 39 | 11 | you |  | March 2026 list |
@@ -206,7 +206,7 @@ Gold source = reinstated from Nov list. * = irregular form folded into its base.
 | 89 | 28 | nothing |  | March 2026 list |
 | 90 | 29 | every |  | March 2026 list |
 | 91 | 30 | never |  | March 2026 list |
-| 92 | — | before | teach earlier (her note) | March 2026 list |
+| 92 | — | before |  | March 2026 list |
 | 93 | — | somebody | somebody / anybody / nobody | March 2026 list |
 | 94 | 30 | down |  | Reinstated from Nov 2024 |
 | 95 | 20 | each |  | Reinstated from Nov 2024 |
