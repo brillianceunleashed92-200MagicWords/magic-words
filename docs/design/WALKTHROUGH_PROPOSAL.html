@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>200 Magic Words — Walkthrough v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --sky:#5B4BD6; --sky-deep:#3D2FA8; --sky-night:#2B2080;
+    --sun:#FFC531; --mint:#3EE0B8; --bubble:#FF6FA5; --tang:#FF8A4C;
+    --cloud:#FFFFFF; --ink:#2A2160; --muted:#8B84BD; --paper:#EDEBFA; --lock:#C9C4EC;
+    --display:'Baloo 2','Trebuchet MS',system-ui,sans-serif; --body:'Quicksand',system-ui,-apple-system,sans-serif;
+    --chunk:0 8px 0 rgba(0,0,0,.16); --chunk-sm:0 5px 0 rgba(0,0,0,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--cloud);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 60%,var(--sky-night) 100%)}
+  #stars,#aurora{position:fixed;inset:0;pointer-events:none;z-index:0}
+  #stars{background-image:
+    radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 70% 20%,rgba(255,255,255,.7),transparent),
+    radial-gradient(2px 2px at 40% 70%,rgba(255,255,255,.8),transparent),radial-gradient(1.5px 1.5px at 85% 60%,rgba(255,255,255,.6),transparent),
+    radial-gradient(1.5px 1.5px at 15% 85%,rgba(255,255,255,.7),transparent),radial-gradient(2px 2px at 60% 45%,rgba(255,255,255,.5),transparent),
+    radial-gradient(1.5px 1.5px at 92% 32%,#fff,transparent),radial-gradient(1.5px 1.5px at 33% 12%,rgba(255,255,255,.6),transparent);background-repeat:no-repeat}
+  #aurora{opacity:.05;transition:opacity 1s ease;background:radial-gradient(60% 40% at 15% 8%,rgba(62,224,184,.5),transparent 70%),radial-gradient(55% 45% at 85% 92%,rgba(255,111,165,.45),transparent 70%)}
+  #confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:95}
+
+  .protobar{position:sticky;top:0;z-index:60;background:rgba(20,14,70,.86);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.12);
+    padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .protobar .tag{font-family:var(--display);font-weight:800;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sun);background:rgba(255,197,49,.14);padding:4px 8px;border-radius:100px}
+  .chapters{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+  .chapters button,.levsel button{font-family:var(--display);font-weight:800;font-size:.68rem;color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);border:none;padding:6px 10px;border-radius:100px;cursor:pointer;transition:all .15s}
+  .chapters button.active{color:var(--ink);background:var(--sun)}
+  .levsel{display:flex;gap:4px;align-items:center;background:rgba(255,255,255,.06);padding:4px;border-radius:100px}
+  .levsel .lbl{font-size:.55rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);padding:0 5px}
+  .levsel button.on{color:var(--ink);background:var(--mint)}
+
+  .stage{position:relative;max-width:540px;margin:0 auto;padding:18px 18px 120px;z-index:1}
+  .screen{display:none}
+  .screen.on{display:block;animation:fadeUp .3s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* ---------- HOME (faithful galaxy) ---------- */
+  .greet{background:var(--cloud);color:var(--ink);border-radius:28px;padding:22px 22px 18px;box-shadow:var(--chunk);position:relative}
+  .greet h1{font-family:var(--display);font-weight:800;font-size:1.7rem;line-height:1.1}
+  .greet h1 .nm{color:var(--sky)} .greet h1 .fly{color:var(--tang)}
+  .greet .subt{font-weight:600;font-size:.9rem;color:var(--muted);margin:8px 0 16px}
+  .greet .rocket{position:absolute;top:20px;right:22px;width:52px;height:52px}
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .stat{border-radius:18px;padding:12px 6px;text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.14)}
+  .stat .v{font-family:var(--display);font-weight:800;font-size:1.4rem;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:5px}
+  .stat .l{font-family:var(--display);font-weight:800;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:rgba(42,33,96,.7);margin-top:2px}
+  .scrollhint{text-align:center;font-family:var(--display);font-weight:800;font-size:.78rem;color:rgba(255,255,255,.6);margin:16px 0}
+  .sechead{display:flex;align-items:center;gap:8px;margin:8px 0 12px}
+  .sechead svg{width:22px;height:22px;flex:0 0 auto}
+  .sechead h2{font-family:var(--display);font-weight:800;font-size:1.25rem;color:#fff}
+  .sechead .pill{margin-left:auto;background:var(--cloud);color:var(--sky);font-family:var(--display);font-weight:800;font-size:.8rem;padding:6px 14px;border-radius:100px;box-shadow:var(--chunk-sm)}
+  .pill .tot{color:var(--muted)}
+
+  .wordcard{background:var(--mint);color:#00543E;border-radius:26px;padding:22px;box-shadow:var(--chunk);position:relative;margin-bottom:22px}
+  .wordcard.mm{background:#B8B4E8;color:#2A2160}
+  .wordcard .u{font-family:var(--display);font-weight:800;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+  .wordcard .w{font-family:var(--display);font-weight:800;font-size:2.6rem;display:flex;align-items:center;gap:12px}
+  .wordcard .d{font-weight:600;font-size:.9rem;opacity:.8;margin:2px 0 16px}
+  .go{display:inline-flex;align-items:center;gap:8px;background:var(--cloud);color:var(--ink);font-family:var(--display);font-weight:800;font-size:1.1rem;padding:14px 26px;border-radius:100px;border:none;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.16);transition:transform .1s}
+  .go:active{transform:translateY(4px) scale(.97);box-shadow:0 2px 0 rgba(0,0,0,.16)}
+
+  .galaxy{position:relative;width:100%;max-width:360px;height:560px;margin:0 auto}
+  .galaxy svg.path{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .node{position:absolute;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:800;cursor:pointer;border:none;box-shadow:var(--chunk);transition:transform .12s}
+  .node:active{transform:translate(-50%,-50%) scale(.95)}
+  .node.done{background:var(--sun);color:var(--ink)} .node.cur{background:var(--bubble);color:#fff}
+  .node.lock{background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border:2px dashed rgba(255,255,255,.4);box-shadow:none;cursor:not-allowed}
+  .node .nm{font-size:1.15rem} .node .pc{font-size:.72rem;display:flex;align-items:center;gap:3px;margin-top:2px}
+  .node .crown{position:absolute;top:-10px;font-size:1.1rem;color:var(--sun)}
+  .nova{position:absolute;width:64px;height:64px;transform:translate(-50%,-50%);transition:left 1.1s cubic-bezier(.5,-0.3,.4,1.3),top 1.1s cubic-bezier(.5,-0.3,.4,1.3);z-index:3;pointer-events:none}
+  .nova.hop{animation:hop 1.1s ease}
+  @keyframes hop{0%,100%{margin-top:0}45%{margin-top:-26px}}
+  .nova .body{width:100%;height:100%;animation:bob 3s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+  /* bottom app nav */
+  .appnav{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:40;background:var(--cloud);border-radius:100px;box-shadow:var(--chunk);
+    display:flex;gap:4px;padding:8px 10px;width:min(500px,92vw);justify-content:space-between}
+  .appnav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 14px;border-radius:100px;font-family:var(--display);font-weight:800;font-size:.66rem;color:var(--muted);position:relative}
+  .appnav button svg{width:22px;height:22px}
+  .appnav button.on{background:var(--sky);color:#fff;padding:10px 18px}
+  .appnav .av{position:absolute;top:-2px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--sun);color:var(--ink);font-size:.6rem;display:flex;align-items:center;justify-content:center;font-weight:800}
+
+  /* ---------- shared / journey (from verified v2 engine) ---------- */
+  .nova-row{display:flex;align-items:flex-start;gap:12px;margin:4px 0 16px;min-height:66px}
+  .porthole{width:60px;height:60px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7A6BF0,var(--sky-deep) 70%);border:5px solid rgba(255,255,255,.9);box-shadow:var(--chunk-sm);position:relative;overflow:hidden;flex:0 0 auto;transition:transform .3s}
+  .pcore{position:absolute;inset:12%;border-radius:50% 50% 46% 54%/56% 50% 50% 44%;background:radial-gradient(circle at 36% 30%,#FFF6D8,var(--sun) 55%,#F09A12 100%);animation:bob 3.2s ease-in-out infinite}
+  .n-eye{position:absolute;top:36%;width:12%;height:17%;border-radius:50%;background:var(--ink);animation:blink 4.5s infinite}
+  @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+  .n-eye.l{left:32%}.n-eye.r{right:32%}
+  .n-smile{position:absolute;top:57%;left:50%;transform:translateX(-50%);width:24%;height:12%;border-radius:0 0 40px 40px;background:var(--ink)}
+  .porthole.listen{transform:rotate(-8deg)} .porthole.point{transform:translateX(4px) rotate(6deg)} .porthole.celebrate .pcore{animation:cheer .5s ease infinite alternate}
+  @keyframes cheer{from{transform:translateY(0) scale(1)}to{transform:translateY(-5px) scale(1.06)}}
+  .bub{background:var(--cloud);color:var(--ink);border-radius:22px 22px 22px 4px;padding:11px 16px;font-family:var(--display);font-weight:700;font-size:.96rem;box-shadow:var(--chunk-sm);flex:1;line-height:1.35}
+
+  .eyebrow{font-family:var(--display);font-weight:800;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:8px}
+  .title{font-family:var(--display);font-weight:800;font-size:1.4rem;color:#fff;text-align:center}
+  .card{background:var(--cloud);color:var(--ink);border-radius:24px;padding:20px;box-shadow:var(--chunk);margin-bottom:14px}
+  .note{font-weight:600;font-size:.83rem;color:var(--muted);line-height:1.5}
+  .kidnote{background:rgba(255,255,255,.08);border-radius:14px;padding:10px 14px;font-size:.76rem;color:rgba(255,255,255,.7);font-weight:600;margin-top:10px;line-height:1.5}
+  .kidnote b{color:var(--sun)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--sun);color:var(--ink);font-family:var(--display);font-weight:800;font-size:1rem;padding:14px 26px;border-radius:100px;border:none;cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.16);transition:transform .1s;width:100%;margin-top:6px}
+  .btn:active{transform:translateY(5px) scale(.98);box-shadow:0 2px 0 rgba(0,0,0,.16)}
+  .btn.mint{background:var(--mint);color:#00543E} .btn.ghost{background:transparent;color:#fff;box-shadow:none;border:2px solid rgba(255,255,255,.35);font-size:.86rem;padding:11px 20px;width:auto}
+  .hearbtn{width:72px;height:72px;border-radius:50%;background:var(--cloud);color:var(--ink);border:none;cursor:pointer;box-shadow:var(--chunk-sm);display:flex;align-items:center;justify-content:center;transition:transform .1s;margin:2px auto 4px}
+  .hearbtn:active{transform:translateY(4px) scale(.94)} .hearbtn svg{width:34px;height:34px}
+  .hearlbl{text-align:center;font-family:var(--display);font-weight:800;font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:14px}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .choice{background:var(--cloud);color:var(--ink);border:none;border-radius:16px;padding:18px 10px;font-family:var(--display);font-weight:800;font-size:1.3rem;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .1s,opacity .3s}
+  .choice:active{transform:translateY(4px) scale(.96)} .choice.right{background:var(--mint);color:#00543E;animation:pop .3s} .choice.wrong{animation:wiggle .4s}
+  .choice.hintglow{box-shadow:0 0 0 3px var(--sun),var(--chunk-sm)} .choice.faded{opacity:.15;pointer-events:none}
+  @keyframes pop{50%{transform:scale(1.08)}} @keyframes wiggle{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .slots{display:flex;gap:8px;justify-content:center;margin:16px 0}
+  .slot{width:44px;height:54px;border-radius:11px;background:var(--paper);border:2px dashed var(--lock);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:1.6rem;color:var(--ink);transition:all .2s}
+  .slot.filled{background:var(--sun);border-style:solid;border-color:var(--sun);animation:drop .3s}
+  @keyframes drop{0%{transform:translateY(-10px) scale(1.1)}100%{transform:none}}
+  .tray{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px}
+  .tile{width:48px;height:56px;border-radius:11px;background:var(--cloud);color:var(--ink);border:none;font-family:var(--display);font-weight:800;font-size:1.5rem;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .1s,opacity .3s}
+  .tile:active{transform:translateY(3px) scale(.93)} .tile.wiggle{animation:wiggle .4s} .tile.used{visibility:hidden} .tile.glow{box-shadow:0 0 0 3px var(--sun),var(--chunk-sm)} .tile.faded{opacity:.15;pointer-events:none}
+  .frames{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .frame{background:var(--cloud);color:var(--ink);border:none;border-radius:16px;padding:18px 8px;font-family:var(--display);font-weight:800;font-size:1.5rem;letter-spacing:.15em;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .1s}
+  .frame:active{transform:translateY(4px) scale(.96)} .frame.right{background:var(--mint);color:#00543E;animation:pop .3s} .frame.wrong{animation:wiggle .4s}
+  .wordbig{font-family:var(--display);font-weight:800;font-size:2.4rem;color:var(--ink);text-align:center}
+  .pic{width:92px;height:92px;margin:4px auto;display:block}
+  .sentence{font-family:var(--display);font-weight:800;font-size:1.3rem;color:var(--ink);text-align:center;line-height:1.5}
+  .blankslot{display:inline-block;min-width:66px;border-bottom:3px solid var(--lock);margin:0 4px}
+  .bank{display:flex;gap:9px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  .bankchip{background:var(--cloud);color:var(--ink);border:none;border-radius:14px;padding:11px 18px;font-family:var(--display);font-weight:800;font-size:1.1rem;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .1s}
+  .bankchip:active{transform:translateY(3px) scale(.95)} .bankchip.wrong{animation:wiggle .4s}
+  .hint{text-align:center;font-weight:700;font-size:.82rem;color:var(--mint);margin-top:12px;min-height:20px}
+  .fmtlabel{font-family:var(--display);font-weight:800;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);text-align:center;margin-bottom:6px}
+  .sessbar{margin-bottom:14px}
+  .sessmeta{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .sessmeta .lvl{font-family:var(--display);font-weight:800;font-size:.68rem;color:var(--sun)} .sessmeta .cnt{font-weight:700;font-size:.7rem;color:rgba(255,255,255,.55)}
+  .map{display:flex;gap:4px} .mdot{flex:1;height:8px;border-radius:100px;background:rgba(255,255,255,.16);transition:all .3s} .mdot.cur{transform:scaleY(1.5)}
+  .mdot.meet{background:#8FA8FF}.mdot.spot{background:var(--tang)}.mdot.know{background:var(--mint)}.mdot.almost{background:var(--bubble)}.mdot.build{background:var(--sun)}.mdot.use{background:#B8B4E8}.mdot.pretest{background:#fff}.mdot.spotform{background:var(--tang)}
+  .constellation{width:190px;height:150px;margin:6px auto} .cline{stroke:var(--sun);stroke-width:2;fill:none;stroke-dasharray:400;stroke-dashoffset:400;animation:draw 1.4s ease forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  table{width:100%;border-collapse:collapse} th{text-align:left;font-family:var(--display);font-weight:800;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 4px;border-bottom:1px solid var(--paper)} td{padding:11px 4px;font-weight:700;font-size:.88rem;color:var(--ink);border-bottom:1px solid var(--paper)}
+  .chip{display:inline-block;background:var(--paper);color:var(--muted);font-family:var(--display);font-weight:800;font-size:.7rem;padding:6px 12px;border-radius:100px} .chip.on{background:var(--sky);color:#fff}
+  .pillrow{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 12px;justify-content:center}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="stars"></div><div id="aurora"></div><canvas id="confetti"></canvas>
+
+<div class="protobar">
+  <span class="tag">Prototype v3</span>
+  <div class="chapters">
+    <button data-chapter="home" onclick="chapter('home')">Home</button>
+    <button data-chapter="sc" onclick="chapter('sc')">Star Check</button>
+    <button data-chapter="journey" onclick="chapter('journey')">Word Journey</button>
+    <button data-chapter="memory" onclick="chapter('memory')">Memory Master</button>
+  </div>
+  <div class="levsel"><span class="lbl">Lvl</span><button id="lev1" onclick="setLevel(1)">1</button><button id="lev3" class="on" onclick="setLevel(3)">3</button></div>
+</div>
+
+<div class="stage">
+
+  <!-- ============ HOME (faithful galaxy) ============ -->
+  <section id="home" class="screen on">
+    <div class="greet">
+      <svg class="rocket" viewBox="0 0 48 48"><path d="M24 3c7 4 10 11 10 19 0 5-2 9-4 12h-12c-2-3-4-7-4-12 0-8 3-15 10-19z" fill="#FF8A4C" stroke="#B3502A" stroke-width="2"/><circle cx="24" cy="19" r="5" fill="#CDEFFF" stroke="#2E86AB" stroke-width="2"/><path d="M14 30l-5 6 8-2M34 30l5 6-8-2" fill="#FFC531" stroke="#B3502A" stroke-width="1.5"/><path d="M20 40q4 5 8 0" fill="#FF6FA5"/></svg>
+      <h1><span class="nm">Hey Aliya!</span><br>Ready to fly?</h1>
+      <div class="subt">Nova mapped your next word-star: <b>&ldquo;lion&rdquo;</b></div>
+      <div class="stats">
+        <div class="stat" style="background:var(--tang)"><div class="v">1</div><div class="l">Streak</div></div>
+        <div class="stat" style="background:var(--sun)"><div class="v">★ 10</div><div class="l">Words</div></div>
+        <div class="stat" style="background:var(--mint)"><div class="v">669</div><div class="l">Sparks</div></div>
+      </div>
+    </div>
+    <div class="scrollhint">˅ scroll — Nova flies with you ˅</div>
+
+    <div class="sechead"><svg viewBox="0 0 24 24" fill="var(--sun)"><path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg><h2>Today's Magic Word</h2></div>
+    <div class="wordcard">
+      <div class="u">Unit 2</div>
+      <div class="w">lion <svg width="42" height="42" viewBox="0 0 48 48"><circle cx="24" cy="24" r="12" fill="#FFB84D" stroke="#B3502A" stroke-width="2"/><g fill="#E08A2E"><circle cx="24" cy="8" r="4"/><circle cx="8" cy="24" r="4"/><circle cx="40" cy="24" r="4"/><circle cx="24" cy="40" r="4"/><circle cx="13" cy="13" r="4"/><circle cx="35" cy="13" r="4"/><circle cx="13" cy="35" r="4"/><circle cx="35" cy="35" r="4"/></g><circle cx="24" cy="24" r="12" fill="#FFB84D"/><circle cx="20" cy="22" r="1.8" fill="#2A2160"/><circle cx="28" cy="22" r="1.8" fill="#2A2160"/><path d="M22 27h4l-2 2z" fill="#7a3b18"/></svg></div>
+      <div class="d">a Magic Word</div>
+      <button class="go" onclick="startJourney()"><svg width="14" height="14" viewBox="0 0 12 12" fill="var(--ink)"><path d="M2 1l8 5-8 5z"/></svg> Let's go!</button>
+    </div>
+
+    <div class="sechead"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 1 0 18 6 6 0 0 1 0-12 3 3 0 0 0 0-6z"/></svg><h2>Word Galaxy</h2><span class="pill">10<span class="tot"> / 200</span> ★</span></div>
+    <div class="galaxy" id="galaxy">
+      <svg class="path" viewBox="0 0 360 560" preserveAspectRatio="none">
+        <path d="M95,70 C 190,110 175,150 250,205 C 330,255 60,285 110,360 C 150,420 300,410 250,485" fill="none" stroke="#FFC531" stroke-width="16" stroke-linecap="round" opacity=".9"/>
+      </svg>
+      <button class="node done" style="left:95px;top:70px" onclick="node('horse')"><span class="crown">★</span><span class="nm">horse</span><span class="pc">★ 100%</span></button>
+      <button class="node cur" id="node-lion" style="left:250px;top:205px" onclick="startJourney()"><span class="nm">lion</span><span class="pc">▶ play</span></button>
+      <button class="node lock" id="node-rabbit" style="left:110px;top:360px" onclick="node('rabbit')"><span class="nm">rabbit</span><span class="pc">🔒</span></button>
+      <div class="nova" id="galnova" style="left:250px;top:300px"><div class="body"><svg viewBox="0 0 64 64"><ellipse cx="30" cy="52" rx="14" ry="6" fill="#00000022"/><path d="M40 20c6-6 14-8 20-4-4 2-6 6-6 10 6-2 10 2 10 8-4-2-8 0-10 4-2-8-8-14-14-18z" fill="#8B5A2B"/><circle cx="30" cy="34" r="16" fill="#FFC531"/><path d="M30 18c-3-6-1-12 3-14 1 5 4 8 8 9-4 3-8 3-11 5z" fill="#FF8A4C"/><circle cx="25" cy="32" r="2.4" fill="#2A2160"/><circle cx="35" cy="32" r="2.4" fill="#2A2160"/><path d="M27 38q3 3 6 0" stroke="#2A2160" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div></div>
+    </div>
+    <div class="kidnote">Your real home — greeting, streak/words/sparks, today's word, and the Word Galaxy path with <b>Nova hopping star to star</b>. Finish <b>lion</b> and watch her hop and unlock <b>rabbit</b>. Memory Master is the second wing below.</div>
+
+    <div class="sechead" style="margin-top:22px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--mint)" stroke-width="2"><path d="M4 4h11a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z" stroke-linejoin="round"/></svg><h2>Memory Master</h2><span class="pill">L1 · S1</span></div>
+    <div class="wordcard mm">
+      <div class="u">Second wing</div>
+      <div class="w" style="font-size:1.8rem">Read · Remember · Write</div>
+      <div class="d">Dr. Blank's memory module — added alongside the Word Journey, not replacing it.</div>
+      <button class="go" onclick="go('mm-write')"><svg width="14" height="14" viewBox="0 0 12 12" fill="var(--ink)"><path d="M2 1l8 5-8 5z"/></svg> Open Memory Master</button>
+    </div>
+  </section>
+
+  <!-- ============ STAR CHECK ============ -->
+  <section id="sc-intro" class="screen">
+    <div class="nova-row"><div class="porthole"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">First a quick warm-up, then I'll find your starting star. No scores, no buzzers.</div></div>
+    <div class="card"><div class="note">Dr. Blank checks two things <b>before</b> any reading: can the child track left-to-right, and tap on purpose. If not, we start gentler — not with word tests.</div></div>
+    <button class="btn" onclick="go('sc-warmup')">Start the warm-up</button>
+  </section>
+  <section id="sc-warmup" class="screen">
+    <div class="fmtlabel">Warm-up gate · sequencing + tap</div>
+    <div class="nova-row"><div class="porthole" id="nova-warm"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">Tap the stars in order — left to right.</div></div>
+    <div class="card" style="text-align:center"><div style="display:flex;justify-content:center;gap:16px;padding:10px 0"><button class="warmstar" onclick="warmTap(this,1)">★</button><button class="warmstar" onclick="warmTap(this,2)">★</button><button class="warmstar" onclick="warmTap(this,3)">★</button><button class="warmstar" onclick="warmTap(this,4)">★</button></div><div class="hint" id="warm-hint">This doubles as the tap tutorial — a pre-reader learns the gesture here.</div></div>
+    <button class="btn ghost" onclick="go('seeds1')">If a child struggles → gentle start</button>
+  </section>
+  <section id="sc-probe" class="screen">
+    <div class="fmtlabel">Measurement · unassisted</div>
+    <div class="eyebrow" style="text-align:center">Which word did you hear?</div>
+    <button class="hearbtn" onclick="speak('sun')"><svg viewBox="0 0 24 24" fill="var(--ink)"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button>
+    <div class="hearlbl">Tap to hear</div>
+    <div class="choices"><button class="choice" onclick="scPick(this,true)">sun</button><button class="choice" onclick="scPick(this,false)">sit</button><button class="choice" onclick="scPick(this,false)">sad</button><button class="choice" onclick="scPick(this,false)">sap</button></div>
+    <div class="hint" id="sc-hint"></div>
+    <div class="kidnote">Measurement = <b>no help</b>, same calm feedback right or wrong. Foils share the first sound, so guessing the opening letter can't win.</div>
+  </section>
+  <section id="sc-result" class="screen">
+    <div class="nova-row"><div class="porthole celebrate"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">You're starting at Level 2. Two stars already lit!</div></div>
+    <div class="card" style="text-align:center"><div style="font-family:var(--display);font-weight:800;font-size:1.2rem;color:var(--ink)">Starting point: Level 2</div><div class="note" style="margin-top:6px">No score shown to the child. Grown-ups see detail in the Record.</div></div>
+    <div class="kidnote"><b>Open item:</b> exact unit→level mapping isn't ratified — that's for her call.</div>
+    <button class="btn" onclick="chapter('home')">To the galaxy →</button>
+  </section>
+  <section id="seeds1" class="screen">
+    <div class="fmtlabel">Star Seeds · gentle start</div>
+    <div class="nova-row"><div class="porthole"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">No letters yet. Let's just find things together.</div></div>
+    <div class="card" style="text-align:center"><div class="note" style="margin-bottom:10px;color:var(--ink);font-weight:700">Tap the dog.</div><div style="display:flex;justify-content:center;gap:18px"><button class="seedpic" onclick="seedTap(this,true)"><svg viewBox="0 0 64 64" width="70" height="70"><circle cx="32" cy="34" r="20" fill="#FFB84D" stroke="#A66A1B" stroke-width="2.5"/><circle cx="24" cy="30" r="3" fill="#2A2160"/><circle cx="40" cy="30" r="3" fill="#2A2160"/><ellipse cx="32" cy="40" rx="5" ry="4" fill="#A66A1B"/><path d="M14 22l6 6M50 22l-6 6" stroke="#A66A1B" stroke-width="3" stroke-linecap="round"/></svg></button><button class="seedpic" onclick="seedTap(this,false)"><svg viewBox="0 0 64 64" width="70" height="70"><path d="M32 8C22 24 16 32 16 42a16 16 0 0 0 32 0c0-10-6-18-16-34z" fill="#5EC8F2" stroke="#2E86AB" stroke-width="2.5"/></svg></button></div><div class="hint" id="seed-hint"></div></div>
+    <div class="kidnote">A true non-reader starts <b>here</b>: recognition and meaning, no letters, big help — the on-ramp before word-building appears.</div>
+  </section>
+  <section id="seeds2" class="screen">
+    <div class="nova-row"><div class="porthole celebrate"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">You found it! You're ready for your first star word.</div></div>
+    <div class="card"><div class="note" style="color:var(--ink);font-weight:700;text-align:center">As the child clears these gentle steps, the app eases them into Level 1 word work with the scaffold turned all the way up.</div></div>
+    <button class="btn mint" onclick="setLevel(1);startJourney()">Begin Level 1 Word Journey →</button>
+    <button class="btn ghost" style="display:block;margin:12px auto 0" onclick="chapter('home')">Back to galaxy</button>
+  </section>
+
+  <!-- ============ WORD JOURNEY ============ -->
+  <section id="journey" class="screen">
+    <div class="sessbar"><div class="sessmeta"><span class="lvl" id="j-lvl"></span><span class="cnt" id="j-cnt"></span></div><div class="map" id="j-map"></div></div>
+    <div class="nova-row"><div class="porthole" id="j-nova"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub" id="j-bub"></div></div>
+    <div class="fmtlabel" id="j-fmt"></div>
+    <div id="j-body"></div>
+    <div class="hint" id="j-hint"></div>
+    <div class="kidnote" id="j-teach"></div>
+    <button class="btn ghost" style="display:block;margin:16px auto 0" onclick="chapter('home')">Leave session</button>
+  </section>
+  <section id="j-celebrate" class="screen">
+    <svg class="constellation" viewBox="0 0 190 150"><polyline class="cline" points="20,120 55,68 95,95 132,40 168,78"/><g fill="var(--sun)"><circle cx="20" cy="120" r="4"/><circle cx="55" cy="68" r="4"/><circle cx="95" cy="95" r="4"/><circle cx="132" cy="40" r="5"/><circle cx="168" cy="78" r="4"/></g></svg>
+    <div class="title" id="cel-title"></div>
+    <div class="note" style="margin:10px 0 16px;text-align:center;color:rgba(255,255,255,.75)" id="cel-sub"></div>
+    <button class="btn" onclick="finishWord()">Back to galaxy — watch Nova hop →</button>
+  </section>
+
+  <!-- ============ MEMORY MASTER ============ -->
+  <section id="mm-write" class="screen">
+    <div class="eyebrow">Memory Master · Write phase</div>
+    <div class="pillrow"><span class="chip on">Mode: Coach</span><span class="chip on">Guided: on</span><span class="chip">L1 · S1</span></div>
+    <div class="nova-row"><div class="porthole" id="mm-nova"><div class="pcore"><span class="n-eye l"></span><span class="n-eye r"></span><span class="n-smile"></span></div></div><div class="bub">Every sentence starts with a BIG letter. This one forgot!</div></div>
+    <div class="card"><div class="sentence"><span id="mm-first">the</span> kid is not a girl.</div></div>
+    <button class="btn" id="mm-capbtn" onclick="mmCapital()">Give it a big letter</button>
+    <div class="hint" id="mm-hint"></div>
+  </section>
+  <section id="mm-record" class="screen">
+    <div class="eyebrow">Memory Master · Record form</div>
+    <div class="card"><div style="text-align:center;font-family:var(--display);font-weight:800;font-size:1.1rem;color:var(--ink);margin-bottom:6px">Memory Master</div>
+      <div class="pillrow"><span class="chip on">Level 1</span><span class="chip">1 session</span><span class="chip">1 checkmark</span></div>
+      <table><tr><th>Session</th><th>Portion</th><th>Tries</th><th>What slipped</th></tr><tr><td>L1 S1</td><td>P1</td><td>2</td><td>word spelling</td></tr></table>
+      <div class="note" style="text-align:center;margin-top:10px">Cadence: 3–4 sessions a week. Visible change in 6–8 weeks, then taper.</div></div>
+    <button class="btn mint" onclick="chapter('home')">Back to galaxy →</button>
+  </section>
+</div>
+
+<!-- bottom app nav -->
+<div class="appnav">
+  <button id="nav-home" class="on" onclick="chapter('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11l8-7 8 7M6 10v9h12v-9" stroke-linejoin="round"/></svg>Home</button>
+  <button onclick="startJourney()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>Play</button>
+  <button onclick="chapter('home');setTimeout(function(){document.getElementById('galaxy').scrollIntoView({behavior:'smooth'})},60)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 1 0 18 6 6 0 0 1 0-12 3 3 0 0 0 0-6z"/></svg>Galaxy</button>
+  <button onclick="go('mm-record')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-3.5 2.5-4.2"/></svg>Grown-ups<span class="av">A</span></button>
+</div>
+
+<script>
+/* ---------- audio: pentatonic, actions only, no error sounds, gesture-unlocked ---------- */
+var AC=null, audioOK=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function unlockAudio(){ var c=ac(); if(c && c.state==='suspended'){ c.resume().then(function(){audioOK=true;}).catch(function(){}); } else if(c){ audioOK=true; } }
+['pointerdown','touchstart','keydown'].forEach(function(ev){ document.addEventListener(ev, unlockAudio, {passive:true}); });
+var PENTA=[293.66,329.63,392.0,440.0,587.33,659.25];
+function tone(freq,dur,type,vol){ var c=ac(); if(!c)return; if(c.state==='suspended'){c.resume().catch(function(){});}
+  try{ var o=c.createOscillator(),g=c.createGain(); o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0,c.currentTime); g.gain.linearRampToValueAtTime(vol||.16,c.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+(dur||.3));
+  o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+(dur||.3)); }catch(e){} }
+function step(n){ tone(PENTA[Math.max(0,Math.min(n,PENTA.length-1))],.28,'triangle',.15); }
+function sparkle(){ tone(880,.12,'sine',.08); }
+function chord(){ [0,2,4,5].forEach(function(i,k){ setTimeout(function(){tone(PENTA[i],.5,'triangle',.13)},k*90); }); }
+var speaking=false;
+function speak(word){ try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(word); u.rate=.85; u.pitch=1.05; u.onend=function(){speaking=false;}; speaking=true; window.speechSynthesis.speak(u);} }catch(e){} novaState('j-nova','listen',700); }
+
+function novaState(id,st,ms){ var el=document.getElementById(id); if(!el)return; el.classList.remove('listen','point','celebrate'); if(st)el.classList.add(st); if(ms)setTimeout(function(){el.classList.remove(st);},ms); }
+
+/* ---------- confetti (only ever called from the true end-of-session) ---------- */
+function confetti(){ if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return; var cv=document.getElementById('confetti'),x=cv.getContext('2d');
+  cv.width=innerWidth; cv.height=innerHeight; var P=[],col=['#FFC531','#3EE0B8','#FF6FA5','#8FA8FF','#fff'];
+  for(var i=0;i<26;i++)P.push({x:innerWidth/2+(Math.random()-.5)*180,y:innerHeight*.35,vx:(Math.random()-.5)*7,vy:-Math.random()*9-3,r:5+Math.random()*5,c:col[i%5],a:1});
+  var t0=Date.now(); (function loop(){ x.clearRect(0,0,cv.width,cv.height); var alive=false;
+    P.forEach(function(p){ p.vy+=.28; p.x+=p.vx; p.y+=p.vy; p.a-=.012; if(p.a>0){alive=true; x.globalAlpha=Math.max(0,p.a); x.fillStyle=p.c;
+      x.beginPath(); for(var j=0;j<5;j++){var ang=-Math.PI/2+j*2*Math.PI/5; x.lineTo(p.x+Math.cos(ang)*p.r,p.y+Math.sin(ang)*p.r); x.lineTo(p.x+Math.cos(ang+Math.PI/5)*p.r/2,p.y+Math.sin(ang+Math.PI/5)*p.r/2);} x.closePath(); x.fill();} });
+    if(alive&&Date.now()-t0<1800)requestAnimationFrame(loop); else x.clearRect(0,0,cv.width,cv.height); })(); }
+
+/* ---------- nav ---------- */
+function go(id){ document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');}); document.getElementById(id).classList.add('on'); window.scrollTo({top:0,behavior:'smooth'});
+  var ch = id.indexOf('sc-')===0||id.indexOf('seed')===0?'sc':(id==='journey'||id==='j-celebrate')?'journey':id.indexOf('mm-')===0?'memory':'home';
+  document.querySelectorAll('.chapters button').forEach(function(b){b.classList.toggle('active',b.dataset.chapter===ch);});
+  document.getElementById('nav-home').classList.toggle('on', id==='home'); }
+function chapter(ch){ var first={home:'home',sc:'sc-intro',journey:'journey',memory:'mm-write'}[ch]; if(ch==='journey'){startJourney();}else{go(first);} }
+
+/* ---------- star check / seeds ---------- */
+var warmN=1; function warmTap(el,n){ if(n===warmN){ el.style.background='var(--mint)'; el.style.color='#00543E'; step(warmN-1); warmN++; if(warmN>4){ document.getElementById('warm-hint').textContent='Nicely tracked — left to right.'; setTimeout(function(){go('sc-probe');},700);} } else { el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:380}); } }
+function scPick(el,ok){ if(el.classList.contains('right'))return; if(ok){ el.classList.add('right'); step(2); document.getElementById('sc-hint').textContent='Nova lights a star.'; setTimeout(function(){go('sc-result');},800);} else { el.classList.add('wrong'); setTimeout(function(){el.classList.remove('wrong');},400);} }
+function seedTap(el,ok){ if(ok){ el.style.transform='scale(1.1)'; step(1); document.getElementById('seed-hint').textContent='Yes — the dog!'; setTimeout(function(){go('seeds2');},800);} else { el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:380}); } }
+
+/* ---------- galaxy nodes + Nova hop ---------- */
+function node(which){ if(which==='rabbit'){ if(document.getElementById('node-rabbit').classList.contains('lock')){ document.getElementById('node-rabbit').animate([{transform:'translate(-50%,-50%)'},{transform:'translate(-52%,-50%)'},{transform:'translate(-48%,-50%)'},{transform:'translate(-50%,-50%)'}],{duration:360}); sparkle(); return;} startJourney(); } else if(which==='horse'){ startJourney(); } }
+function finishWord(){ /* return home, hop Nova lion->rabbit, unlock rabbit */
+  go('home'); var lion=document.getElementById('node-lion'); lion.classList.remove('cur'); lion.classList.add('done'); lion.querySelector('.pc').innerHTML='★ 100%'; lion.querySelector('.nm').insertAdjacentHTML('beforebegin','<span class="crown">★</span>');
+  var rab=document.getElementById('node-rabbit'); var nova=document.getElementById('galnova');
+  setTimeout(function(){ nova.classList.add('hop'); nova.style.left='110px'; nova.style.top='300px'; step(2); setTimeout(function(){ nova.classList.remove('hop'); rab.classList.remove('lock'); rab.classList.add('cur'); rab.querySelector('.pc').innerHTML='▶ play'; rab.onclick=startJourney; step(4); },1100); },400); }
+
+/* ================= WORD JOURNEY ENGINE (verified) ================= */
+var SESSIONS={
+ 1:{ word:'kid', label:'Level 1 · word: kid', total:40, items:[
+    {fmt:'meet', bub:'Here is your word. Have a listen.'},
+    {fmt:'know', pic:'kid', mean:'A kid is a young child.', bub:'This is a kid.'},
+    {fmt:'spot', foils:['kid','kit','kin','kip'], bub:'Which one says kid?'},
+    {fmt:'meet', bub:'Listen again. You may say it — you don’t have to.'},
+    {fmt:'build', scaffold:'max', bub:'Build it. I’ll light the next letter for you.'},
+    {fmt:'use', frame:['The','__','is','here.'], answer:'kid', bank:['kid','can'], bub:'Finish the sentence.'} ]},
+ 3:{ word:'lion', label:'Level 3 · word: lion', total:46, items:[
+    {fmt:'pretest', bub:'First — do you already know it? Build it with no help.'},
+    {fmt:'meet', bub:'Here is your word.'},
+    {fmt:'spot', foils:['lion','line','lime','lift'], bub:'Which one says lion?'},
+    {fmt:'almost', frames:[{f:'l i _ n',ok:true},{f:'p _ l',ok:false},{f:'b _ _',ok:false},{f:'l o _ e',ok:false}], bub:'Which blank can become lion?'},
+    {fmt:'know', pic:'lion', mean:'A lion is a big cat.', bub:'This is a lion.'},
+    {fmt:'build', scaffold:'hint', bub:'Build it. A little help this time.'},
+    {fmt:'use', frame:['The','__','can','roar.'], answer:'lion', bank:['lion','sit'], bub:'Finish the sentence.'},
+    {fmt:'build', scaffold:'none', bub:'Last one — build it all by yourself.'} ]}
+};
+var J={level:3, s:null, i:0, miss:0};
+var FMTNAMES={meet:'Meet it',spot:'Spot it',know:'Know it',almost:'Almost it',build:'Build it',use:'Use it',pretest:'Is it known? (pretest)',spotform:'Spot it · forms'};
+function setLevel(n){ J.level=n; document.getElementById('lev1').classList.toggle('on',n===1); document.getElementById('lev3').classList.toggle('on',n===3); if(document.getElementById('journey').classList.contains('on')) startJourney(); }
+function startJourney(){ J.s=SESSIONS[J.level]; J.i=0; J.miss=0; go('journey'); jRender(); }
+function jMap(){ var m=document.getElementById('j-map'); m.innerHTML=''; J.s.items.forEach(function(it,k){ var d=document.createElement('span'); d.className='mdot '+it.fmt+(k===J.i?' cur':''); if(k>J.i)d.style.opacity=.3; m.appendChild(d); }); }
+function jChrome(it){ document.getElementById('j-lvl').textContent=J.s.label; document.getElementById('j-cnt').textContent='practice item '+(J.i+1)+' of ~'+J.s.total; document.getElementById('j-fmt').textContent=FMTNAMES[it.fmt]; document.getElementById('j-bub').textContent=it.bub||''; document.getElementById('j-hint').textContent=''; jMap(); }
+function teach(t){ document.getElementById('j-teach').innerHTML=t; }
+function jAdvance(){ step(Math.min(J.i,5)); J.i++; J.miss=0; document.getElementById('aurora').style.opacity=0.05+0.5*(J.i/J.s.items.length);
+  if(J.i>=J.s.items.length){ jWin(); } else { setTimeout(jRender,600); } }
+/* celebration fires ONLY here — the guaranteed final item */
+function jWin(){ document.getElementById('cel-title').textContent=J.s.word+' is a star in your sky!'; document.getElementById('cel-sub').textContent='One word, fully owned — that’s one session (~'+J.s.total+' short practice items, formats interwoven, ending on an unassisted build).'; go('j-celebrate'); chord(); confetti(); }
+function jRender(){ var it=J.s.items[J.i]; jChrome(it); var b=document.getElementById('j-body'); var w=J.s.word;
+  if(it.fmt==='meet'){ b.innerHTML='<div class="card"><div class="wordbig">'+w+'</div></div><button class="hearbtn" onclick="speak(\''+w+'\')"><svg viewBox="0 0 24 24" fill="var(--ink)"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button><div class="hearlbl">Tap to hear</div><button class="btn" onclick="jAdvance()">Got it →</button>'; teach('<b>Meet it.</b> The child listens; echoing is optional. Letters are never spoken.'); }
+  else if(it.fmt==='know'){ b.innerHTML='<div class="card" style="text-align:center">'+picSVG(it.pic)+'<div class="wordbig" style="font-size:1.9rem">'+w+'</div><div class="note" style="margin-top:6px">'+it.mean+'</div></div><button class="btn" onclick="jAdvance()">I know it →</button>'; teach('<b>Know it.</b> Meaning via a picture — content words only.'); }
+  else if(it.fmt==='spot'||it.fmt==='spotform'){ var opts=it.foils||it.options; var ans=it.fmt==='spot'?w:it.answer; b.innerHTML='<button class="hearbtn" onclick="speak(\''+ans+'\')"><svg viewBox="0 0 24 24" fill="var(--ink)"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button><div class="hearlbl">Tap to hear</div><div class="choices" id="spotgrid"></div>'; var g=document.getElementById('spotgrid'); opts.forEach(function(o){ var btn=document.createElement('button'); btn.className='choice'; btn.textContent=o; btn.onclick=function(){jSpot(btn,o===ans);}; g.appendChild(btn); }); teach('<b>Spot it.</b> Foils are engineered look-alikes that start the same — to break start-and-guess.'); }
+  else if(it.fmt==='almost'){ b.innerHTML='<div class="frames" id="frmgrid"></div>'; var g=document.getElementById('frmgrid'); it.frames.forEach(function(fr){ var btn=document.createElement('button'); btn.className='frame'; btn.textContent=fr.f; btn.onclick=function(){jFrame(btn,fr.ok);}; g.appendChild(btn); }); teach('<b>Almost it.</b> Which blank frame can <i>become</i> the word? The others can’t — analysis, not guessing.'); }
+  else if(it.fmt==='build'||it.fmt==='pretest'){ jBuild(it); }
+  else if(it.fmt==='use'){ jUse(it); } }
+function picSVG(kind){ if(kind==='lion')return '<svg class="pic" viewBox="0 0 64 64"><g fill="#E08A2E"><circle cx="32" cy="12" r="5"/><circle cx="12" cy="32" r="5"/><circle cx="52" cy="32" r="5"/><circle cx="32" cy="52" r="5"/><circle cx="18" cy="18" r="5"/><circle cx="46" cy="18" r="5"/><circle cx="18" cy="46" r="5"/><circle cx="46" cy="46" r="5"/></g><circle cx="32" cy="32" r="17" fill="#FFB84D" stroke="#B3502A" stroke-width="2"/><circle cx="26" cy="30" r="2.4" fill="#2A2160"/><circle cx="38" cy="30" r="2.4" fill="#2A2160"/><path d="M29 37h6l-3 3z" fill="#7a3b18"/></svg>';
+  return '<svg class="pic" viewBox="0 0 64 64"><circle cx="32" cy="26" r="12" fill="#FFD9BE" stroke="#B35A28" stroke-width="2"/><circle cx="28" cy="24" r="1.6" fill="#2A2160"/><circle cx="36" cy="24" r="1.6" fill="#2A2160"/><path d="M28 30q4 3 8 0" stroke="#2A2160" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M20 52c0-9 5-14 12-14s12 5 12 14z" fill="#FF8A4C" stroke="#B35A28" stroke-width="2"/></svg>'; }
+var B={pos:0,letters:[],scaffold:'none',pretest:false,miss:0};
+function jBuild(it){ var w=J.s.word; B.pos=0; B.letters=w.split(''); B.scaffold=it.scaffold||'none'; B.pretest=(it.fmt==='pretest'); B.miss=0;
+  var decoys = w==='lion'?['s','r']:['a','t']; var tray=B.letters.concat(decoys);
+  var b=document.getElementById('j-body'); var slots=''; B.letters.forEach(function(){slots+='<span class="slot"></span>';});
+  b.innerHTML='<div class="slots" id="slots">'+slots+'</div><div class="tray" id="tray"></div>'+(B.pretest?'<button class="btn ghost" style="display:block;margin:14px auto 0" onclick="jPretestSkip()">Child already knows it → skip</button>':'');
+  var t=document.getElementById('tray'); shuffle(tray).forEach(function(ltr){ var btn=document.createElement('button'); btn.className='tile'; btn.textContent=ltr; btn.dataset.l=ltr; btn.onclick=function(){jTile(btn,ltr);}; t.appendChild(btn); });
+  applyScaffold();
+  if(B.pretest) teach('<b>Is it known?</b> Every word opens with one <i>unassisted</i> build. Perfect → skipped forever, counts as mastered (no celebration).');
+  else if(B.scaffold==='max') teach('<b>Build it · full help (L1).</b> Only the next correct tile is active and lit — errorless by construction.');
+  else if(B.scaffold==='hint') teach('<b>Build it · shrinking help.</b> The next tile glows; the help fades as the ladder goes on.');
+  else teach('<b>Build it · no help.</b> The final unassisted build — how the word counts as owned. Tiles are silent; the whole word speaks only when done.'); }
+function firstFree(t){ var same=[].slice.call(document.querySelectorAll('#tray .tile')).filter(function(x){return x.dataset.l===t.dataset.l && !x.classList.contains('used');}); return same[0]===t; }
+function applyScaffold(){ document.querySelectorAll('#tray .tile').forEach(function(t){ t.classList.remove('glow','faded'); if(t.classList.contains('used'))return;
+  if(B.scaffold==='max'){ if(t.dataset.l===B.letters[B.pos] && firstFree(t)) t.classList.add('glow'); else t.classList.add('faded'); }
+  else if(B.scaffold==='hint'){ if(t.dataset.l===B.letters[B.pos] && firstFree(t)) t.classList.add('glow'); } }); }
+function jTile(el,letter){ if(el.classList.contains('used')||el.classList.contains('faded'))return;
+  if(letter===B.letters[B.pos]){ document.querySelectorAll('#slots .slot')[B.pos].textContent=letter; document.querySelectorAll('#slots .slot')[B.pos].classList.add('filled'); el.classList.add('used'); B.pos++; tone(660,.09,'sine',.07); applyScaffold();
+    if(B.pos===B.letters.length){ speak(J.s.word); document.getElementById('j-hint').textContent=J.s.word+'! You built it.'; novaState('j-nova','celebrate',900); setTimeout(jAdvance,1050); } }
+  else { B.miss++; el.classList.add('wiggle'); sparkle(); setTimeout(function(){el.classList.remove('wiggle');},400); if(B.scaffold!=='none' && B.miss>=2) guidedComplete(); } }
+function guidedComplete(){ document.getElementById('j-hint').textContent='Let me help — tap the glowing one.'; novaState('j-nova','point',1400); speak(J.s.word);
+  document.querySelectorAll('#tray .tile').forEach(function(t){ if(t.classList.contains('used'))return; if(t.dataset.l===B.letters[B.pos] && firstFree(t)){t.classList.remove('faded');t.classList.add('glow');} else {t.classList.add('faded');} }); }
+function jPretestSkip(){ document.getElementById('j-hint').textContent='Already known — skipped, counts as mastered. No celebration.'; step(1); setTimeout(jAdvance,900); }
+function jUse(it){ var b=document.getElementById('j-body'); var sent=it.frame.map(function(t){return t==='__'?'<span class="blankslot" id="blank">&nbsp;</span>':t;}).join(' '); var bank=''; it.bank.forEach(function(o){bank+='<button class="bankchip" onclick="jBank(this,\''+o+'\',\''+it.answer+'\')">'+o+'</button>';}); b.innerHTML='<div class="card"><div class="sentence">'+sent+'</div></div><div class="bank">'+bank+'</div>'; teach('<b>Use it.</b> Into a sentence built only from words the child already owns — compositional review.'); }
+function jBank(el,val,ans){ if(val===ans){ document.getElementById('blank').textContent=val; document.getElementById('blank').style.color='var(--bubble)'; step(4); document.getElementById('j-hint').textContent='Yes!'; setTimeout(jAdvance,800);} else { el.classList.add('wrong'); sparkle(); setTimeout(function(){el.classList.remove('wrong');},400);} }
+function jSpot(el,ok){ if(el.classList.contains('right'))return; if(ok){ el.classList.add('right'); step(2); document.getElementById('j-hint').textContent='That’s it.'; novaState('j-nova','celebrate',700); setTimeout(jAdvance,750);} else { J.miss++; el.classList.add('wrong'); sparkle(); setTimeout(function(){el.classList.remove('wrong');},400); if(J.miss>=2)spotGuide(); } }
+function spotGuide(){ document.getElementById('j-hint').textContent='Here — tap the glowing one.'; novaState('j-nova','point',1200); speak(J.s.word); document.querySelectorAll('#spotgrid .choice').forEach(function(c){ var ans=J.s.items[J.i].fmt==='spot'?J.s.word:J.s.items[J.i].answer; if(c.textContent===ans)c.classList.add('hintglow'); else c.classList.add('faded'); }); }
+function jFrame(el,ok){ if(ok){ el.classList.add('right'); step(3); document.getElementById('j-hint').textContent='Yes — that one can become it.'; setTimeout(jAdvance,800);} else { el.classList.add('wrong'); sparkle(); setTimeout(function(){el.classList.remove('wrong');},400);} }
+function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+/* memory master */
+function mmCapital(){ var f=document.getElementById('mm-first'); f.innerHTML='<span style="color:var(--bubble)">T</span>he'; document.getElementById('mm-capbtn').style.display='none'; step(3); novaState('mm-nova','celebrate',900); document.getElementById('mm-hint').textContent='Fixed it — a big T. No red, no buzzer, just the fix.'; setTimeout(function(){go('mm-record');},1200); }
+
+var st=document.createElement('style'); st.textContent='.warmstar{width:54px;height:54px;border-radius:16px;background:var(--cloud);color:var(--sun);border:none;font-size:1.7rem;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .1s}.warmstar:active{transform:translateY(3px) scale(.93)}.seedpic{background:var(--cloud);border:none;border-radius:20px;padding:12px;cursor:pointer;box-shadow:var(--chunk-sm);transition:transform .15s}.seedpic:active{transform:translateY(3px) scale(.95)}'; document.head.appendChild(st);
+window.addEventListener('resize',function(){var cv=document.getElementById('confetti');cv.width=innerWidth;cv.height=innerHeight;});
+</script>
+</body>
+</html>
