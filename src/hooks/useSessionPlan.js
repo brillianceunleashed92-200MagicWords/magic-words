@@ -18,6 +18,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { computeFallbackCurrentUnit } from '../lib/sessionPlanFallbackUnit';
+import { getActiveCurriculumVersion } from '../lib/curriculumVersion';
 
 // FIX R1 Phase 3 (A5) — bumped v3 -> v4 AND added a childId suffix. The
 // unscoped v3 key let a parent switching between children on a family
@@ -294,9 +295,11 @@ async function buildSupabaseFallbackPlan(childId, plan, placementUnit = null) {
     // (api/session-generator.js's effectiveFloor): a placed child hitting
     // this fallback must not silently drop back to Unit 1.
     const effectiveFloor = placementUnit ? Math.min(placementUnit, maxUnit) : null;
+    const curriculumVersion = await getActiveCurriculumVersion();
     const { data: words, error: wordsErr } = await supabase
       .from('words')
       .select('word, unit, sort_order, word_type, has_art')
+      .eq('curriculum_version', curriculumVersion)
       .lte('unit', maxUnit)
       .order('sort_order');
     if (wordsErr || !words?.length) throw wordsErr ?? new Error('no words available');
@@ -312,7 +315,8 @@ async function buildSupabaseFallbackPlan(childId, plan, placementUnit = null) {
     const { data: progress } = await supabase
       .from('word_progress')
       .select('word, mastery, attempt_count')
-      .eq('child_id', childId);
+      .eq('child_id', childId)
+      .eq('curriculum_version', curriculumVersion);
     const progressMap = new Map((progress ?? []).map((p) => [p.word, p]));
 
     const withMastery = words.map((w) => {

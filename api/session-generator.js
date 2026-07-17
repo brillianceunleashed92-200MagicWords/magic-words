@@ -26,6 +26,7 @@ const {
   TOTAL_LEVELS, WORDS_PER_LEVEL, wordsForLevel, voFor, isWordKnown, levelProgress, startingUnitForFloor,
 } = require('./_lib/starCheckBank');
 const { signStarCheckState, verifyStarCheckState } = require('./_lib/starCheckLadder');
+const { getActiveCurriculumVersion } = require('./_lib/curriculumVersion');
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -249,7 +250,7 @@ function getDifficultyLevel(progress) {
 // pattern as every other IDOR-hardened endpoint — never trust a
 // client-supplied ID), then looks up the account's real plan and the
 // child's real word_progress. Returns null if ownership doesn't check out.
-async function fetchChildContext(admin, childId, userId) {
+async function fetchChildContext(admin, childId, userId, curriculumVersion) {
   const { data: childRow, error: childErr } = await admin
     .from('child_profiles')
     .select('id, parent_id, placement_unit, placement_completed_at, measured_unit')
@@ -263,9 +264,17 @@ async function fetchChildContext(admin, childId, userId) {
   // above having already passed. Previously two sequential awaits; now
   // one round trip's worth of latency instead of two. Identical data,
   // identical return shape -- only the fetch is concurrent instead of serial.
+  //
+  // CURRICULUM_REPLACE_R1 follow-up: word_progress read scoped to the
+  // active curriculum_version, same reasoning as the words queries below
+  // — a word spelled identically in two curricula must not have its
+  // progress conflated across them.
   const [{ data: sub }, { data: progress }] = await Promise.all([
     admin.from('subscriptions').select('plan, status').eq('user_id', userId).maybeSingle(),
-    admin.from('word_progress').select('word, mastery, attempt_count, correct_count, last_seen, next_review_at').eq('child_id', childId),
+    admin.from('word_progress')
+      .select('word, mastery, attempt_count, correct_count, last_seen, next_review_at')
+      .eq('child_id', childId)
+      .eq('curriculum_version', curriculumVersion),
   ]);
   const plan = sub?.plan === 'family' && sub?.status === 'active' ? 'family' : 'free';
 
@@ -297,7 +306,7 @@ const REVIEW_BATTLE_SIZE = 6;
 // spaced-repetition review rather than a second pass at brand-new
 // current-unit words. Same ownership/plan-gate path as the normal
 // selection — only the pool composition differs.
-async function selectCandidateWords(admin, plan, progress, reviewOnly = false, placementFloor = null) {
+async function selectCandidateWords(admin, plan, progress, reviewOnly = false, placementFloor = null, curriculumVersion) {
   const maxUnit = plan === 'family' ? 18 : FREE_TIER_MAX_UNIT;
   // Placement Adventure (Prompt 8): placementFloor is min(measured, plan
   // cap) already — never fabricates word_progress, just shifts which
@@ -307,9 +316,13 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
   // touched here) — this only changes which unit new SESSION content is
   // drawn from.
   const effectiveFloor = placementFloor ? Math.min(placementFloor, maxUnit) : null;
+  // CURRICULUM_REPLACE_R1 follow-up: scoped to the active curriculum
+  // version — see curriculumVersion.js's header for why this can't be
+  // hardcoded or module-cached server-side.
   const { data: allWords } = await admin
     .from('words')
     .select('word, unit, sort_order, word_type, has_art')
+    .eq('curriculum_version', curriculumVersion)
     .lte('unit', maxUnit)
     .order('sort_order');
 
@@ -463,7 +476,7 @@ async function selectCandidateWords(admin, plan, progress, reviewOnly = false, p
 // free plan before it's ever written (see the finalize() function
 // below) — the same free-tier enforcement pattern as selectCandidateWords
 // above, just applied to the OUTPUT of the ladder instead of its INPUT.
-async function handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt) {
+async function handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt, curriculumVersion) {
   // Lightweight client-reported logging path — the client cannot write
   // product_events directly (service-role-only, see migration 0032), so
   // "abandoned mid-ladder" / "declined at the choice screen" (states the
@@ -479,9 +492,11 @@ async function handlePlacement(req, res, admin, verifiedUser, childId, plan, pla
   const rawAnswers = req.body?.answers;
   const answers = Array.isArray(rawAnswers) ? rawAnswers.filter((a) => typeof a === 'boolean') : null;
 
+  // CURRICULUM_REPLACE_R1 follow-up: scoped to the active curriculum version.
   const { data: allWords } = await admin
     .from('words')
     .select('word, unit, sort_order, word_type, has_art')
+    .eq('curriculum_version', curriculumVersion)
     .order('sort_order');
   const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
   const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
@@ -589,10 +604,12 @@ function rungIndexForLevel(level) {
 // neighborhood (measured_unit ?? placement_unit ?? 1, +/-2 rungs) instead
 // of the full ladder, and signed under a DIFFERENT context string so a
 // check-in token and a placement token are never interchangeable.
-async function handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit) {
+async function handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit, curriculumVersion) {
+  // CURRICULUM_REPLACE_R1 follow-up: scoped to the active curriculum version.
   const { data: allWords } = await admin
     .from('words')
     .select('word, unit, sort_order, word_type, has_art')
+    .eq('curriculum_version', curriculumVersion)
     .order('sort_order');
   const artWords = (allWords ?? []).filter((w) => w.has_art).map((w) => w.word);
   const wordMetaByWord = new Map((allWords ?? []).map((w) => [w.word, { word_type: w.word_type, unit: w.unit }]));
@@ -894,17 +911,30 @@ module.exports = async function handler(req, res) {
   if (!childId) return res.status(400).json({ error: 'childId is required' });
 
   const admin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const context = await fetchChildContext(admin, childId, verifiedUser.id);
+
+  // CURRICULUM_REPLACE_R1 follow-up: resolved once per request (never
+  // module-cached — see curriculumVersion.js's header) and threaded
+  // through every function below that reads `words` or `word_progress`,
+  // rather than each one re-querying app_config independently.
+  let curriculumVersion;
+  try {
+    curriculumVersion = await getActiveCurriculumVersion(admin);
+  } catch (err) {
+    console.error('[session-generator] failed to resolve active curriculum version:', err.message);
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+
+  const context = await fetchChildContext(admin, childId, verifiedUser.id, curriculumVersion);
   if (!context) return res.status(403).json({ error: 'Child not found for this account' });
 
   const { plan, progress, placementUnit, placementCompletedAt, measuredUnit } = context;
 
-  if (placementMode) return handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
-  if (checkinMode) return handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit);
+  if (placementMode) return handlePlacement(req, res, admin, verifiedUser, childId, plan, placementCompletedAt, curriculumVersion);
+  if (checkinMode) return handleCheckin(req, res, admin, verifiedUser, childId, plan, measuredUnit, placementUnit, curriculumVersion);
   if (starCheckMode) return handleStarCheck(req, res, admin, verifiedUser, childId, plan, placementCompletedAt);
   if (historyMode) return handleHistory(req, res, admin, childId);
 
-  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly, placementUnit);
+  const { pool: candidatePool, currentUnit, artWords, wordMetaByWord, wordsByType } = await selectCandidateWords(admin, plan, progress, reviewOnly, placementUnit, curriculumVersion);
   const difficultyLevel = getDifficultyLevel(progress);
 
   // Quiz Boss (Prompt 6 Part 4): a fixed-size review battle, not an
